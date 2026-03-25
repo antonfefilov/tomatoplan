@@ -5,7 +5,7 @@
 import { STORAGE_KEYS } from "./storage-keys.js";
 
 /** Default number of tomatoes available per day */
-export const DEFAULT_DAILY_CAPACITY = 8;
+export const DEFAULT_DAILY_CAPACITY = 25;
 
 /** Default duration of each tomato in minutes */
 export const DEFAULT_CAPACITY_IN_MINUTES = 25;
@@ -14,7 +14,7 @@ export const DEFAULT_CAPACITY_IN_MINUTES = 25;
 export const MIN_DAILY_CAPACITY = 1;
 
 /** Maximum allowed daily capacity */
-export const MAX_DAILY_CAPACITY = 20;
+export const MAX_DAILY_CAPACITY = 30;
 
 /** Minimum allowed tomato duration in minutes */
 export const MIN_CAPACITY_IN_MINUTES = 5;

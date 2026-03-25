@@ -7,6 +7,7 @@ import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { plannerStore } from "../../state/planner-store.js";
 import type { Task } from "../../models/task.js";
+import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
 import "../layout/app-shell.js";
 import "../layout/app-header.js";
 import "../pool/tomato-pool-panel.js";
@@ -24,13 +25,13 @@ export class TomatoPlannerApp extends LitElement {
   `;
 
   @state()
-  private _capacity = 8;
+  private _capacity = DEFAULT_DAILY_CAPACITY;
 
   @state()
   private _assigned = 0;
 
   @state()
-  private _remaining = 8;
+  private _remaining = DEFAULT_DAILY_CAPACITY;
 
   @state()
   private _tasks: readonly Task[] = [];

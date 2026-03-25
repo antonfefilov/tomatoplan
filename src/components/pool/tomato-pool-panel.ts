@@ -10,6 +10,7 @@ import {
   MAX_DAILY_CAPACITY,
   MIN_CAPACITY_IN_MINUTES,
   MAX_CAPACITY_IN_MINUTES,
+  DEFAULT_DAILY_CAPACITY,
 } from "../../constants/defaults.js";
 import "../tomato/tomato-icon.js";
 import "../tomato/tomato-pool-visual.js";
@@ -298,13 +299,13 @@ export class TomatoPoolPanel extends LitElement {
   `;
 
   @property({ type: Number })
-  capacity = 8;
+  capacity = DEFAULT_DAILY_CAPACITY;
 
   @property({ type: Number })
   assigned = 0;
 
   @property({ type: Number })
-  remaining = 8;
+  remaining = DEFAULT_DAILY_CAPACITY;
 
   @property({ type: Number })
   taskCount = 0;

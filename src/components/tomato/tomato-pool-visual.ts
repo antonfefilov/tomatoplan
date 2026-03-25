@@ -5,6 +5,7 @@
 
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
 import "./tomato-icon.js";
 
 @customElement("tomato-pool-visual")
@@ -101,7 +102,7 @@ export class TomatoPoolVisual extends LitElement {
   `;
 
   @property({ type: Number })
-  capacity = 8;
+  capacity = DEFAULT_DAILY_CAPACITY;
 
   @property({ type: Number })
   assigned = 0;
