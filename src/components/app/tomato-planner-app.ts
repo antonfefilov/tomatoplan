@@ -186,6 +186,8 @@ export class TomatoPlannerApp extends LitElement {
           slot="task-panel"
           .tasks=${this._tasks}
           .remaining=${this._remaining}
+          .assigned=${this._assigned}
+          .capacityInMinutes=${this._capacityInMinutes}
           .disabled=${false}
           @open-task-dialog=${this._handleOpenTaskDialog}
           @edit-task=${this._handleEditTask}

@@ -45,6 +45,29 @@ export class TaskListPanel extends LitElement {
       border-radius: 12px;
     }
 
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-time-display {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .header-time-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ef4444;
+    }
+
+    .header-time-label {
+      font-size: 11px;
+      color: #6b7280;
+    }
+
     .add-btn {
       display: flex;
       align-items: center;
@@ -120,6 +143,12 @@ export class TaskListPanel extends LitElement {
   @property({ type: Boolean })
   disabled = false;
 
+  @property({ type: Number })
+  assigned = 0;
+
+  @property({ type: Number })
+  capacityInMinutes = 25;
+
   @property({ type: Object })
   editingTask?: Task;
 
@@ -131,6 +160,25 @@ export class TaskListPanel extends LitElement {
 
   @property({ type: Boolean })
   showDeleteDialog = false;
+
+  /**
+   * Formats minutes into a human-readable hours/minutes string
+   * e.g., 200 minutes -> "3h 20m"
+   */
+  private _formatMinutesToHoursMinutes(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    if (hours === 0) {
+      return `${mins}m`;
+    }
+
+    if (mins === 0) {
+      return `${hours}h`;
+    }
+
+    return `${hours}h ${mins}m`;
+  }
 
   private _handleAddTask() {
     this.dispatchEvent(
@@ -166,10 +214,26 @@ export class TaskListPanel extends LitElement {
 
     return html`
       <div class="panel-header">
-        <div>
-          <span class="header-title">Tasks</span>
-          ${taskCount > 0
-            ? html`<span class="header-count">${taskCount} tasks</span>`
+        <div class="header-left">
+          <div>
+            <span class="header-title">Tasks</span>
+            ${taskCount > 0
+              ? html`<span class="header-count">${taskCount} tasks</span>`
+              : null}
+          </div>
+          ${this.assigned > 0
+            ? html`
+                <div class="header-time-display">
+                  <span class="header-time-value"
+                    >${this._formatMinutesToHoursMinutes(
+                      this.assigned * this.capacityInMinutes,
+                    )}</span
+                  >
+                  <span class="header-time-label"
+                    >(${this.assigned} × ${this.capacityInMinutes}m)</span
+                  >
+                </div>
+              `
             : null}
         </div>
         <button class="add-btn" @click=${this._handleAddTask}>

@@ -205,27 +205,6 @@ export class TomatoPoolPanel extends LitElement {
       font-weight: 600;
       color: #374151;
     }
-
-    .tasks-time-display {
-      display: flex;
-      align-items: baseline;
-      gap: 8px;
-      padding: 12px 16px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-    }
-
-    .tasks-time-value {
-      font-size: 24px;
-      font-weight: 700;
-      color: #ef4444;
-    }
-
-    .tasks-time-label {
-      font-size: 12px;
-      color: #6b7280;
-    }
   `;
 
   @property({ type: Number })
@@ -382,22 +361,6 @@ export class TomatoPoolPanel extends LitElement {
               >${this._formatMinutesToHoursMinutes(
                 this.capacity * this.capacityInMinutes,
               )}</span
-            >
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-header">
-            <span class="section-title">Tasks Total Time</span>
-          </div>
-          <div class="tasks-time-display">
-            <span class="tasks-time-value"
-              >${this._formatMinutesToHoursMinutes(
-                this.assigned * this.capacityInMinutes,
-              )}</span
-            >
-            <span class="tasks-time-label"
-              >(${this.assigned} × ${this.capacityInMinutes}m)</span
             >
           </div>
         </div>
