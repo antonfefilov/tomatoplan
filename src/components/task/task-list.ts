@@ -40,6 +40,7 @@ export class TaskList extends LitElement {
   capacityInMinutes = 25;
 
   private _handleEditTask(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("edit-task", {
         bubbles: true,
@@ -50,6 +51,7 @@ export class TaskList extends LitElement {
   }
 
   private _handleDeleteTask(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("delete-task", {
         bubbles: true,
@@ -60,6 +62,7 @@ export class TaskList extends LitElement {
   }
 
   private _handleMarkTomatoFinished(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("mark-tomato-finished", {
         bubbles: true,
@@ -70,6 +73,7 @@ export class TaskList extends LitElement {
   }
 
   private _handleMarkTomatoUnfinished(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("mark-tomato-unfinished", {
         bubbles: true,

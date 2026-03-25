@@ -180,7 +180,8 @@ export class TaskListPanel extends LitElement {
     return `${hours}h ${mins}m`;
   }
 
-  private _handleAddTask() {
+  private _handleAddTask(e: Event) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("open-task-dialog", {
         bubbles: true,
@@ -190,6 +191,7 @@ export class TaskListPanel extends LitElement {
   }
 
   private _handleEditTask(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("edit-task", {
         bubbles: true,
@@ -200,6 +202,7 @@ export class TaskListPanel extends LitElement {
   }
 
   private _handleDeleteTask(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("delete-task", {
         bubbles: true,
@@ -210,6 +213,7 @@ export class TaskListPanel extends LitElement {
   }
 
   private _handleMarkTomatoFinished(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("mark-tomato-finished", {
         bubbles: true,
@@ -220,6 +224,7 @@ export class TaskListPanel extends LitElement {
   }
 
   private _handleMarkTomatoUnfinished(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("mark-tomato-unfinished", {
         bubbles: true,
