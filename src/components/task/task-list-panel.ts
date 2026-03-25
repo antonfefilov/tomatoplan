@@ -209,6 +209,26 @@ export class TaskListPanel extends LitElement {
     );
   }
 
+  private _handleMarkTomatoFinished(e: CustomEvent<{ taskId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("mark-tomato-finished", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
+  private _handleMarkTomatoUnfinished(e: CustomEvent<{ taskId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("mark-tomato-unfinished", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const taskCount = this.tasks.length;
 
@@ -266,6 +286,8 @@ export class TaskListPanel extends LitElement {
                 .capacityInMinutes=${this.capacityInMinutes}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
+                @mark-tomato-finished=${this._handleMarkTomatoFinished}
+                @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
               ></task-list>
             `}
       </div>

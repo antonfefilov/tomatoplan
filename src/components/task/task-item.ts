@@ -69,6 +69,34 @@ export class TaskItem extends LitElement {
       color: #374151;
     }
 
+    .finished-control-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      background: #f0fdf4;
+      border-radius: 8px;
+      padding: 2px;
+    }
+
+    .finished-control-wrapper span {
+      min-width: 20px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .finished-label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      color: #16a34a;
+      font-size: 14px;
+    }
+
     .btn-remove,
     .btn-add {
       display: flex;
@@ -115,6 +143,22 @@ export class TaskItem extends LitElement {
       color: #dc2626;
     }
 
+    .btn-remove.finished:hover:not(:disabled) {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .btn-add.finished:hover:not(:disabled) {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .btn-add.finished:focus-visible,
+    .btn-remove.finished:focus-visible {
+      outline: 2px solid #16a34a;
+      outline-offset: 2px;
+    }
+
     .task-description {
       font-size: 13px;
       color: #6b7280;
@@ -149,6 +193,20 @@ export class TaskItem extends LitElement {
       color: #9ca3af;
     }
 
+    .task-controls-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .controls-label {
+      font-size: 11px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
     .menu-item {
       display: flex;
       align-items: center;
@@ -174,6 +232,27 @@ export class TaskItem extends LitElement {
 
     .menu-item.danger:hover {
       background: #fef2f2;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: #16a34a;
+      transition: width 0.2s ease;
+    }
+
+    .progress-text {
+      font-size: 11px;
+      color: #9ca3af;
+      min-width: 40px;
+      text-align: right;
     }
   `;
 
@@ -231,6 +310,28 @@ export class TaskItem extends LitElement {
     );
   }
 
+  private _handleMarkFinished(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("mark-tomato-finished", {
+        bubbles: true,
+        composed: true,
+        detail: { taskId: this.task.id },
+      }),
+    );
+  }
+
+  private _handleMarkUnfinished(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("mark-tomato-unfinished", {
+        bubbles: true,
+        composed: true,
+        detail: { taskId: this.task.id },
+      }),
+    );
+  }
+
   private _truncateDescription(text: string, maxLength: number = 100): string {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + "...";
@@ -238,6 +339,7 @@ export class TaskItem extends LitElement {
 
   override render() {
     const { task, remaining, disabled } = this;
+    const finishedCount = task.finishedTomatoCount ?? 0;
 
     return html`
       <div class="task-card">
@@ -323,6 +425,44 @@ export class TaskItem extends LitElement {
               ${this._truncateDescription(task.description)}
             </p>`
           : null}
+
+        <div class="task-controls-row">
+          <div class="finished-control-wrapper">
+            <span class="finished-label" title="Finished tomatoes">✓</span>
+            <button
+              class="btn-remove finished"
+              @click=${this._handleMarkUnfinished}
+              ?disabled=${disabled || finishedCount <= 0}
+              aria-label="Mark tomato as unfinished"
+              title="Mark tomato as unfinished"
+            >
+              −
+            </button>
+            <span>${finishedCount}</span>
+            <button
+              class="btn-add finished"
+              @click=${this._handleMarkFinished}
+              ?disabled=${disabled || finishedCount >= task.tomatoCount}
+              aria-label="Mark tomato as finished"
+              title="Mark tomato as finished"
+            >
+              +
+            </button>
+          </div>
+          ${task.tomatoCount > 0
+            ? html`
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    style="width: ${(finishedCount / task.tomatoCount) * 100}%"
+                  ></div>
+                </div>
+                <span class="progress-text"
+                  >${finishedCount}/${task.tomatoCount}</span
+                >
+              `
+            : html`<span class="controls-label">done</span>`}
+        </div>
       </div>
     `;
   }

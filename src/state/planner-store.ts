@@ -4,6 +4,11 @@
  */
 
 import type { Task } from "../models/task.js";
+import {
+  markTomatoAsFinished,
+  markTomatoAsUnfinished,
+  updateTaskFinishedCount,
+} from "../models/task.js";
 import type { PlannerState } from "../models/planner-state.js";
 import {
   createInitialPlannerState,
@@ -195,6 +200,7 @@ class PlannerStore {
       title: title.trim(),
       description: description?.trim(),
       tomatoCount: 0,
+      finishedTomatoCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -374,6 +380,102 @@ class PlannerStore {
   }
 
   /**
+   * Marks one tomato as finished for the given task
+   */
+  markTomatoAsFinished(taskId: string): { success: boolean; error?: string } {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    // Check if task has tomatoes available to finish
+    if (task.finishedTomatoCount >= task.tomatoCount) {
+      return {
+        success: false,
+        error:
+          "No more tomatoes to finish. All assigned tomatoes are already finished.",
+      };
+    }
+
+    const updatedTask = markTomatoAsFinished(task);
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Marks one tomato as unfinished for the given task
+   */
+  markTomatoAsUnfinished(taskId: string): { success: boolean; error?: string } {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    // Check if there are finished tomatoes to unmark
+    if (task.finishedTomatoCount <= 0) {
+      return {
+        success: false,
+        error: "No finished tomatoes to unmark.",
+      };
+    }
+
+    const updatedTask = markTomatoAsUnfinished(task);
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Sets the exact finished tomato count for a task
+   */
+  setFinishedTomatoCount(
+    taskId: string,
+    count: number,
+  ): { success: boolean; error?: string } {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    // Validate count is a non-negative number
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+      return {
+        success: false,
+        error: "Finished tomato count must be a non-negative integer.",
+      };
+    }
+
+    // Validate count is not greater than total tomato count
+    if (count > task.tomatoCount) {
+      return {
+        success: false,
+        error: `Cannot set finished count to ${count}. Maximum is ${task.tomatoCount} (total assigned tomatoes).`,
+      };
+    }
+
+    const updatedTask = updateTaskFinishedCount(task, count);
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Resets the day - clears all tasks and refreshes the pool
    */
   resetDay(): void {
@@ -476,6 +578,23 @@ class PlannerStore {
    */
   get taskCount(): number {
     return this.state.tasks.length;
+  }
+
+  /**
+   * Gets the total number of finished tomatoes across all tasks
+   */
+  getFinishedTomatoes(): number {
+    return this.state.tasks.reduce(
+      (total, task) => total + task.finishedTomatoCount,
+      0,
+    );
+  }
+
+  /**
+   * Gets tasks that have at least one finished tomato
+   */
+  getTasksWithFinishedTomatoes(): readonly Task[] {
+    return this.state.tasks.filter((t) => t.finishedTomatoCount > 0);
   }
 }
 

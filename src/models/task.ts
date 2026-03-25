@@ -16,6 +16,9 @@ export interface Task {
   /** Number of tomatoes assigned to this task */
   tomatoCount: number;
 
+  /** Number of tomatoes that have been finished/completed */
+  finishedTomatoCount: number;
+
   /** When the task was created */
   readonly createdAt: string; // ISO 8601 date string
 
@@ -37,18 +40,66 @@ export function createTask(
     title,
     description,
     tomatoCount: 0,
+    finishedTomatoCount: 0,
     createdAt: now,
     updatedAt: now,
   };
 }
 
 /**
- * Updates a task's tomato count and sets the updatedAt timestamp
+ * Updates a task's tomato count and sets the updatedAt timestamp.
+ * If the new count is less than the finished count, finished count is reduced to match.
  */
 export function updateTaskTomatoCount(task: Task, count: number): Task {
+  const finishedTomatoCount =
+    count < task.finishedTomatoCount ? count : task.finishedTomatoCount;
   return {
     ...task,
     tomatoCount: count,
+    finishedTomatoCount,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Marks a tomato as finished by incrementing the finished count.
+ * Will not increment beyond the total tomato count.
+ */
+export function markTomatoAsFinished(task: Task): Task {
+  if (task.finishedTomatoCount >= task.tomatoCount) {
+    return task;
+  }
+  return {
+    ...task,
+    finishedTomatoCount: task.finishedTomatoCount + 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Marks a tomato as unfinished by decrementing the finished count.
+ * Will not decrement below 0.
+ */
+export function markTomatoAsUnfinished(task: Task): Task {
+  if (task.finishedTomatoCount <= 0) {
+    return task;
+  }
+  return {
+    ...task,
+    finishedTomatoCount: task.finishedTomatoCount - 1,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Sets the finished tomato count to a specific value.
+ * The count is validated to be between 0 and the total tomato count.
+ */
+export function updateTaskFinishedCount(task: Task, count: number): Task {
+  const validatedCount = Math.max(0, Math.min(count, task.tomatoCount));
+  return {
+    ...task,
+    finishedTomatoCount: validatedCount,
     updatedAt: new Date().toISOString(),
   };
 }

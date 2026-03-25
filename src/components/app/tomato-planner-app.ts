@@ -153,6 +153,14 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.unassignTomato(e.detail.taskId);
   }
 
+  private _handleMarkTomatoFinished(e: CustomEvent<{ taskId: string }>) {
+    plannerStore.markTomatoAsFinished(e.detail.taskId);
+  }
+
+  private _handleMarkTomatoUnfinished(e: CustomEvent<{ taskId: string }>) {
+    plannerStore.markTomatoAsUnfinished(e.detail.taskId);
+  }
+
   // ============================================
   // Day Reset
   // ============================================
@@ -199,6 +207,8 @@ export class TomatoPlannerApp extends LitElement {
           @delete-task=${this._handleDeleteTask}
           @add-tomato=${this._handleAddTomato}
           @remove-tomato=${this._handleRemoveTomato}
+          @mark-tomato-finished=${this._handleMarkTomatoFinished}
+          @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
         ></task-list-panel>
       </app-shell>
 

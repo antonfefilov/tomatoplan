@@ -59,6 +59,26 @@ export class TaskList extends LitElement {
     );
   }
 
+  private _handleMarkTomatoFinished(e: CustomEvent<{ taskId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("mark-tomato-finished", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
+  private _handleMarkTomatoUnfinished(e: CustomEvent<{ taskId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("mark-tomato-unfinished", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     if (this.tasks.length === 0) {
       return html`
@@ -83,6 +103,8 @@ export class TaskList extends LitElement {
               .capacityInMinutes=${this.capacityInMinutes}
               @edit-task=${this._handleEditTask}
               @delete-task=${this._handleDeleteTask}
+              @mark-tomato-finished=${this._handleMarkTomatoFinished}
+              @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
             ></task-item>
           `,
         )}
