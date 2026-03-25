@@ -24,7 +24,8 @@ export class TaskListPanel extends LitElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 20px;
+      padding: 12px 16px;
+      min-height: 52px;
       background: white;
       border-bottom: 1px solid #e5e7eb;
     }

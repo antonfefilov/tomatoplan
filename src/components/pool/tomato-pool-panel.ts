@@ -30,6 +30,7 @@ export class TomatoPoolPanel extends LitElement {
       align-items: center;
       justify-content: space-between;
       padding: 12px 16px;
+      min-height: 52px;
       border-bottom: 1px solid #e5e7eb;
       background: white;
     }
