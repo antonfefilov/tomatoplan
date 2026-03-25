@@ -4,6 +4,7 @@
  */
 
 import { LitElement, html, css } from "lit";
+import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { customElement, property } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
 import "../tomato/tomato-icon.js";
@@ -166,10 +167,10 @@ export class TaskItem extends LitElement {
           <h3 class="task-title">${task.title}</h3>
           <div class="task-actions">
             <icon-button label="Edit task" @icon-click=${this._handleEdit}>
-              ${editIcon}
+              ${unsafeHTML(editIcon)}
             </icon-button>
             <icon-button label="Delete task" @icon-click=${this._handleDelete}>
-              ${deleteIcon}
+              ${unsafeHTML(deleteIcon)}
             </icon-button>
           </div>
         </div>
