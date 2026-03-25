@@ -7,19 +7,26 @@ export interface TomatoPool {
   /** Maximum number of tomatoes available per day */
   dailyCapacity: number;
 
+  /** Duration of each tomato in minutes */
+  capacityInMinutes: number;
+
   /** Date this pool is for (YYYY-MM-DD format) */
   date: string;
 }
+
+import { DEFAULT_CAPACITY_IN_MINUTES } from "../constants/defaults.js";
 
 /**
  * Creates a new tomato pool for a specific date
  */
 export function createTomatoPool(
   dailyCapacity: number,
+  capacityInMinutes: number = DEFAULT_CAPACITY_IN_MINUTES,
   date?: string,
 ): TomatoPool {
   return {
     dailyCapacity,
+    capacityInMinutes,
     date: date ?? getDateString(new Date()),
   };
 }

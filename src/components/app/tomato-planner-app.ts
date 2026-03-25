@@ -39,6 +39,9 @@ export class TomatoPlannerApp extends LitElement {
   private _currentDate = "";
 
   @state()
+  private _capacityInMinutes = 25;
+
+  @state()
   private _showTaskDialog = false;
 
   @state()
@@ -60,6 +63,7 @@ export class TomatoPlannerApp extends LitElement {
       this._remaining = plannerStore.remainingTomatoes;
       this._tasks = state.tasks;
       this._currentDate = state.pool.date;
+      this._capacityInMinutes = state.pool.capacityInMinutes;
     });
   }
 
@@ -174,6 +178,7 @@ export class TomatoPlannerApp extends LitElement {
           .assigned=${this._assigned}
           .remaining=${this._remaining}
           .taskCount=${this._tasks.length}
+          .capacityInMinutes=${this._capacityInMinutes}
           @capacity-change=${this._handleCapacityChange}
         ></tomato-pool-panel>
 

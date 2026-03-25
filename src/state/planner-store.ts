@@ -21,7 +21,10 @@ import {
   canUnassignTomato,
   validateTomatoCount,
 } from "../utils/validation.js";
-import { DEFAULT_DAILY_CAPACITY } from "../constants/defaults.js";
+import {
+  DEFAULT_DAILY_CAPACITY,
+  DEFAULT_CAPACITY_IN_MINUTES,
+} from "../constants/defaults.js";
 import { loadState, saveState, clearState } from "./persistence.js";
 
 /** Type for subscriber callback functions */
@@ -48,17 +51,31 @@ class PlannerStore {
 
     if (persistedState && !isStale(persistedState.pool)) {
       // Use persisted state if it's from today
-      this.state = createInitialPlannerState(persistedState.pool.dailyCapacity);
+      // Handle backward compatibility: default to 25 minutes if not present
+      const capacityInMinutes =
+        persistedState.pool.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES;
+      this.state = createInitialPlannerState(
+        persistedState.pool.dailyCapacity,
+        capacityInMinutes,
+      );
       this.state = {
         ...this.state,
-        pool: persistedState.pool,
+        pool: {
+          ...persistedState.pool,
+          capacityInMinutes,
+        },
         tasks: persistedState.tasks,
       };
     } else {
       // Create fresh state for a new day
       const savedCapacity =
         persistedState?.pool.dailyCapacity ?? DEFAULT_DAILY_CAPACITY;
-      this.state = createInitialPlannerState(savedCapacity);
+      const savedCapacityInMinutes =
+        persistedState?.pool.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES;
+      this.state = createInitialPlannerState(
+        savedCapacity,
+        savedCapacityInMinutes,
+      );
     }
   }
 
@@ -130,6 +147,28 @@ class PlannerStore {
       pool: {
         ...this.state.pool,
         dailyCapacity: capacity,
+      },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Sets the duration of each tomato in minutes
+   */
+  setCapacityInMinutes(minutes: number): { success: boolean; error?: string } {
+    if (typeof minutes !== "number" || minutes < 1 || minutes > 60) {
+      return {
+        success: false,
+        error: "Capacity in minutes must be between 1 and 60",
+      };
+    }
+
+    this.setState({
+      ...this.state,
+      pool: {
+        ...this.state.pool,
+        capacityInMinutes: minutes,
       },
     });
 
@@ -388,6 +427,13 @@ class PlannerStore {
    */
   get dailyCapacity(): number {
     return this.state.pool.dailyCapacity;
+  }
+
+  /**
+   * Gets the capacity per tomato in minutes
+   */
+  get capacityInMinutes(): number {
+    return this.state.pool.capacityInMinutes;
   }
 
   /**

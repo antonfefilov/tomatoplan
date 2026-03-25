@@ -5,7 +5,10 @@
 
 import type { Task } from "./task.js";
 import type { TomatoPool } from "./tomato-pool.js";
-import { DEFAULT_DAILY_CAPACITY } from "../constants/defaults.js";
+import {
+  DEFAULT_DAILY_CAPACITY,
+  DEFAULT_CAPACITY_IN_MINUTES,
+} from "../constants/defaults.js";
 import { createTomatoPool, getTodayString } from "./tomato-pool.js";
 
 export interface PlannerState {
@@ -27,9 +30,10 @@ export const STATE_VERSION = 1;
  */
 export function createInitialPlannerState(
   dailyCapacity: number = DEFAULT_DAILY_CAPACITY,
+  capacityInMinutes: number = DEFAULT_CAPACITY_IN_MINUTES,
 ): PlannerState {
   return {
-    pool: createTomatoPool(dailyCapacity),
+    pool: createTomatoPool(dailyCapacity, capacityInMinutes),
     tasks: [],
     version: STATE_VERSION,
   };
@@ -42,11 +46,13 @@ export function createInitialPlannerState(
 export function resetPlannerStateForNewDay(
   state: PlannerState,
   newCapacity?: number,
+  newCapacityInMinutes?: number,
 ): PlannerState {
   return {
     ...state,
     pool: createTomatoPool(
       newCapacity ?? state.pool.dailyCapacity,
+      newCapacityInMinutes ?? state.pool.capacityInMinutes,
       getTodayString(),
     ),
     tasks: [],
@@ -79,4 +85,37 @@ export function isAtCapacity(state: PlannerState): boolean {
  */
 export function isOverCapacity(state: PlannerState): boolean {
   return getRemainingTomatoes(state) < 0;
+}
+
+/**
+ * Computed value: Total daily capacity in minutes
+ */
+export function getDailyCapacityInMinutes(state: PlannerState): number {
+  return state.pool.dailyCapacity * state.pool.capacityInMinutes;
+}
+
+/**
+ * Computed value: Total minutes assigned across all tasks
+ */
+export function getTotalAssignedMinutes(state: PlannerState): number {
+  return getTotalAssignedTomatoes(state) * state.pool.capacityInMinutes;
+}
+
+/**
+ * Formats minutes into a human-readable hours/minutes string
+ * e.g., 200 minutes -> "3h 20m"
+ */
+export function formatMinutesToHoursMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours === 0) {
+    return `${mins}m`;
+  }
+
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${mins}m`;
 }

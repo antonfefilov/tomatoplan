@@ -14,6 +14,9 @@ export interface PersistedPlannerState {
   /** Daily capacity setting */
   dailyCapacity: number;
 
+  /** Duration of each tomato in minutes */
+  capacityInMinutes?: number;
+
   /** Tasks for the current day */
   tasks: readonly Task[];
 
@@ -43,11 +46,13 @@ export interface LoadResult {
  */
 export function createPersistedState(
   dailyCapacity: number,
+  capacityInMinutes: number,
   tasks: readonly Task[],
   savedDate: string,
 ): PersistedPlannerState {
   return {
     dailyCapacity,
+    capacityInMinutes,
     tasks,
     savedDate,
     version: STATE_VERSION,
@@ -72,6 +77,7 @@ export function isValidPersistedState(
     Array.isArray(obj["tasks"]) &&
     typeof obj["savedDate"] === "string" &&
     typeof obj["version"] === "number"
+    // capacityInMinutes is optional for backward compatibility
   );
 }
 

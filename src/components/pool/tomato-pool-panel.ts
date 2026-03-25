@@ -184,6 +184,48 @@ export class TomatoPoolPanel extends LitElement {
       font-size: 13px;
       color: #166534;
     }
+
+    .capacity-time-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: #f3f4f6;
+      border-radius: 6px;
+    }
+
+    .time-label {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .time-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .tasks-time-display {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+
+    .tasks-time-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #ef4444;
+    }
+
+    .tasks-time-label {
+      font-size: 12px;
+      color: #6b7280;
+    }
   `;
 
   @property({ type: Number })
@@ -197,6 +239,9 @@ export class TomatoPoolPanel extends LitElement {
 
   @property({ type: Number })
   taskCount = 0;
+
+  @property({ type: Number })
+  capacityInMinutes = 25;
 
   private _handleDecreaseCapacity() {
     if (this.capacity > 1) {
@@ -233,6 +278,25 @@ export class TomatoPoolPanel extends LitElement {
 
   private _isAtCapacity(): boolean {
     return this.remaining === 0 && this.assigned > 0;
+  }
+
+  /**
+   * Formats minutes into a human-readable hours/minutes string
+   * e.g., 200 minutes -> "3h 20m"
+   */
+  private _formatMinutesToHoursMinutes(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+
+    if (hours === 0) {
+      return `${mins}m`;
+    }
+
+    if (mins === 0) {
+      return `${hours}h`;
+    }
+
+    return `${hours}h ${mins}m`;
   }
 
   override render() {
@@ -311,6 +375,30 @@ export class TomatoPoolPanel extends LitElement {
             >
               +
             </button>
+          </div>
+          <div class="capacity-time-info">
+            <span class="time-label">Total time:</span>
+            <span class="time-value"
+              >${this._formatMinutesToHoursMinutes(
+                this.capacity * this.capacityInMinutes,
+              )}</span
+            >
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">
+            <span class="section-title">Tasks Total Time</span>
+          </div>
+          <div class="tasks-time-display">
+            <span class="tasks-time-value"
+              >${this._formatMinutesToHoursMinutes(
+                this.assigned * this.capacityInMinutes,
+              )}</span
+            >
+            <span class="tasks-time-label"
+              >(${this.assigned} × ${this.capacityInMinutes}m)</span
+            >
           </div>
         </div>
 

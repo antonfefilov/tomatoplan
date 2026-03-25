@@ -12,6 +12,7 @@ import {
 } from "../models/storage.js";
 import { STORAGE_KEYS } from "../constants/storage-keys.js";
 import { getTodayString } from "../models/tomato-pool.js";
+import { DEFAULT_CAPACITY_IN_MINUTES } from "../constants/defaults.js";
 
 /**
  * Saves the planner state to localStorage
@@ -19,6 +20,7 @@ import { getTodayString } from "../models/tomato-pool.js";
 export function saveState(state: PlannerState): void {
   const persistedState = createPersistedState(
     state.pool.dailyCapacity,
+    state.pool.capacityInMinutes,
     state.tasks,
     getTodayString(),
   );
@@ -47,9 +49,12 @@ export function loadState(): PlannerState | null {
   }
 
   // Reconstruct PlannerState from PersistedPlannerState
+  // Handle backward compatibility: capacityInMinutes defaults to 25 if not present
   return {
     pool: {
       dailyCapacity: loadResult.state.dailyCapacity,
+      capacityInMinutes:
+        loadResult.state.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES,
       date: loadResult.state.savedDate,
     },
     tasks: loadResult.state.tasks,
@@ -118,6 +123,7 @@ export function exportState(state: PlannerState): string {
   const exportData = {
     ...createPersistedState(
       state.pool.dailyCapacity,
+      state.pool.capacityInMinutes,
       state.tasks,
       getTodayString(),
     ),
