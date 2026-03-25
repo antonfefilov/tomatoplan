@@ -56,26 +56,6 @@ export class TaskList extends LitElement {
     );
   }
 
-  private _handleAddTomato(e: CustomEvent<{ taskId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("add-tomato", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleRemoveTomato(e: CustomEvent<{ taskId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("remove-tomato", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
   override render() {
     if (this.tasks.length === 0) {
       return html`
@@ -99,8 +79,6 @@ export class TaskList extends LitElement {
               .disabled=${this.disabled}
               @edit-task=${this._handleEditTask}
               @delete-task=${this._handleDeleteTask}
-              @add-tomato=${this._handleAddTomato}
-              @remove-tomato=${this._handleRemoveTomato}
             ></task-item>
           `,
         )}

@@ -133,7 +133,8 @@ export class TaskItem extends LitElement {
     );
   }
 
-  private _handleAddTomato() {
+  private _handleAddTomato(e: Event) {
+    e.stopPropagation(); // Prevent original event from bubbling further
     this.dispatchEvent(
       new CustomEvent("add-tomato", {
         bubbles: true,
@@ -143,7 +144,8 @@ export class TaskItem extends LitElement {
     );
   }
 
-  private _handleRemoveTomato() {
+  private _handleRemoveTomato(e: Event) {
+    e.stopPropagation(); // Prevent original event from bubbling further
     this.dispatchEvent(
       new CustomEvent("remove-tomato", {
         bubbles: true,
