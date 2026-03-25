@@ -214,7 +214,7 @@ export class TaskForm extends LitElement {
         composed: true,
         detail: {
           title: this._title.trim(),
-          description: this._description.trim() || undefined,
+          description: this._description.trim(),
         },
       }),
     );

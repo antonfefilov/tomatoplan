@@ -235,8 +235,8 @@ class PlannerStore {
       ...updates,
       title: updates.title?.trim() ?? existingTask.title,
       description:
-        updates.description !== undefined
-          ? updates.description?.trim()
+        "description" in updates
+          ? (updates.description ?? "").trim() || undefined
           : existingTask.description,
       updatedAt: new Date().toISOString(),
     };

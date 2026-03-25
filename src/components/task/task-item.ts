@@ -131,11 +131,11 @@ export class TaskItem extends LitElement {
       color: #9ca3af;
     }
 
-    .task-meta {
-      display: flex;
+    .task-estimation-display {
+      display: inline-flex;
       align-items: center;
-      gap: 8px;
-      margin-top: 10px;
+      gap: 4px;
+      flex-shrink: 0;
     }
 
     .task-estimation {
@@ -144,8 +144,8 @@ export class TaskItem extends LitElement {
     }
 
     .task-estimation-icon {
-      width: 12px;
-      height: 12px;
+      width: 14px;
+      height: 14px;
       color: #9ca3af;
     }
 
@@ -264,6 +264,25 @@ export class TaskItem extends LitElement {
               +
             </button>
           </div>
+          <div class="task-estimation-display">
+            <svg
+              class="task-estimation-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            <span class="task-estimation"
+              >${formatTimeEstimate(
+                task.tomatoCount * this.capacityInMinutes,
+              )}</span
+            >
+          </div>
           <h3 class="task-title">${task.title}</h3>
           <dropdown-menu label="Task options">
             <button class="menu-item" @click=${this._handleEdit}>
@@ -304,26 +323,6 @@ export class TaskItem extends LitElement {
               ${this._truncateDescription(task.description)}
             </p>`
           : null}
-
-        <div class="task-meta">
-          <svg
-            class="task-estimation-icon"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span class="task-estimation"
-            >${formatTimeEstimate(
-              task.tomatoCount * this.capacityInMinutes,
-            )}</span
-          >
-        </div>
       </div>
     `;
   }
