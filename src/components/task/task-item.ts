@@ -428,7 +428,6 @@ export class TaskItem extends LitElement {
 
         <div class="task-controls-row">
           <div class="finished-control-wrapper">
-            <span class="finished-label" title="Finished tomatoes">✓</span>
             <button
               class="btn-remove finished"
               @click=${this._handleMarkUnfinished}
@@ -438,6 +437,7 @@ export class TaskItem extends LitElement {
             >
               −
             </button>
+            <span class="finished-label" title="Finished tomatoes">✓</span>
             <span>${finishedCount}</span>
             <button
               class="btn-add finished"
