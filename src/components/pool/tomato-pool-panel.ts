@@ -24,10 +24,19 @@ export class TomatoPoolPanel extends LitElement {
       height: 100%;
     }
 
-    .panel-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: white;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .panel-title {
@@ -36,7 +45,55 @@ export class TomatoPoolPanel extends LitElement {
       color: #6b7280;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin: 0 0 16px 0;
+      margin: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #6b7280;
+      transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+    }
+
+    .toggle-btn:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .toggle-btn:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .toggle-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    :host([collapsed]) .panel-content {
+      display: none;
+    }
+
+    :host([collapsed]) .panel-title {
+      display: none;
     }
 
     .stats-card {
@@ -255,6 +312,18 @@ export class TomatoPoolPanel extends LitElement {
   @property({ type: Number })
   capacityInMinutes = 25;
 
+  @property({ type: Boolean, reflect: true })
+  collapsed = false;
+
+  private _handleToggleCollapse() {
+    this.dispatchEvent(
+      new CustomEvent("toggle-collapse", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private _handleDecreaseCapacity() {
     if (this.capacity > MIN_DAILY_CAPACITY) {
       this.dispatchEvent(
@@ -341,9 +410,31 @@ export class TomatoPoolPanel extends LitElement {
     const isAtCapacity = this._isAtCapacity();
 
     return html`
-      <div class="panel-content">
-        <h2 class="panel-title">Today's Tomato Pool</h2>
+      <div class="panel-header">
+        <div class="header-left">
+          <h2 class="panel-title">Today's Tomato Pool</h2>
+        </div>
+        <button
+          class="toggle-btn"
+          @click=${this._handleToggleCollapse}
+          aria-label=${this.collapsed ? "Expand panel" : "Collapse panel"}
+          aria-expanded=${!this.collapsed}
+          aria-controls="panel-content"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+      </div>
 
+      <div class="panel-content" id="panel-content">
         <div class="stats-card">
           <div class="stats-grid">
             <div class="stat-item">

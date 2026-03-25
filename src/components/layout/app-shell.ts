@@ -4,7 +4,7 @@
  */
 
 import { LitElement, html, css } from "lit";
-import { customElement } from "lit/decorators.js";
+import { customElement, property } from "lit/decorators.js";
 
 @customElement("app-shell")
 export class AppShell extends LitElement {
@@ -39,6 +39,14 @@ export class AppShell extends LitElement {
       max-width: 400px;
       background: white;
       border-right: 1px solid #e5e7eb;
+      transition:
+        width 0.25s ease,
+        min-width 0.25s ease;
+    }
+
+    .left-panel.collapsed {
+      width: 56px;
+      min-width: 56px;
     }
 
     .right-panel {
@@ -60,18 +68,31 @@ export class AppShell extends LitElement {
         max-height: 45vh;
       }
 
+      .left-panel.collapsed {
+        width: 100%;
+        min-width: 100%;
+        max-height: 48px;
+      }
+
       .right-panel {
         flex: 1;
       }
     }
   `;
 
+  @property({ type: Boolean, attribute: "left-panel-collapsed" })
+  leftPanelCollapsed = false;
+
   override render() {
     return html`
       <div class="shell-container">
         <slot name="header"></slot>
         <div class="main-content">
-          <div class="panel left-panel">
+          <div
+            class="panel left-panel ${this.leftPanelCollapsed
+              ? "collapsed"
+              : ""}"
+          >
             <slot name="pool-panel"></slot>
           </div>
           <div class="panel right-panel">

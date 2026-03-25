@@ -53,6 +53,9 @@ export class TomatoPlannerApp extends LitElement {
   @state()
   private _deletingTaskId: string | undefined = undefined;
 
+  @state()
+  private _panelCollapsed = false;
+
   private _unsubscribe: (() => void) | null = null;
 
   override connectedCallback() {
@@ -169,6 +172,14 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.resetDay();
   }
 
+  // ============================================
+  // Panel Collapse
+  // ============================================
+
+  private _handleTogglePanelCollapse() {
+    this._panelCollapsed = !this._panelCollapsed;
+  }
+
   override render() {
     const isEdit = !!this._editingTask;
     const deleteTask = this._deletingTaskId
@@ -176,7 +187,7 @@ export class TomatoPlannerApp extends LitElement {
       : undefined;
 
     return html`
-      <app-shell>
+      <app-shell ?left-panel-collapsed=${this._panelCollapsed}>
         <app-header
           slot="header"
           .currentDate=${this._currentDate}
@@ -191,8 +202,10 @@ export class TomatoPlannerApp extends LitElement {
           .remaining=${this._remaining}
           .taskCount=${this._tasks.length}
           .capacityInMinutes=${this._capacityInMinutes}
+          .collapsed=${this._panelCollapsed}
           @capacity-change=${this._handleCapacityChange}
           @duration-change=${this._handleDurationChange}
+          @toggle-collapse=${this._handleTogglePanelCollapse}
         ></tomato-pool-panel>
 
         <task-list-panel
