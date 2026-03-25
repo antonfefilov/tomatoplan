@@ -82,6 +82,10 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.setCapacity(e.detail.capacity);
   }
 
+  private _handleDurationChange(e: CustomEvent<{ minutes: number }>) {
+    plannerStore.setCapacityInMinutes(e.detail.minutes);
+  }
+
   // ============================================
   // Task Actions
   // ============================================
@@ -180,6 +184,7 @@ export class TomatoPlannerApp extends LitElement {
           .taskCount=${this._tasks.length}
           .capacityInMinutes=${this._capacityInMinutes}
           @capacity-change=${this._handleCapacityChange}
+          @duration-change=${this._handleDurationChange}
         ></tomato-pool-panel>
 
         <task-list-panel

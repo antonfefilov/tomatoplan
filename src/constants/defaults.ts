@@ -16,6 +16,12 @@ export const MIN_DAILY_CAPACITY = 1;
 /** Maximum allowed daily capacity */
 export const MAX_DAILY_CAPACITY = 20;
 
+/** Minimum allowed tomato duration in minutes */
+export const MIN_CAPACITY_IN_MINUTES = 5;
+
+/** Maximum allowed tomato duration in minutes */
+export const MAX_CAPACITY_IN_MINUTES = 60;
+
 /** Default task values */
 export const DEFAULT_TASK = {
   /** Default tomato count for new tasks */

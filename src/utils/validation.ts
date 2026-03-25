@@ -10,6 +10,8 @@ import {
 import {
   MIN_DAILY_CAPACITY,
   MAX_DAILY_CAPACITY,
+  MIN_CAPACITY_IN_MINUTES,
+  MAX_CAPACITY_IN_MINUTES,
 } from "../constants/defaults.js";
 
 /** Result of a validation check */
@@ -45,6 +47,35 @@ export function validateDailyCapacity(capacity: number): ValidationResult {
 
   if (!Number.isInteger(capacity)) {
     return { valid: false, error: "Capacity must be a whole number" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates that a capacityInMinutes (tomato duration) value is within acceptable bounds
+ */
+export function validateCapacityInMinutes(minutes: number): ValidationResult {
+  if (typeof minutes !== "number" || isNaN(minutes)) {
+    return { valid: false, error: "Duration must be a valid number" };
+  }
+
+  if (!Number.isInteger(minutes)) {
+    return { valid: false, error: "Duration must be a whole number" };
+  }
+
+  if (minutes < MIN_CAPACITY_IN_MINUTES) {
+    return {
+      valid: false,
+      error: `Duration must be at least ${MIN_CAPACITY_IN_MINUTES} minutes`,
+    };
+  }
+
+  if (minutes > MAX_CAPACITY_IN_MINUTES) {
+    return {
+      valid: false,
+      error: `Duration cannot exceed ${MAX_CAPACITY_IN_MINUTES} minutes`,
+    };
   }
 
   return { valid: true };

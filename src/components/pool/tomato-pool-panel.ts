@@ -5,6 +5,12 @@
 
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
+import {
+  MIN_DAILY_CAPACITY,
+  MAX_DAILY_CAPACITY,
+  MIN_CAPACITY_IN_MINUTES,
+  MAX_CAPACITY_IN_MINUTES,
+} from "../../constants/defaults.js";
 import "../tomato/tomato-icon.js";
 import "../tomato/tomato-pool-visual.js";
 import "../shared/empty-state.js";
@@ -84,28 +90,48 @@ export class TomatoPoolPanel extends LitElement {
       color: #374151;
     }
 
+    .capacity-controls-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .capacity-control-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .capacity-control-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
     .capacity-control {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       background: #f9fafb;
       border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 8px 12px;
+      border-radius: 6px;
+      padding: 4px 8px;
     }
 
     .capacity-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
       border: none;
       background: white;
       cursor: pointer;
       transition: all 0.15s ease;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
       color: #6b7280;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -122,11 +148,18 @@ export class TomatoPoolPanel extends LitElement {
     }
 
     .capacity-value {
-      min-width: 40px;
+      min-width: 32px;
       text-align: center;
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 600;
       color: #374151;
+    }
+
+    .duration-unit {
+      font-size: 10px;
+      font-weight: 400;
+      color: #6b7280;
+      margin-left: 1px;
     }
 
     .progress-section {
@@ -223,7 +256,7 @@ export class TomatoPoolPanel extends LitElement {
   capacityInMinutes = 25;
 
   private _handleDecreaseCapacity() {
-    if (this.capacity > 1) {
+    if (this.capacity > MIN_DAILY_CAPACITY) {
       this.dispatchEvent(
         new CustomEvent("capacity-change", {
           bubbles: true,
@@ -235,12 +268,36 @@ export class TomatoPoolPanel extends LitElement {
   }
 
   private _handleIncreaseCapacity() {
-    if (this.capacity < 20) {
+    if (this.capacity < MAX_DAILY_CAPACITY) {
       this.dispatchEvent(
         new CustomEvent("capacity-change", {
           bubbles: true,
           composed: true,
           detail: { capacity: this.capacity + 1 },
+        }),
+      );
+    }
+  }
+
+  private _handleDecreaseDuration() {
+    if (this.capacityInMinutes > MIN_CAPACITY_IN_MINUTES) {
+      this.dispatchEvent(
+        new CustomEvent("duration-change", {
+          bubbles: true,
+          composed: true,
+          detail: { minutes: this.capacityInMinutes - 1 },
+        }),
+      );
+    }
+  }
+
+  private _handleIncreaseDuration() {
+    if (this.capacityInMinutes < MAX_CAPACITY_IN_MINUTES) {
+      this.dispatchEvent(
+        new CustomEvent("duration-change", {
+          bubbles: true,
+          composed: true,
+          detail: { minutes: this.capacityInMinutes + 1 },
         }),
       );
     }
@@ -333,28 +390,57 @@ export class TomatoPoolPanel extends LitElement {
         </div>
 
         <div class="section">
-          <div class="section-header">
-            <span class="section-title">Daily Capacity</span>
+          <div class="capacity-controls-row">
+            <div class="capacity-control-group">
+              <span class="capacity-control-label">Daily Capacity</span>
+              <div class="capacity-control">
+                <button
+                  class="capacity-btn"
+                  @click=${this._handleDecreaseCapacity}
+                  ?disabled=${this.capacity <= MIN_DAILY_CAPACITY}
+                  aria-label="Decrease capacity"
+                >
+                  −
+                </button>
+                <span class="capacity-value">${this.capacity}</span>
+                <button
+                  class="capacity-btn"
+                  @click=${this._handleIncreaseCapacity}
+                  ?disabled=${this.capacity >= MAX_DAILY_CAPACITY}
+                  aria-label="Increase capacity"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div class="capacity-control-group">
+              <span class="capacity-control-label">Tomato Duration</span>
+              <div class="capacity-control">
+                <button
+                  class="capacity-btn"
+                  @click=${this._handleDecreaseDuration}
+                  ?disabled=${this.capacityInMinutes <= MIN_CAPACITY_IN_MINUTES}
+                  aria-label="Decrease duration"
+                >
+                  −
+                </button>
+                <span class="capacity-value"
+                  >${this.capacityInMinutes}<span class="duration-unit"
+                    >min</span
+                  ></span
+                >
+                <button
+                  class="capacity-btn"
+                  @click=${this._handleIncreaseDuration}
+                  ?disabled=${this.capacityInMinutes >= MAX_CAPACITY_IN_MINUTES}
+                  aria-label="Increase duration"
+                >
+                  +
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="capacity-control">
-            <button
-              class="capacity-btn"
-              @click=${this._handleDecreaseCapacity}
-              ?disabled=${this.capacity <= 1}
-              aria-label="Decrease capacity"
-            >
-              −
-            </button>
-            <span class="capacity-value">${this.capacity}</span>
-            <button
-              class="capacity-btn"
-              @click=${this._handleIncreaseCapacity}
-              ?disabled=${this.capacity >= 20}
-              aria-label="Increase capacity"
-            >
-              +
-            </button>
-          </div>
+
           <div class="capacity-time-info">
             <span class="time-label">Total time:</span>
             <span class="time-value"
