@@ -109,7 +109,7 @@ export class AppHeader extends LitElement {
       <header>
         <div class="logo-section">
           <div class="logo-text">
-            <h1>Tomato Planner</h1>
+            <h1>Tomato Plan</h1>
             <span class="subtitle">Pomodoro Task Manager</span>
           </div>
         </div>

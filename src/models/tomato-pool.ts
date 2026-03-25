@@ -1,5 +1,5 @@
 /**
- * TomatoPool model for the Tomato Planner
+ * TomatoPool model for the Tomato Plan
  * Represents the daily capacity of tomatoes (pomodoro sessions) available
  */
 

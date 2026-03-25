@@ -1,5 +1,5 @@
 /**
- * PlannerState model for the Tomato Planner
+ * PlannerState model for the Tomato Plan
  * Combines the tomato pool and tasks into a single state object
  */
 

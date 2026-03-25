@@ -1,5 +1,5 @@
 /**
- * Default configuration values for the Tomato Planner
+ * Default configuration values for the Tomato Plan
  */
 
 import { STORAGE_KEYS } from "./storage-keys.js";

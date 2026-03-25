@@ -1,5 +1,5 @@
 /**
- * Custom reactive store for Tomato Planner state management
+ * Custom reactive store for Tomato Plan state management
  * Provides reactive state updates compatible with Lit components
  */
 
@@ -31,7 +31,7 @@ type Subscriber = (state: PlannerState) => void;
 type Unsubscribe = () => void;
 
 /**
- * PlannerStore - Reactive state store for the Tomato Planner
+ * PlannerStore - Reactive state store for the Tomato Plan
  *
  * Implements a simple pub/sub pattern for reactivity:
  * - Components subscribe to state changes

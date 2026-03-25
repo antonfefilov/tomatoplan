@@ -1,5 +1,5 @@
 /**
- * Storage model for the Tomato Planner
+ * Storage model for the Tomato Plan
  * Defines the shape of data persisted to localStorage
  */
 

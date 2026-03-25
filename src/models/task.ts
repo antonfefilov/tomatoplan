@@ -1,5 +1,5 @@
 /**
- * Task model for the Tomato Planner
+ * Task model for the Tomato Plan
  * Represents a single task that can be assigned tomatoes (pomodoro sessions)
  */
 

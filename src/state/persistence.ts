@@ -1,5 +1,5 @@
 /**
- * Persistence layer for Tomato Planner state
+ * Persistence layer for Tomato Plan state
  * Handles saving and loading state from localStorage
  */
 
@@ -122,7 +122,7 @@ export function exportState(state: PlannerState): string {
       getTodayString(),
     ),
     exportedAt: new Date().toISOString(),
-    appName: "Tomato Planner",
+    appName: "Tomato Plan",
   };
 
   return JSON.stringify(exportData, null, 2);

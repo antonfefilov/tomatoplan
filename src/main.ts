@@ -1,5 +1,5 @@
 /**
- * Main entry point for Tomato Planner
+ * Main entry point for Tomato Plan
  * Initializes the application and mounts the root component
  */
 
@@ -17,5 +17,5 @@ document.addEventListener("DOMContentLoaded", () => {
   const app = document.createElement("tomato-planner-app");
   appRoot.appendChild(app);
 
-  console.log("🍅 Tomato Planner initialized");
+  console.log("🍅 Tomato Plan initialized");
 });
