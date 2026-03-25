@@ -263,6 +263,7 @@ export class TaskListPanel extends LitElement {
                 .tasks=${this.tasks}
                 .remaining=${this.remaining}
                 .disabled=${this.disabled}
+                .capacityInMinutes=${this.capacityInMinutes}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
               ></task-list>

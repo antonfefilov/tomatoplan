@@ -3,6 +3,7 @@
  */
 
 export { generateId, generateShortId, generatePrefixedId } from "./id.js";
+export { formatTimeEstimate } from "./time.js";
 
 export type { ValidationResult } from "./validation.js";
 export {

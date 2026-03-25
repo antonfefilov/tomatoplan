@@ -36,6 +36,9 @@ export class TaskList extends LitElement {
   @property({ type: Boolean })
   disabled = false;
 
+  @property({ type: Number })
+  capacityInMinutes = 25;
+
   private _handleEditTask(e: CustomEvent<{ taskId: string }>) {
     this.dispatchEvent(
       new CustomEvent("edit-task", {
@@ -77,6 +80,7 @@ export class TaskList extends LitElement {
               .task=${task}
               .remaining=${this.remaining}
               .disabled=${this.disabled}
+              .capacityInMinutes=${this.capacityInMinutes}
               @edit-task=${this._handleEditTask}
               @delete-task=${this._handleDeleteTask}
             ></task-item>

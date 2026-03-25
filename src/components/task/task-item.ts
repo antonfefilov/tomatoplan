@@ -6,6 +6,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import { formatTimeEstimate } from "../../utils/time.js";
 import "../tomato/tomato-icon.js";
 import "../shared/dropdown-menu.js";
 
@@ -130,6 +131,24 @@ export class TaskItem extends LitElement {
       color: #9ca3af;
     }
 
+    .task-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .task-estimation {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .task-estimation-icon {
+      width: 12px;
+      height: 12px;
+      color: #9ca3af;
+    }
+
     .menu-item {
       display: flex;
       align-items: center;
@@ -166,6 +185,9 @@ export class TaskItem extends LitElement {
 
   @property({ type: Boolean })
   disabled = false;
+
+  @property({ type: Number })
+  capacityInMinutes = 25;
 
   private _handleEdit() {
     this.dispatchEvent(
@@ -282,6 +304,26 @@ export class TaskItem extends LitElement {
               ${this._truncateDescription(task.description)}
             </p>`
           : null}
+
+        <div class="task-meta">
+          <svg
+            class="task-estimation-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z"
+              clip-rule="evenodd"
+            />
+          </svg>
+          <span class="task-estimation"
+            >${formatTimeEstimate(
+              task.tomatoCount * this.capacityInMinutes,
+            )}</span
+          >
+        </div>
       </div>
     `;
   }
