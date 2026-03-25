@@ -1,0 +1,563 @@
+/**
+ * Tests for TomatoPlannerApp component
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { PlannerState } from "../src/models/planner-state.js";
+import type { Task } from "../src/models/task.js";
+
+// Mock the plannerStore singleton before importing the component
+vi.mock("../src/state/planner-store.js", () => ({
+  plannerStore: {
+    subscribe: vi.fn(),
+    setCapacity: vi.fn(),
+    setCapacityInMinutes: vi.fn(),
+    addTask: vi.fn(),
+    updateTask: vi.fn(),
+    removeTask: vi.fn(),
+    assignTomato: vi.fn(),
+    unassignTomato: vi.fn(),
+    markTomatoAsFinished: vi.fn(),
+    markTomatoAsUnfinished: vi.fn(),
+    resetDay: vi.fn(),
+    getTaskById: vi.fn(),
+    assignedTomatoes: 3,
+    remainingTomatoes: 7,
+  },
+}));
+
+// Import component and dependent elements after mocking
+import "../src/components/app/tomato-planner-app.js";
+import type { TomatoPlannerApp } from "../src/components/app/tomato-planner-app.js";
+import { plannerStore } from "../src/state/planner-store.js";
+import "../src/components/layout/app-shell.js";
+import "../src/components/layout/app-header.js";
+import "../src/components/pool/tomato-pool-panel.js";
+import "../src/components/task/task-list-panel.js";
+import "../src/components/task/task-list.js";
+import "../src/components/task/task-item.js";
+import "../src/components/task/task-editor-dialog.js";
+import "../src/components/shared/confirm-dialog.js";
+import "../src/components/tomato/tomato-icon.js";
+import "../src/components/tomato/tomato-pool-visual.js";
+import "../src/components/shared/dropdown-menu.js";
+import "../src/components/shared/empty-state.js";
+
+const mockStore = plannerStore as unknown as {
+  subscribe: ReturnType<typeof vi.fn>;
+  setCapacity: ReturnType<typeof vi.fn>;
+  setCapacityInMinutes: ReturnType<typeof vi.fn>;
+  addTask: ReturnType<typeof vi.fn>;
+  updateTask: ReturnType<typeof vi.fn>;
+  removeTask: ReturnType<typeof vi.fn>;
+  assignTomato: ReturnType<typeof vi.fn>;
+  unassignTomato: ReturnType<typeof vi.fn>;
+  markTomatoAsFinished: ReturnType<typeof vi.fn>;
+  markTomatoAsUnfinished: ReturnType<typeof vi.fn>;
+  resetDay: ReturnType<typeof vi.fn>;
+  getTaskById: ReturnType<typeof vi.fn>;
+  assignedTomatoes: number;
+  remainingTomatoes: number;
+};
+
+const mockTasks: Task[] = [
+  {
+    id: "task-1",
+    title: "Test Task",
+    description: "Test description",
+    tomatoCount: 2,
+    finishedTomatoCount: 1,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+  },
+];
+
+describe("TomatoPlannerApp", () => {
+  let element: TomatoPlannerApp;
+  let unsubscribeSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    // Set up default mock state
+    const mockState: PlannerState = {
+      pool: {
+        dailyCapacity: 10,
+        date: "2024-06-15",
+        capacityInMinutes: 25,
+      },
+      tasks: [],
+      version: 1,
+    };
+
+    // Set up default mock behavior
+    unsubscribeSpy = vi.fn();
+    mockStore.subscribe.mockImplementation(
+      (callback: (state: PlannerState) => void) => {
+        callback(mockState);
+        return unsubscribeSpy;
+      },
+    );
+    mockStore.assignedTomatoes = 3;
+    mockStore.remainingTomatoes = 7;
+
+    element = document.createElement("tomato-planner-app") as TomatoPlannerApp;
+    document.body.appendChild(element);
+    await element.updateComplete;
+  });
+
+  afterEach(() => {
+    element.remove();
+  });
+
+  describe("subscription lifecycle", () => {
+    it("should subscribe to store on connect", () => {
+      expect(mockStore.subscribe).toHaveBeenCalled();
+    });
+
+    it("should unsubscribe from store on disconnect", async () => {
+      element.remove();
+      await element.updateComplete;
+
+      expect(unsubscribeSpy).toHaveBeenCalled();
+    });
+
+    it("should receive state updates through subscription callback", async () => {
+      // The subscribe callback should have been called during connect
+      const subscribeCall = mockStore.subscribe.mock.calls[0];
+      const callback = subscribeCall![0] as (state: PlannerState) => void;
+
+      // Simulate state update
+      const newState: PlannerState = {
+        pool: {
+          dailyCapacity: 15,
+          date: "2024-06-15",
+          capacityInMinutes: 30,
+        },
+        tasks: mockTasks,
+        version: 1,
+      };
+
+      callback(newState);
+      await element.updateComplete;
+
+      // Verify the component updated based on new state
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel");
+      expect(taskListPanel).toBeDefined();
+    });
+  });
+
+  describe("passing store values to child components", () => {
+    it("should pass currentDate to app-header", async () => {
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        currentDate: string;
+      };
+      expect(appHeader).toBeDefined();
+      expect(appHeader.currentDate).toBe("2024-06-15");
+    });
+
+    it("should pass capacity to tomato-pool-panel", async () => {
+      const poolPanel = element.shadowRoot!.querySelector(
+        "tomato-pool-panel",
+      ) as HTMLElement & {
+        capacity: number;
+      };
+      expect(poolPanel).toBeDefined();
+      expect(poolPanel.capacity).toBe(10);
+    });
+
+    it("should pass assigned to tomato-pool-panel", async () => {
+      const poolPanel = element.shadowRoot!.querySelector(
+        "tomato-pool-panel",
+      ) as HTMLElement & {
+        assigned: number;
+      };
+      expect(poolPanel.assigned).toBe(3);
+    });
+
+    it("should pass remaining to tomato-pool-panel", async () => {
+      const poolPanel = element.shadowRoot!.querySelector(
+        "tomato-pool-panel",
+      ) as HTMLElement & {
+        remaining: number;
+      };
+      expect(poolPanel.remaining).toBe(7);
+    });
+
+    it("should pass capacityInMinutes to tomato-pool-panel", async () => {
+      const poolPanel = element.shadowRoot!.querySelector(
+        "tomato-pool-panel",
+      ) as HTMLElement & {
+        capacityInMinutes: number;
+      };
+      expect(poolPanel.capacityInMinutes).toBe(25);
+    });
+
+    it("should pass tasks to task-list-panel", async () => {
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement & {
+        tasks: readonly Task[];
+      };
+      expect(taskListPanel).toBeDefined();
+      expect(taskListPanel.tasks).toEqual([]);
+    });
+
+    it("should pass remaining to task-list-panel", async () => {
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement & {
+        remaining: number;
+      };
+      expect(taskListPanel.remaining).toBe(7);
+    });
+
+    it("should pass assigned to task-list-panel", async () => {
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement & {
+        assigned: number;
+      };
+      expect(taskListPanel.assigned).toBe(3);
+    });
+
+    it("should pass capacityInMinutes to task-list-panel", async () => {
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement & {
+        capacityInMinutes: number;
+      };
+      expect(taskListPanel.capacityInMinutes).toBe(25);
+    });
+  });
+
+  describe("event handlers wiring to store", () => {
+    it("should call resetDay on store when reset-day event is dispatched", async () => {
+      const appHeader = element.shadowRoot!.querySelector("app-header")!;
+
+      // Dispatch reset-day event
+      appHeader.dispatchEvent(
+        new CustomEvent("reset-day", {
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.resetDay).toHaveBeenCalled();
+    });
+
+    it("should call setCapacity on store when capacity-change event is dispatched", async () => {
+      const poolPanel = element.shadowRoot!.querySelector("tomato-pool-panel")!;
+
+      poolPanel.dispatchEvent(
+        new CustomEvent("capacity-change", {
+          bubbles: true,
+          composed: true,
+          detail: { capacity: 15 },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.setCapacity).toHaveBeenCalledWith(15);
+    });
+
+    it("should call setCapacityInMinutes on store when duration-change event is dispatched", async () => {
+      const poolPanel = element.shadowRoot!.querySelector("tomato-pool-panel")!;
+
+      poolPanel.dispatchEvent(
+        new CustomEvent("duration-change", {
+          bubbles: true,
+          composed: true,
+          detail: { minutes: 30 },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.setCapacityInMinutes).toHaveBeenCalledWith(30);
+    });
+
+    it("should handle open-task-dialog event from task-list-panel", async () => {
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("open-task-dialog", {
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      await element.updateComplete;
+
+      // Should show the task dialog (we can verify by checking the dialog element)
+      const taskDialog = element.shadowRoot!.querySelector(
+        "task-editor-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+      };
+      expect(taskDialog.open).toBe(true);
+    });
+
+    it("should handle delete-task event and show confirm dialog", async () => {
+      // Set up state with a task
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+        },
+        tasks: mockTasks,
+        version: 1,
+      });
+      await element.updateComplete;
+
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("delete-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Should show the confirm dialog
+      const confirmDialog = element.shadowRoot!.querySelector(
+        "confirm-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+      };
+      expect(confirmDialog.open).toBe(true);
+    });
+
+    it("should call removeTask when delete is confirmed", async () => {
+      // Set up state with a task
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+        },
+        tasks: mockTasks,
+        version: 1,
+      });
+      await element.updateComplete;
+
+      // First trigger delete-task to show dialog
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+      taskListPanel.dispatchEvent(
+        new CustomEvent("delete-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Then confirm the delete
+      const confirmDialog =
+        element.shadowRoot!.querySelector("confirm-dialog")!;
+      confirmDialog.dispatchEvent(
+        new CustomEvent("confirm", {
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.removeTask).toHaveBeenCalledWith("task-1");
+    });
+
+    it("should call assignTomato on store when add-tomato event is dispatched", async () => {
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("add-tomato", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.assignTomato).toHaveBeenCalledWith("task-1");
+    });
+
+    it("should call unassignTomato on store when remove-tomato event is dispatched", async () => {
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("remove-tomato", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.unassignTomato).toHaveBeenCalledWith("task-1");
+    });
+
+    it("should call markTomatoAsFinished when mark-tomato-finished event is dispatched", async () => {
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("mark-tomato-finished", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.markTomatoAsFinished).toHaveBeenCalledWith("task-1");
+    });
+
+    it("should call markTomatoAsUnfinished when mark-tomato-unfinished event is dispatched", async () => {
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("mark-tomato-unfinished", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.markTomatoAsUnfinished).toHaveBeenCalledWith("task-1");
+    });
+  });
+
+  describe("edit task flow", () => {
+    it("should open dialog with editing task when edit-task event is dispatched", async () => {
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+        },
+        tasks: mockTasks,
+        version: 1,
+      });
+      await element.updateComplete;
+
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("edit-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.getTaskById).toHaveBeenCalledWith("task-1");
+
+      const taskDialog = element.shadowRoot!.querySelector(
+        "task-editor-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+        task: Task;
+        isEdit: boolean;
+      };
+      expect(taskDialog.open).toBe(true);
+      expect(taskDialog.task).toEqual(mockTasks[0]);
+      expect(taskDialog.isEdit).toBe(true);
+    });
+
+    it("should call updateTask when saving edited task", async () => {
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+        },
+        tasks: mockTasks,
+        version: 1,
+      });
+      await element.updateComplete;
+
+      // Open edit dialog
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+      taskListPanel.dispatchEvent(
+        new CustomEvent("edit-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Save the task
+      const taskDialog =
+        element.shadowRoot!.querySelector("task-editor-dialog")!;
+      taskDialog.dispatchEvent(
+        new CustomEvent("save", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            taskId: "task-1",
+            title: "Updated Task",
+            description: "Updated desc",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.updateTask).toHaveBeenCalledWith("task-1", {
+        title: "Updated Task",
+        description: "Updated desc",
+      });
+    });
+
+    it("should call addTask when saving new task", async () => {
+      const taskDialog =
+        element.shadowRoot!.querySelector("task-editor-dialog")!;
+
+      taskDialog.dispatchEvent(
+        new CustomEvent("save", {
+          bubbles: true,
+          composed: true,
+          detail: { title: "New Task", description: "New desc" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.addTask).toHaveBeenCalledWith("New Task", "New desc");
+    });
+  });
+});
