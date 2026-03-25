@@ -4,16 +4,10 @@
  */
 
 import { LitElement, html, css } from "lit";
-import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { customElement, property } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
 import "../tomato/tomato-icon.js";
-import "../tomato/tomato-assignment-control.js";
-import "../shared/icon-button.js";
-
-// Icons as SVG strings
-const editIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" /></svg>`;
-const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" /></svg>`;
+import "../shared/dropdown-menu.js";
 
 @customElement("task-item")
 export class TaskItem extends LitElement {
@@ -37,10 +31,9 @@ export class TaskItem extends LitElement {
 
     .task-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 8px;
     }
 
     .task-title {
@@ -53,16 +46,78 @@ export class TaskItem extends LitElement {
       word-break: break-word;
     }
 
-    .task-actions {
-      display: flex;
+    .tomato-control-wrapper {
+      display: inline-flex;
+      align-items: center;
       gap: 4px;
       flex-shrink: 0;
+      background: #fef2f2;
+      border-radius: 8px;
+      padding: 2px;
+    }
+
+    .tomato-control-wrapper tomato-icon {
+      margin: 0 2px;
+    }
+
+    .tomato-control-wrapper span {
+      min-width: 20px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .btn-remove,
+    .btn-add {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: #f9fafb;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 16px;
+      font-weight: 600;
+      color: #6b7280;
+    }
+
+    .btn-remove:hover:not(:disabled),
+    .btn-add:hover:not(:disabled) {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .btn-remove:focus-visible,
+    .btn-add:focus-visible {
+      outline: 2px solid #ef4444;
+      outline-offset: 2px;
+    }
+
+    .btn-remove:disabled,
+    .btn-add:disabled {
+      background: #e5e7eb;
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-add:hover:not(:disabled) {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .btn-remove:hover:not(:disabled) {
+      background: #fee2e2;
+      color: #dc2626;
     }
 
     .task-description {
       font-size: 13px;
       color: #6b7280;
-      margin: 0 0 12px 0;
+      margin: 12px 0 0 0;
       line-height: 1.5;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -70,37 +125,36 @@ export class TaskItem extends LitElement {
       overflow: hidden;
     }
 
-    .task-footer {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-top: 12px;
-      border-top: 1px solid #f3f4f6;
-    }
-
-    .tomato-count-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      background: #fef2f2;
-      border-radius: 16px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #ef4444;
-    }
-
     .no-description {
       font-style: italic;
       color: #9ca3af;
     }
 
-    .task-meta {
+    .menu-item {
       display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      color: #9ca3af;
+      gap: 8px;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 14px;
+      color: #374151;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.15s ease;
+    }
+
+    .menu-item:hover {
+      background: #f3f4f6;
+    }
+
+    .menu-item.danger {
+      color: #ef4444;
+    }
+
+    .menu-item.danger:hover {
+      background: #fef2f2;
     }
   `;
 
@@ -134,7 +188,7 @@ export class TaskItem extends LitElement {
   }
 
   private _handleAddTomato(e: Event) {
-    e.stopPropagation(); // Prevent original event from bubbling further
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("add-tomato", {
         bubbles: true,
@@ -145,7 +199,7 @@ export class TaskItem extends LitElement {
   }
 
   private _handleRemoveTomato(e: Event) {
-    e.stopPropagation(); // Prevent original event from bubbling further
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("remove-tomato", {
         bubbles: true,
@@ -166,15 +220,61 @@ export class TaskItem extends LitElement {
     return html`
       <div class="task-card">
         <div class="task-header">
-          <h3 class="task-title">${task.title}</h3>
-          <div class="task-actions">
-            <icon-button label="Edit task" @icon-click=${this._handleEdit}>
-              ${unsafeHTML(editIcon)}
-            </icon-button>
-            <icon-button label="Delete task" @icon-click=${this._handleDelete}>
-              ${unsafeHTML(deleteIcon)}
-            </icon-button>
+          <div class="tomato-control-wrapper">
+            <button
+              class="btn-remove"
+              @click=${this._handleRemoveTomato}
+              ?disabled=${disabled || task.tomatoCount <= 0}
+              aria-label="Remove tomato"
+              title="Remove tomato"
+            >
+              −
+            </button>
+            <tomato-icon size="16"></tomato-icon>
+            <span>${task.tomatoCount}</span>
+            <button
+              class="btn-add"
+              @click=${this._handleAddTomato}
+              ?disabled=${disabled || remaining <= 0}
+              aria-label="Add tomato"
+              title="Add tomato"
+            >
+              +
+            </button>
           </div>
+          <h3 class="task-title">${task.title}</h3>
+          <dropdown-menu label="Task options">
+            <button class="menu-item" @click=${this._handleEdit}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z"
+                />
+              </svg>
+              Edit
+            </button>
+            <button class="menu-item danger" @click=${this._handleDelete}>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                width="16"
+                height="16"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Delete
+            </button>
+          </dropdown-menu>
         </div>
 
         ${task.description
@@ -182,20 +282,6 @@ export class TaskItem extends LitElement {
               ${this._truncateDescription(task.description)}
             </p>`
           : null}
-
-        <div class="task-footer">
-          <div class="tomato-count-badge">
-            <tomato-icon size="16"></tomato-icon>
-            <span>${task.tomatoCount}</span>
-          </div>
-          <tomato-assignment-control
-            .count=${task.tomatoCount}
-            .remaining=${remaining}
-            .disabled=${disabled}
-            @add-tomato=${this._handleAddTomato}
-            @remove-tomato=${this._handleRemoveTomato}
-          ></tomato-assignment-control>
-        </div>
       </div>
     `;
   }
