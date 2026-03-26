@@ -171,6 +171,17 @@ export class TaskList extends LitElement {
     );
   }
 
+  private _handleMarkDone(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("mark-done", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   // ============================================
   // Drag and Drop Handlers
   // ============================================
@@ -336,6 +347,7 @@ export class TaskList extends LitElement {
                 @pause-timer=${this._handlePauseTimer}
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
+                @mark-done=${this._handleMarkDone}
               ></task-item>
             </div>
           `,

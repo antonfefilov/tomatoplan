@@ -355,6 +355,36 @@ export class TaskItem extends LitElement {
       color: #9ca3af;
       font-style: italic;
     }
+
+    .btn-done {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: none;
+      background: #dcfce7;
+      color: #16a34a;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .btn-done:hover:not(:disabled) {
+      background: #bbf7d0;
+    }
+
+    .btn-done:focus-visible {
+      outline: 2px solid #16a34a;
+      outline-offset: 2px;
+    }
+
+    .btn-done:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   `;
 
   @property({ type: Object })
@@ -479,6 +509,17 @@ export class TaskItem extends LitElement {
       new CustomEvent("reset-timer", {
         bubbles: true,
         composed: true,
+      }),
+    );
+  }
+
+  private _handleMarkDone(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("mark-done", {
+        bubbles: true,
+        composed: true,
+        detail: { taskId: this.task.id },
       }),
     );
   }
@@ -638,6 +679,19 @@ export class TaskItem extends LitElement {
                 >
               `
             : html`<span class="controls-label">done</span>`}
+          ${task.tomatoCount > 0 && finishedCount < task.tomatoCount
+            ? html`
+                <button
+                  class="btn-done"
+                  @click=${this._handleMarkDone}
+                  ?disabled=${disabled}
+                  aria-label="Mark task as done"
+                  title="Mark task as done"
+                >
+                  ✓ Done
+                </button>
+              `
+            : null}
         </div>
 
         <!-- Timer Section -->

@@ -299,6 +299,17 @@ export class TaskListPanel extends LitElement {
     );
   }
 
+  private _handleMarkDone(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("mark-done", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const taskCount = this.tasks.length;
 
@@ -366,6 +377,7 @@ export class TaskListPanel extends LitElement {
                 @pause-timer=${this._handlePauseTimer}
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
+                @mark-done=${this._handleMarkDone}
               ></task-list>
             `}
       </div>

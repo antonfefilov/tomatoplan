@@ -530,4 +530,70 @@ describe("TaskItem", () => {
       expect(timerInactive!.textContent).toContain("30min timer");
     });
   });
+
+  describe("mark done button", () => {
+    it("should show 'Done' button when task is not done", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 2 };
+      await element.updateComplete;
+
+      const doneBtn = element.shadowRoot!.querySelector(
+        ".btn-done",
+      ) as HTMLButtonElement;
+      expect(doneBtn).toBeDefined();
+      expect(doneBtn.textContent).toContain("Done");
+    });
+
+    it("should not show 'Done' button when task has no tomatoes", async () => {
+      element.task = { ...mockTask, tomatoCount: 0, finishedTomatoCount: 0 };
+      await element.updateComplete;
+
+      const doneBtn = element.shadowRoot!.querySelector(".btn-done");
+      expect(doneBtn).toBeNull();
+    });
+
+    it("should not show 'Done' button when task is done (finished >= planned)", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 5 };
+      await element.updateComplete;
+
+      const doneBtn = element.shadowRoot!.querySelector(".btn-done");
+      expect(doneBtn).toBeNull();
+    });
+
+    it("should not show 'Done' button when finished exceeds planned", async () => {
+      element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 5 };
+      await element.updateComplete;
+
+      const doneBtn = element.shadowRoot!.querySelector(".btn-done");
+      expect(doneBtn).toBeNull();
+    });
+
+    it("should dispatch mark-done event when 'Done' button is clicked", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 2 };
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("mark-done", spy);
+
+      const doneBtn = element.shadowRoot!.querySelector(
+        ".btn-done",
+      ) as HTMLButtonElement;
+      doneBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+    });
+
+    it("should disable 'Done' button when component is disabled", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 2 };
+      element.disabled = true;
+      await element.updateComplete;
+
+      const doneBtn = element.shadowRoot!.querySelector(
+        ".btn-done",
+      ) as HTMLButtonElement;
+      expect(doneBtn.disabled).toBe(true);
+    });
+  });
 });

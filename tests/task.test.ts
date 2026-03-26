@@ -10,6 +10,7 @@ import {
   markTomatoAsUnfinished,
   updateTaskFinishedCount,
   updateTask,
+  markTaskDone,
 } from "../src/models/task.js";
 
 describe("createTask", () => {
@@ -273,5 +274,92 @@ describe("updateTask", () => {
     expect(updated.description).toBe("Description");
     expect(updated.tomatoCount).toBe(5);
     expect(updated.finishedTomatoCount).toBe(2);
+  });
+});
+
+describe("markTaskDone", () => {
+  it("should set finishedTomatoCount to tomatoCount when not done", () => {
+    const task = {
+      id: "task-1",
+      title: "Task",
+      tomatoCount: 5,
+      finishedTomatoCount: 2,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const updated = markTaskDone(task);
+
+    expect(updated.finishedTomatoCount).toBe(5);
+    expect(updated.tomatoCount).toBe(5);
+  });
+
+  it("should not change task when already done (finished >= planned)", () => {
+    const task = {
+      id: "task-1",
+      title: "Task",
+      tomatoCount: 3,
+      finishedTomatoCount: 3,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const updated = markTaskDone(task);
+
+    // Should return same task (no change)
+    expect(updated).toBe(task);
+  });
+
+  it("should not change task when finished exceeds planned", () => {
+    const task = {
+      id: "task-1",
+      title: "Task",
+      tomatoCount: 3,
+      finishedTomatoCount: 5,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const updated = markTaskDone(task);
+
+    // Should return same task (no change)
+    expect(updated).toBe(task);
+    expect(updated.finishedTomatoCount).toBe(5);
+  });
+
+  it("should handle task with zero tomatoes", () => {
+    const task = {
+      id: "task-1",
+      title: "Task",
+      tomatoCount: 0,
+      finishedTomatoCount: 0,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const updated = markTaskDone(task);
+
+    // Already "done" since finished (0) >= planned (0)
+    expect(updated).toBe(task);
+  });
+
+  it("should update updatedAt timestamp when marking done", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2024-06-15T14:00:00.000Z"));
+
+    const task = {
+      id: "task-1",
+      title: "Task",
+      tomatoCount: 3,
+      finishedTomatoCount: 1,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+    };
+
+    const updated = markTaskDone(task);
+
+    expect(updated.updatedAt).toBe("2024-06-15T14:00:00.000Z");
+
+    vi.useRealTimers();
   });
 });

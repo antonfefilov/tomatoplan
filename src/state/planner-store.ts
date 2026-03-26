@@ -8,6 +8,7 @@ import {
   markTomatoAsFinished,
   markTomatoAsUnfinished,
   updateTaskFinishedCount,
+  markTaskDone as markTaskDoneModel,
 } from "../models/task.js";
 import type { PlannerState } from "../models/planner-state.js";
 import {
@@ -576,6 +577,32 @@ class PlannerStore {
     }
 
     const updatedTask = updateTaskFinishedCount(task, count);
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Marks a task as done by setting finishedTomatoCount to at least tomatoCount.
+   * This is a one-way convenience action - if finished already >= planned, no change.
+   */
+  markTaskDone(taskId: string): { success: boolean; error?: string } {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    const updatedTask = markTaskDoneModel(task);
+
+    // If no change needed, still return success
+    if (updatedTask === task) {
+      return { success: true };
+    }
 
     this.setState({
       ...this.state,

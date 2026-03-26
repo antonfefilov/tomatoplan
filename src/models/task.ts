@@ -116,3 +116,20 @@ export function updateTask(
     updatedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Marks a task as done by setting finishedTomatoCount to at least tomatoCount.
+ * This is a one-way convenience action that ensures the task appears complete.
+ * If finishedTomatoCount already exceeds tomatoCount, it remains unchanged.
+ */
+export function markTaskDone(task: Task): Task {
+  // If already done (finished >= planned), no change needed
+  if (task.finishedTomatoCount >= task.tomatoCount) {
+    return task;
+  }
+  return {
+    ...task,
+    finishedTomatoCount: task.tomatoCount,
+    updatedAt: new Date().toISOString(),
+  };
+}

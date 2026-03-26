@@ -367,6 +367,49 @@ describe("PlannerStore", () => {
     });
   });
 
+  describe("markTaskDone", () => {
+    it("should mark task as done by setting finishedTomatoCount to tomatoCount", () => {
+      const { taskId } = store.addTask("Task");
+      store.setTomatoCount(taskId!, 5);
+      store.setFinishedTomatoCount(taskId!, 2);
+
+      const result = store.markTaskDone(taskId!);
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(5);
+      expect(store.getTaskById(taskId!)!.tomatoCount).toBe(5);
+    });
+
+    it("should not change task when already done", () => {
+      const { taskId } = store.addTask("Task");
+      store.setTomatoCount(taskId!, 3);
+      store.setFinishedTomatoCount(taskId!, 3);
+
+      const result = store.markTaskDone(taskId!);
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(3);
+    });
+
+    it("should not change task when finished exceeds planned", () => {
+      const { taskId } = store.addTask("Task");
+      store.setTomatoCount(taskId!, 3);
+      store.setFinishedTomatoCount(taskId!, 5);
+
+      const result = store.markTaskDone(taskId!);
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(5);
+    });
+
+    it("should fail for non-existent task", () => {
+      const result = store.markTaskDone("non-existent");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+  });
+
   describe("selectors", () => {
     beforeEach(() => {
       store.addTask("Task 1");

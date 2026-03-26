@@ -204,6 +204,10 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.markTomatoAsUnfinished(e.detail.taskId);
   }
 
+  private _handleMarkDone(e: CustomEvent<{ taskId: string }>) {
+    plannerStore.markTaskDone(e.detail.taskId);
+  }
+
   private _handleReorderTask(
     e: CustomEvent<{ taskId: string; toIndex: number }>,
   ) {
@@ -302,6 +306,7 @@ export class TomatoPlannerApp extends LitElement {
           @pause-timer=${this._handlePauseTimer}
           @resume-timer=${this._handleResumeTimer}
           @reset-timer=${this._handleResetTimer}
+          @mark-done=${this._handleMarkDone}
         ></task-list-panel>
       </app-shell>
 
