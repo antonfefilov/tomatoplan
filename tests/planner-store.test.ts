@@ -543,4 +543,174 @@ describe("PlannerStore", () => {
       expect(localStorage.getItem(STORAGE_KEYS.PLANNER_STATE)).toBeNull();
     });
   });
+
+  describe("reorderTask", () => {
+    beforeEach(() => {
+      store.addTask("Task 1");
+      store.addTask("Task 2");
+      store.addTask("Task 3");
+      store.addTask("Task 4");
+    });
+
+    it("should reorder a task to a new position", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, 2);
+
+      expect(result.success).toBe(true);
+      expect(store.tasks[0]!.title).toBe("Task 2");
+      expect(store.tasks[1]!.title).toBe("Task 3");
+      expect(store.tasks[2]!.title).toBe("Task 1");
+      expect(store.tasks[3]!.title).toBe("Task 4");
+    });
+
+    it("should reorder a task to the beginning", () => {
+      const taskId = store.tasks[3]!.id; // Task 4
+      const result = store.reorderTask(taskId, 0);
+
+      expect(result.success).toBe(true);
+      expect(store.tasks[0]!.title).toBe("Task 4");
+      expect(store.tasks[1]!.title).toBe("Task 1");
+      expect(store.tasks[2]!.title).toBe("Task 2");
+      expect(store.tasks[3]!.title).toBe("Task 3");
+    });
+
+    it("should reorder a task to the end", () => {
+      const taskId = store.tasks[0]!.id; // Task 1
+      const result = store.reorderTask(taskId, 3);
+
+      expect(result.success).toBe(true);
+      expect(store.tasks[0]!.title).toBe("Task 2");
+      expect(store.tasks[1]!.title).toBe("Task 3");
+      expect(store.tasks[2]!.title).toBe("Task 4");
+      expect(store.tasks[3]!.title).toBe("Task 1");
+    });
+
+    it("should not change order when moving to same position", () => {
+      const taskId = store.tasks[1]!.id;
+      const originalOrder = store.tasks.map((t) => t.title);
+      const result = store.reorderTask(taskId, 1);
+
+      expect(result.success).toBe(true);
+      expect(store.tasks.map((t) => t.title)).toEqual(originalOrder);
+    });
+
+    it("should fail for non-existent task", () => {
+      const result = store.reorderTask("non-existent", 0);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+
+    it("should fail for invalid target index (negative)", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, -1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Invalid target index");
+    });
+
+    it("should fail for invalid target index (out of bounds)", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, 10);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Invalid target index");
+    });
+
+    it("should fail for NaN as target index", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, NaN);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("must be an integer");
+    });
+
+    it("should fail for Infinity as target index", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, Infinity);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("must be an integer");
+    });
+
+    it("should fail for negative Infinity as target index", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, -Infinity);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("must be an integer");
+    });
+
+    it("should fail for float as target index", () => {
+      const taskId = store.tasks[0]!.id;
+      const result = store.reorderTask(taskId, 1.5);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("must be an integer");
+    });
+
+    it("should fail for non-integer string coerced to number-like", () => {
+      const taskId = store.tasks[0]!.id;
+      // @ts-expect-error - Testing runtime behavior with wrong type
+      const result = store.reorderTask(taskId, "2");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("must be an integer");
+    });
+
+    it("should not update task updatedAt timestamp", () => {
+      const taskId = store.tasks[0]!.id;
+      const originalUpdatedAt = store.getTaskById(taskId)!.updatedAt;
+
+      // Wait a bit to ensure timestamp would be different if updated
+      vi.advanceTimersByTime(1000);
+
+      store.reorderTask(taskId, 2);
+
+      expect(store.getTaskById(taskId)!.updatedAt).toBe(originalUpdatedAt);
+    });
+
+    it("should preserve all task properties when reordering", () => {
+      // Assign some tomatoes to tasks
+      store.setTomatoCount(store.tasks[0]!.id, 3);
+      store.setFinishedTomatoCount(store.tasks[0]!.id, 1);
+
+      const taskId = store.tasks[0]!.id;
+      const originalTask = store.getTaskById(taskId)!;
+
+      store.reorderTask(taskId, 2);
+
+      const movedTask = store.tasks.find((t) => t.id === taskId)!;
+      expect(movedTask.tomatoCount).toBe(originalTask.tomatoCount);
+      expect(movedTask.finishedTomatoCount).toBe(
+        originalTask.finishedTomatoCount,
+      );
+      expect(movedTask.title).toBe(originalTask.title);
+      expect(movedTask.description).toBe(originalTask.description);
+    });
+
+    it("should persist reordered state to localStorage", () => {
+      const taskId = store.tasks[0]!.id;
+      store.reorderTask(taskId, 2);
+
+      const stored = localStorage.getItem(STORAGE_KEYS.PLANNER_STATE);
+      expect(stored).toBeDefined();
+
+      const parsed = JSON.parse(stored!);
+      expect(parsed.tasks[0].title).toBe("Task 2");
+      expect(parsed.tasks[1].title).toBe("Task 3");
+      expect(parsed.tasks[2].title).toBe("Task 1");
+    });
+
+    it("should notify subscribers on reorder", () => {
+      const callback = vi.fn();
+      store.subscribe(callback);
+      callback.mockClear(); // Clear the initial call
+
+      const taskId = store.tasks[0]!.id;
+      store.reorderTask(taskId, 2);
+
+      expect(callback).toHaveBeenCalled();
+    });
+  });
 });

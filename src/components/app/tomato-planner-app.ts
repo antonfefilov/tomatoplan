@@ -181,6 +181,12 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.markTomatoAsUnfinished(e.detail.taskId);
   }
 
+  private _handleReorderTask(
+    e: CustomEvent<{ taskId: string; toIndex: number }>,
+  ) {
+    plannerStore.reorderTask(e.detail.taskId, e.detail.toIndex);
+  }
+
   // ============================================
   // Day Reset
   // ============================================
@@ -243,6 +249,7 @@ export class TomatoPlannerApp extends LitElement {
           @remove-tomato=${this._handleRemoveTomato}
           @mark-tomato-finished=${this._handleMarkTomatoFinished}
           @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
+          @reorder-task=${this._handleReorderTask}
         ></task-list-panel>
       </app-shell>
 

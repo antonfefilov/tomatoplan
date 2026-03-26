@@ -235,6 +235,19 @@ export class TaskListPanel extends LitElement {
     );
   }
 
+  private _handleReorderTask(
+    e: CustomEvent<{ taskId: string; toIndex: number }>,
+  ) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("reorder-task", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const taskCount = this.tasks.length;
 
@@ -294,6 +307,7 @@ export class TaskListPanel extends LitElement {
                 @delete-task=${this._handleDeleteTask}
                 @mark-tomato-finished=${this._handleMarkTomatoFinished}
                 @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
+                @reorder-task=${this._handleReorderTask}
               ></task-list>
             `}
       </div>

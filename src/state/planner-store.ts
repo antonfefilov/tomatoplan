@@ -349,6 +349,56 @@ class PlannerStore {
   }
 
   /**
+   * Reorders a task to a new position in the list
+   * Does not update updatedAt timestamp since reordering is not a content change
+   */
+  reorderTask(
+    taskId: string,
+    toIndex: number,
+  ): { success: boolean; error?: string } {
+    const fromIndex = this.state.tasks.findIndex((t) => t.id === taskId);
+
+    if (fromIndex === -1) {
+      return { success: false, error: "Task not found" };
+    }
+
+    // Validate toIndex is a finite integer
+    if (
+      typeof toIndex !== "number" ||
+      !Number.isFinite(toIndex) ||
+      !Number.isInteger(toIndex)
+    ) {
+      return {
+        success: false,
+        error: "Invalid target index: must be an integer",
+      };
+    }
+
+    // Validate toIndex is within bounds
+    if (toIndex < 0 || toIndex >= this.state.tasks.length) {
+      return { success: false, error: "Invalid target index: out of bounds" };
+    }
+
+    // No change needed if moving to same position
+    if (fromIndex === toIndex) {
+      return { success: true };
+    }
+
+    // Immutably reorder the tasks array
+    const tasks = [...this.state.tasks];
+    const [movedTask] = tasks.splice(fromIndex, 1);
+    tasks.splice(toIndex, 0, movedTask!);
+
+    // Update state without changing updatedAt on tasks
+    this.setState({
+      ...this.state,
+      tasks,
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Assigns one tomato to a task
    */
   assignTomato(taskId: string): { success: boolean; error?: string } {

@@ -295,6 +295,28 @@ describe("TaskListPanel", () => {
       const event = spy.mock.calls[0][0] as CustomEvent;
       expect(event.detail.taskId).toBe("task-1");
     });
+
+    it("should bubble reorder-task event from task-list", async () => {
+      element.tasks = [mockTask];
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("reorder-task", spy);
+
+      const taskList = element.shadowRoot!.querySelector("task-list")!;
+      taskList.dispatchEvent(
+        new CustomEvent("reorder-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1", toIndex: 0 },
+        }),
+      );
+
+      expect(spy).toHaveBeenCalled();
+      const event = spy.mock.calls[0][0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.detail.toIndex).toBe(0);
+    });
   });
 
   describe("disabled state", () => {

@@ -21,6 +21,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     unassignTomato: vi.fn(),
     markTomatoAsFinished: vi.fn(),
     markTomatoAsUnfinished: vi.fn(),
+    reorderTask: vi.fn(),
     resetDay: vi.fn(),
     getTaskById: vi.fn(),
     assignedTomatoes: 3,
@@ -58,6 +59,7 @@ const mockStore = plannerStore as unknown as {
   unassignTomato: ReturnType<typeof vi.fn>;
   markTomatoAsFinished: ReturnType<typeof vi.fn>;
   markTomatoAsUnfinished: ReturnType<typeof vi.fn>;
+  reorderTask: ReturnType<typeof vi.fn>;
   resetDay: ReturnType<typeof vi.fn>;
   getTaskById: ReturnType<typeof vi.fn>;
   assignedTomatoes: number;
@@ -506,6 +508,22 @@ describe("TomatoPlannerApp", () => {
       await element.updateComplete;
 
       expect(mockStore.markTomatoAsUnfinished).toHaveBeenCalledWith("task-1");
+    });
+
+    it("should call reorderTask when reorder-task event is dispatched", async () => {
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("reorder-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1", toIndex: 2 },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockStore.reorderTask).toHaveBeenCalledWith("task-1", 2);
     });
   });
 
