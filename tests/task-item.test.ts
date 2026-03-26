@@ -69,6 +69,7 @@ describe("TaskItem", () => {
     const progressFill = element.shadowRoot!.querySelector(
       ".progress-fill",
     ) as HTMLElement;
+    // Progress shows overlap (min of finished and planned): 1/3 = 33.33%
     expect(progressFill.style.width).toBe("33.33333333333333%"); // 1/3 * 100
   });
 
@@ -182,14 +183,24 @@ describe("TaskItem", () => {
     expect(removeBtn.disabled).toBe(true);
   });
 
-  it("should disable mark finished button when all tomatoes finished", async () => {
+  it("should allow marking more tomatoes finished than planned", async () => {
     element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 3 };
     await element.updateComplete;
 
     const addFinishedBtn = element.shadowRoot!.querySelector(
       ".btn-add.finished",
     ) as HTMLButtonElement;
-    expect(addFinishedBtn.disabled).toBe(true);
+    expect(addFinishedBtn.disabled).toBe(false);
+
+    // Verify clicking the button dispatches the mark-tomato-finished event
+    const spy = vi.fn();
+    element.addEventListener("mark-tomato-finished", spy);
+    addFinishedBtn.click();
+    await element.updateComplete;
+
+    expect(spy).toHaveBeenCalled();
+    const event = spy.mock.calls[0][0] as CustomEvent;
+    expect(event.detail.taskId).toBe("task-1");
   });
 
   it("should disable mark unfinished button when no finished tomatoes", async () => {
@@ -275,5 +286,54 @@ describe("TaskItem", () => {
     const controlsLabel = element.shadowRoot!.querySelector(".controls-label");
     expect(controlsLabel).toBeDefined();
     expect(controlsLabel!.textContent).toBe("done");
+  });
+
+  describe("overlap display", () => {
+    it("should show overlap correctly when finished < planned", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 3 };
+      await element.updateComplete;
+
+      const progressText = element.shadowRoot!.querySelector(".progress-text");
+      expect(progressText!.textContent).toBe("3/5");
+
+      const progressFill = element.shadowRoot!.querySelector(
+        ".progress-fill",
+      ) as HTMLElement;
+      expect(progressFill.style.width).toBe("60%"); // 3/5 * 100
+    });
+
+    it("should show overlap and extra when finished > planned", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 7 };
+      await element.updateComplete;
+
+      const progressText = element.shadowRoot!.querySelector(".progress-text");
+      expect(progressText!.textContent).toBe("5/5 (+2 extra)");
+
+      const progressFill = element.shadowRoot!.querySelector(
+        ".progress-fill",
+      ) as HTMLElement;
+      expect(progressFill.style.width).toBe("100%"); // capped at 100%
+    });
+
+    it("should cap progress bar at 100% when finished equals planned", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 5 };
+      await element.updateComplete;
+
+      const progressText = element.shadowRoot!.querySelector(".progress-text");
+      expect(progressText!.textContent).toBe("5/5");
+
+      const progressFill = element.shadowRoot!.querySelector(
+        ".progress-fill",
+      ) as HTMLElement;
+      expect(progressFill.style.width).toBe("100%");
+    });
+
+    it("should not show extra text when finished equals planned", async () => {
+      element.task = { ...mockTask, tomatoCount: 4, finishedTomatoCount: 4 };
+      await element.updateComplete;
+
+      const progressText = element.shadowRoot!.querySelector(".progress-text");
+      expect(progressText!.textContent).not.toContain("extra");
+    });
   });
 });

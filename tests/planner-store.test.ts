@@ -242,7 +242,7 @@ describe("PlannerStore", () => {
       expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(1);
     });
 
-    it("should not exceed total tomato count", () => {
+    it("should increment finished count beyond planned without changing tomatoCount", () => {
       const { taskId } = store.addTask("Task");
       store.setTomatoCount(taskId!, 2);
       store.markTomatoAsFinished(taskId!);
@@ -250,8 +250,10 @@ describe("PlannerStore", () => {
 
       const result = store.markTomatoAsFinished(taskId!);
 
-      expect(result.success).toBe(false);
-      expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(2);
+      // Finished count can exceed planned count
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(3);
+      expect(store.getTaskById(taskId!)!.tomatoCount).toBe(2); // planned unchanged
     });
 
     it("should mark tomato as unfinished", () => {
@@ -286,13 +288,16 @@ describe("PlannerStore", () => {
       expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(3);
     });
 
-    it("should fail if count exceeds total tomatoes", () => {
+    it("should allow finished count to exceed planned count", () => {
       const { taskId } = store.addTask("Task");
       store.setTomatoCount(taskId!, 3);
 
+      // Setting finished count beyond planned should succeed
       const result = store.setFinishedTomatoCount(taskId!, 5);
 
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.finishedTomatoCount).toBe(5);
+      expect(store.getTaskById(taskId!)!.tomatoCount).toBe(3); // planned unchanged
     });
   });
 

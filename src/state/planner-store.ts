@@ -380,22 +380,14 @@ class PlannerStore {
   }
 
   /**
-   * Marks one tomato as finished for the given task
+   * Marks one tomato as finished for the given task.
+   * Only increments finishedTomatoCount; the planned tomatoCount stays unchanged.
    */
   markTomatoAsFinished(taskId: string): { success: boolean; error?: string } {
     const task = this.state.tasks.find((t) => t.id === taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
-    }
-
-    // Check if task has tomatoes available to finish
-    if (task.finishedTomatoCount >= task.tomatoCount) {
-      return {
-        success: false,
-        error:
-          "No more tomatoes to finish. All assigned tomatoes are already finished.",
-      };
     }
 
     const updatedTask = markTomatoAsFinished(task);
@@ -437,7 +429,8 @@ class PlannerStore {
   }
 
   /**
-   * Sets the exact finished tomato count for a task
+   * Sets the exact finished tomato count for a task.
+   * The count can exceed the planned tomato count (actual/factual can be greater than planned).
    */
   setFinishedTomatoCount(
     taskId: string,
@@ -454,14 +447,6 @@ class PlannerStore {
       return {
         success: false,
         error: "Finished tomato count must be a non-negative integer.",
-      };
-    }
-
-    // Validate count is not greater than total tomato count
-    if (count > task.tomatoCount) {
-      return {
-        success: false,
-        error: `Cannot set finished count to ${count}. Maximum is ${task.tomatoCount} (total assigned tomatoes).`,
       };
     }
 

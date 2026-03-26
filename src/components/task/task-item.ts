@@ -340,6 +340,8 @@ export class TaskItem extends LitElement {
   override render() {
     const { task, remaining, disabled } = this;
     const finishedCount = task.finishedTomatoCount ?? 0;
+    const overlapCount = Math.min(finishedCount, task.tomatoCount);
+    const extraFinishedCount = Math.max(0, finishedCount - task.tomatoCount);
 
     return html`
       <div class="task-card">
@@ -442,7 +444,7 @@ export class TaskItem extends LitElement {
             <button
               class="btn-add finished"
               @click=${this._handleMarkFinished}
-              ?disabled=${disabled || finishedCount >= task.tomatoCount}
+              ?disabled=${disabled}
               aria-label="Mark tomato as finished"
               title="Mark tomato as finished"
             >
@@ -454,11 +456,15 @@ export class TaskItem extends LitElement {
                 <div class="progress-bar">
                   <div
                     class="progress-fill"
-                    style="width: ${(finishedCount / task.tomatoCount) * 100}%"
+                    style="width: ${task.tomatoCount > 0
+                      ? (overlapCount / task.tomatoCount) * 100
+                      : 0}%"
                   ></div>
                 </div>
                 <span class="progress-text"
-                  >${finishedCount}/${task.tomatoCount}</span
+                  >${overlapCount}/${task.tomatoCount}${extraFinishedCount > 0
+                    ? ` (+${extraFinishedCount} extra)`
+                    : ""}</span
                 >
               `
             : html`<span class="controls-label">done</span>`}

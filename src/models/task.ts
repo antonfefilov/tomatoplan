@@ -63,12 +63,10 @@ export function updateTaskTomatoCount(task: Task, count: number): Task {
 
 /**
  * Marks a tomato as finished by incrementing the finished count.
- * Will not increment beyond the total tomato count.
+ * Note: This only increments the finishedTomatoCount; the planned tomatoCount
+ * remains unchanged. Finished count can exceed planned count (actual vs planned).
  */
 export function markTomatoAsFinished(task: Task): Task {
-  if (task.finishedTomatoCount >= task.tomatoCount) {
-    return task;
-  }
   return {
     ...task,
     finishedTomatoCount: task.finishedTomatoCount + 1,
@@ -93,10 +91,11 @@ export function markTomatoAsUnfinished(task: Task): Task {
 
 /**
  * Sets the finished tomato count to a specific value.
- * The count is validated to be between 0 and the total tomato count.
+ * The count is validated to be non-negative. It can exceed the planned
+ * tomato count (factual/actual tomatoes can be greater than planned).
  */
 export function updateTaskFinishedCount(task: Task, count: number): Task {
-  const validatedCount = Math.max(0, Math.min(count, task.tomatoCount));
+  const validatedCount = Math.max(0, count);
   return {
     ...task,
     finishedTomatoCount: validatedCount,

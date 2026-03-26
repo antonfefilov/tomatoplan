@@ -103,7 +103,7 @@ describe("markTomatoAsFinished", () => {
     expect(updated.finishedTomatoCount).toBe(3);
   });
 
-  it("should not exceed total tomato count", () => {
+  it("should increment finished count beyond planned without changing tomatoCount", () => {
     const task = {
       id: "task-1",
       title: "Task",
@@ -115,23 +115,29 @@ describe("markTomatoAsFinished", () => {
 
     const updated = markTomatoAsFinished(task);
 
-    expect(updated.finishedTomatoCount).toBe(3);
+    // When all planned tomatoes are finished, finishing another should only
+    // increment finishedTomatoCount, NOT tomatoCount (planned stays unchanged)
+    expect(updated.finishedTomatoCount).toBe(4);
+    expect(updated.tomatoCount).toBe(3); // planned count unchanged
   });
 
-  it("should return same task if already at max", () => {
+  it("should allow finished count to exceed planned count", () => {
     const task = {
       id: "task-1",
       title: "Task",
-      tomatoCount: 3,
-      finishedTomatoCount: 3,
+      tomatoCount: 2,
+      finishedTomatoCount: 2,
       createdAt: "2024-01-01T00:00:00.000Z",
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
 
-    const updated = markTomatoAsFinished(task);
+    // Mark multiple tomatoes finished beyond planned
+    let updated = markTomatoAsFinished(task);
+    updated = markTomatoAsFinished(updated);
+    updated = markTomatoAsFinished(updated);
 
-    // updatedAt should still be updated even if finishedTomatoCount didn't change
-    expect(updated.finishedTomatoCount).toBe(3);
+    expect(updated.finishedTomatoCount).toBe(5);
+    expect(updated.tomatoCount).toBe(2); // planned count unchanged
   });
 });
 
@@ -183,7 +189,7 @@ describe("updateTaskFinishedCount", () => {
     expect(updated.finishedTomatoCount).toBe(4);
   });
 
-  it("should cap at total tomato count", () => {
+  it("should allow finished count to exceed planned tomato count", () => {
     const task = {
       id: "task-1",
       title: "Task",
@@ -193,9 +199,11 @@ describe("updateTaskFinishedCount", () => {
       updatedAt: "2024-01-01T00:00:00.000Z",
     };
 
+    // Setting finished count beyond planned should be allowed
     const updated = updateTaskFinishedCount(task, 10);
 
-    expect(updated.finishedTomatoCount).toBe(3);
+    expect(updated.finishedTomatoCount).toBe(10);
+    expect(updated.tomatoCount).toBe(3); // planned count unchanged
   });
 
   it("should not go below zero", () => {
