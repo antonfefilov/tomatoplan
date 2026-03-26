@@ -84,7 +84,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 
@@ -99,7 +99,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 
@@ -114,7 +114,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 
@@ -129,7 +129,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 
@@ -144,7 +144,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 
@@ -159,7 +159,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 
@@ -199,7 +199,7 @@ describe("TaskItem", () => {
     await element.updateComplete;
 
     expect(spy).toHaveBeenCalled();
-    const event = spy.mock.calls[0][0] as CustomEvent;
+    const event = spy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.taskId).toBe("task-1");
   });
 

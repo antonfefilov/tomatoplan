@@ -76,7 +76,7 @@ describe("TaskForm", () => {
     await element.updateComplete;
 
     expect(submitSpy).toHaveBeenCalled();
-    const event = submitSpy.mock.calls[0][0] as CustomEvent;
+    const event = submitSpy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.title).toBe("My Task");
     expect(event.detail.description).toBe("Task description");
   });
@@ -187,7 +187,7 @@ describe("TaskForm", () => {
     );
     await element.updateComplete;
 
-    const event = submitSpy.mock.calls[0][0] as CustomEvent;
+    const event = submitSpy.mock.calls[0]![0] as CustomEvent;
     expect(event.detail.title).toBe("Trimmed Task");
   });
 

@@ -6,8 +6,6 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import {
-  MIN_DAILY_CAPACITY,
-  MAX_DAILY_CAPACITY,
   MIN_CAPACITY_IN_MINUTES,
   MAX_CAPACITY_IN_MINUTES,
   DEFAULT_DAILY_CAPACITY,
@@ -393,30 +391,6 @@ export class TomatoPoolPanel extends LitElement {
         composed: true,
       }),
     );
-  }
-
-  private _handleDecreaseCapacity() {
-    if (this.capacity > MIN_DAILY_CAPACITY) {
-      this.dispatchEvent(
-        new CustomEvent("capacity-change", {
-          bubbles: true,
-          composed: true,
-          detail: { capacity: this.capacity - 1 },
-        }),
-      );
-    }
-  }
-
-  private _handleIncreaseCapacity() {
-    if (this.capacity < MAX_DAILY_CAPACITY) {
-      this.dispatchEvent(
-        new CustomEvent("capacity-change", {
-          bubbles: true,
-          composed: true,
-          detail: { capacity: this.capacity + 1 },
-        }),
-      );
-    }
   }
 
   private _handleDecreaseDuration() {

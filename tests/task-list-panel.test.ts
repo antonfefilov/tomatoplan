@@ -72,7 +72,7 @@ describe("TaskListPanel", () => {
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.bubbles).toBe(true);
       expect(event.composed).toBe(true);
     });
@@ -229,7 +229,7 @@ describe("TaskListPanel", () => {
       );
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.detail.taskId).toBe("task-1");
     });
 
@@ -250,7 +250,7 @@ describe("TaskListPanel", () => {
       );
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.detail.taskId).toBe("task-1");
     });
 
@@ -271,7 +271,7 @@ describe("TaskListPanel", () => {
       );
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.detail.taskId).toBe("task-1");
     });
 
@@ -292,7 +292,7 @@ describe("TaskListPanel", () => {
       );
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.detail.taskId).toBe("task-1");
     });
 
@@ -313,7 +313,7 @@ describe("TaskListPanel", () => {
       );
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.detail.taskId).toBe("task-1");
       expect(event.detail.toIndex).toBe(0);
     });

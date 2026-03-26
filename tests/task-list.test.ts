@@ -338,7 +338,7 @@ describe("TaskList - Drag and Drop", () => {
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       // task-3 (index 2) moved above task-1 (index 0) -> toIndex should be 0
       expect(event.detail.toIndex).toBe(0);
     });
@@ -407,7 +407,7 @@ describe("TaskList - Drag and Drop", () => {
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       // task-1 (index 0) moved below task-3 (index 2)
       // drop position below task-3 means toIndex = 2 + 1 = 3, then -1 for removal = 2
       expect(event.detail.toIndex).toBe(2);
@@ -477,7 +477,7 @@ describe("TaskList - Drag and Drop", () => {
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       // task-1 (index 0) moved above task-2 (index 1)
       // toIndex = 1 (above task-2), no adjustment since moving from index 0 < toIndex 1
       // Wait: if we're moving down, fromIndex=0 < targetIndex=1, so no adjustment
@@ -667,7 +667,7 @@ describe("TaskList - Drag and Drop", () => {
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalled();
-      const event = spy.mock.calls[0][0] as CustomEvent;
+      const event = spy.mock.calls[0]![0] as CustomEvent;
       expect(event.bubbles).toBe(true);
       expect(event.composed).toBe(true);
     });

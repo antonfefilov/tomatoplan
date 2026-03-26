@@ -454,7 +454,7 @@ describe("PlannerStore", () => {
 
       expect(callback).toHaveBeenCalled();
       const lastCall = callback.mock.calls[callback.mock.calls.length - 1];
-      expect(lastCall[0].pool.dailyCapacity).toBe(15);
+      expect(lastCall![0].pool.dailyCapacity).toBe(15);
     });
 
     it("should return unsubscribe function", () => {
