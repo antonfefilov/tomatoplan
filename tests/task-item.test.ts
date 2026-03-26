@@ -336,4 +336,198 @@ describe("TaskItem", () => {
       expect(progressText!.textContent).not.toContain("extra");
     });
   });
+
+  describe("timer controls", () => {
+    it("should show start timer button when timer is idle", async () => {
+      element.timerStatus = "idle";
+      element.timerActiveTaskId = null;
+      await element.updateComplete;
+
+      const timerSection = element.shadowRoot!.querySelector(".timer-section");
+      expect(timerSection).toBeDefined();
+
+      const startBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.start",
+      ) as HTMLButtonElement;
+      expect(startBtn).toBeDefined();
+      expect(startBtn.disabled).toBe(false);
+    });
+
+    it("should show timer display when this task is active", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 1500; // 25 minutes
+      await element.updateComplete;
+
+      const timerDisplay = element.shadowRoot!.querySelector(".timer-display");
+      expect(timerDisplay).toBeDefined();
+      expect(timerDisplay!.textContent!.trim()).toBe("25:00");
+    });
+
+    it("should show pause button when timer is running for this task", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const pauseBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.pause",
+      ) as HTMLButtonElement;
+      expect(pauseBtn).toBeDefined();
+    });
+
+    it("should show resume button when timer is paused for this task", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "paused";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const resumeBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.start",
+      ) as HTMLButtonElement;
+      expect(resumeBtn).toBeDefined();
+    });
+
+    it("should show reset button when timer is active for this task", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const resetBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.reset",
+      ) as HTMLButtonElement;
+      expect(resetBtn).toBeDefined();
+    });
+
+    it("should show message when another task has active timer", async () => {
+      element.timerActiveTaskId = "task-2";
+      element.timerStatus = "running";
+      await element.updateComplete;
+
+      const message = element.shadowRoot!.querySelector(
+        ".timer-active-elsewhere",
+      );
+      expect(message).toBeDefined();
+      expect(message!.textContent).toContain("Timer running for another task");
+    });
+
+    it("should dispatch start-timer event", async () => {
+      const spy = vi.fn();
+      element.addEventListener("start-timer", spy);
+
+      const startBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.start",
+      ) as HTMLButtonElement;
+      startBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+    });
+
+    it("should dispatch pause-timer event", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("pause-timer", spy);
+
+      const pauseBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.pause",
+      ) as HTMLButtonElement;
+      pauseBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it("should dispatch resume-timer event", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "paused";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("resume-timer", spy);
+
+      const resumeBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.start",
+      ) as HTMLButtonElement;
+      resumeBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it("should dispatch reset-timer event", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("reset-timer", spy);
+
+      const resetBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.reset",
+      ) as HTMLButtonElement;
+      resetBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it("should display correct timer format", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 90; // 1:30
+      await element.updateComplete;
+
+      const timerDisplay = element.shadowRoot!.querySelector(".timer-display");
+      expect(timerDisplay!.textContent!.trim()).toBe("01:30");
+    });
+
+    it("should show running class when timer is running", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "running";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const timerDisplay = element.shadowRoot!.querySelector(".timer-display");
+      expect(timerDisplay!.classList.contains("running")).toBe(true);
+    });
+
+    it("should show paused class when timer is paused", async () => {
+      element.timerActiveTaskId = "task-1";
+      element.timerStatus = "paused";
+      element.timerRemainingSeconds = 1500;
+      await element.updateComplete;
+
+      const timerDisplay = element.shadowRoot!.querySelector(".timer-display");
+      expect(timerDisplay!.classList.contains("paused")).toBe(true);
+    });
+
+    it("should disable timer start button when component is disabled", async () => {
+      element.disabled = true;
+      await element.updateComplete;
+
+      const startBtn = element.shadowRoot!.querySelector(
+        ".timer-btn.start",
+      ) as HTMLButtonElement;
+      expect(startBtn.disabled).toBe(true);
+    });
+
+    it("should show capacityInMinutes in timer label", async () => {
+      element.capacityInMinutes = 30;
+      await element.updateComplete;
+
+      const timerInactive =
+        element.shadowRoot!.querySelector(".timer-inactive");
+      expect(timerInactive!.textContent).toContain("30min timer");
+    });
+  });
 });

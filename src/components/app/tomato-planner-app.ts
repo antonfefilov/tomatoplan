@@ -6,7 +6,9 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { plannerStore } from "../../state/planner-store.js";
+import { timerStore } from "../../state/timer-store.js";
 import type { Task } from "../../models/task.js";
+import type { TimerStatus } from "../../models/timer-state.js";
 import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
 import "../layout/app-shell.js";
 import "../layout/app-header.js";
@@ -63,7 +65,17 @@ export class TomatoPlannerApp extends LitElement {
   @state()
   private _panelCollapsed = false;
 
+  @state()
+  private _timerActiveTaskId: string | null = null;
+
+  @state()
+  private _timerStatus: TimerStatus = "idle";
+
+  @state()
+  private _timerRemainingSeconds = 0;
+
   private _unsubscribe: (() => void) | null = null;
+  private _timerUnsubscribe: (() => void) | null = null;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -77,12 +89,21 @@ export class TomatoPlannerApp extends LitElement {
       this._dayStart = state.pool.dayStart;
       this._dayEnd = state.pool.dayEnd;
     });
+
+    this._timerUnsubscribe = timerStore.subscribe((state) => {
+      this._timerActiveTaskId = state.activeTaskId;
+      this._timerStatus = state.status;
+      this._timerRemainingSeconds = state.remainingSeconds;
+    });
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
     if (this._unsubscribe) {
       this._unsubscribe();
+    }
+    if (this._timerUnsubscribe) {
+      this._timerUnsubscribe();
     }
   }
 
@@ -151,6 +172,8 @@ export class TomatoPlannerApp extends LitElement {
 
   private _handleConfirmDelete() {
     if (this._deletingTaskId) {
+      // Clear timer if it's running for this task
+      timerStore.clearTimerForTask(this._deletingTaskId);
       plannerStore.removeTask(this._deletingTaskId);
     }
     this._closeDeleteDialog();
@@ -192,7 +215,29 @@ export class TomatoPlannerApp extends LitElement {
   // ============================================
 
   private _handleResetDay() {
+    // Clear timer on day reset
+    timerStore.resetTimer();
     plannerStore.resetDay();
+  }
+
+  // ============================================
+  // Timer Actions
+  // ============================================
+
+  private _handleStartTimer(e: CustomEvent<{ taskId: string }>) {
+    timerStore.startTimer(e.detail.taskId);
+  }
+
+  private _handlePauseTimer() {
+    timerStore.pauseTimer();
+  }
+
+  private _handleResumeTimer() {
+    timerStore.resumeTimer();
+  }
+
+  private _handleResetTimer() {
+    timerStore.resetTimer();
   }
 
   // ============================================
@@ -242,6 +287,9 @@ export class TomatoPlannerApp extends LitElement {
           .assigned=${this._assigned}
           .capacityInMinutes=${this._capacityInMinutes}
           .disabled=${false}
+          .timerActiveTaskId=${this._timerActiveTaskId}
+          .timerStatus=${this._timerStatus}
+          .timerRemainingSeconds=${this._timerRemainingSeconds}
           @open-task-dialog=${this._handleOpenTaskDialog}
           @edit-task=${this._handleEditTask}
           @delete-task=${this._handleDeleteTask}
@@ -250,6 +298,10 @@ export class TomatoPlannerApp extends LitElement {
           @mark-tomato-finished=${this._handleMarkTomatoFinished}
           @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
           @reorder-task=${this._handleReorderTask}
+          @start-timer=${this._handleStartTimer}
+          @pause-timer=${this._handlePauseTimer}
+          @resume-timer=${this._handleResumeTimer}
+          @reset-timer=${this._handleResetTimer}
         ></task-list-panel>
       </app-shell>
 

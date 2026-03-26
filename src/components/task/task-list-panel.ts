@@ -6,6 +6,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import type { TimerStatus } from "../../models/timer-state.js";
 import "./task-list.js";
 import "./task-editor-dialog.js";
 import "../shared/confirm-dialog.js";
@@ -162,6 +163,15 @@ export class TaskListPanel extends LitElement {
   @property({ type: Boolean })
   showDeleteDialog = false;
 
+  @property({ type: String })
+  timerActiveTaskId: string | null = null;
+
+  @property({ type: String })
+  timerStatus: TimerStatus = "idle";
+
+  @property({ type: Number })
+  timerRemainingSeconds = 0;
+
   /**
    * Formats minutes into a human-readable hours/minutes string
    * e.g., 200 minutes -> "3h 20m"
@@ -248,6 +258,47 @@ export class TaskListPanel extends LitElement {
     );
   }
 
+  private _handleStartTimer(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("start-timer", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
+  private _handlePauseTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("pause-timer", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private _handleResumeTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("resume-timer", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private _handleResetTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("reset-timer", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   override render() {
     const taskCount = this.tasks.length;
 
@@ -303,11 +354,18 @@ export class TaskListPanel extends LitElement {
                 .remaining=${this.remaining}
                 .disabled=${this.disabled}
                 .capacityInMinutes=${this.capacityInMinutes}
+                .timerActiveTaskId=${this.timerActiveTaskId}
+                .timerStatus=${this.timerStatus}
+                .timerRemainingSeconds=${this.timerRemainingSeconds}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
                 @mark-tomato-finished=${this._handleMarkTomatoFinished}
                 @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
                 @reorder-task=${this._handleReorderTask}
+                @start-timer=${this._handleStartTimer}
+                @pause-timer=${this._handlePauseTimer}
+                @resume-timer=${this._handleResumeTimer}
+                @reset-timer=${this._handleResetTimer}
               ></task-list>
             `}
       </div>

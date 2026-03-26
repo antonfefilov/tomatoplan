@@ -13,3 +13,6 @@ export {
   importState,
   hasPersistedState,
 } from "./persistence.js";
+
+export { timerStore, TimerStore } from "./timer-store.js";
+export type { TimerSubscriber, TimerUnsubscribe } from "./timer-store.js";

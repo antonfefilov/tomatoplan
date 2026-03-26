@@ -1,11 +1,13 @@
 /**
  * TaskItem - Individual task with title, description preview, tomato count, and controls
- * A single task card component
+ * A single task card component with optional timer controls
  */
 
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import type { TimerStatus } from "../../models/timer-state.js";
+import { formatTimerDisplay } from "../../models/timer-state.js";
 import { formatTimeEstimate } from "../../utils/time.js";
 import "../tomato/tomato-icon.js";
 import "../shared/dropdown-menu.js";
@@ -254,6 +256,105 @@ export class TaskItem extends LitElement {
       min-width: 40px;
       text-align: right;
     }
+
+    .timer-section {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .timer-display {
+      font-family: "SF Mono", "Monaco", "Inconsolata", "Fira Mono", monospace;
+      font-size: 24px;
+      font-weight: 600;
+      color: #ef4444;
+      min-width: 65px;
+    }
+
+    .timer-display.running {
+      color: #16a34a;
+    }
+
+    .timer-display.paused {
+      color: #f59e0b;
+    }
+
+    .timer-controls {
+      display: flex;
+      gap: 4px;
+    }
+
+    .timer-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: none;
+      background: #f3f4f6;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 14px;
+    }
+
+    .timer-btn:hover:not(:disabled) {
+      background: #e5e7eb;
+    }
+
+    .timer-btn:focus-visible {
+      outline: 2px solid #ef4444;
+      outline-offset: 2px;
+    }
+
+    .timer-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .timer-btn.start {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .timer-btn.start:hover:not(:disabled) {
+      background: #bbf7d0;
+    }
+
+    .timer-btn.pause {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .timer-btn.pause:hover:not(:disabled) {
+      background: #fde68a;
+    }
+
+    .timer-btn.reset {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .timer-btn.reset:hover:not(:disabled) {
+      background: #fecaca;
+    }
+
+    .timer-inactive {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+
+    .timer-active-elsewhere {
+      font-size: 11px;
+      color: #9ca3af;
+      font-style: italic;
+    }
   `;
 
   @property({ type: Object })
@@ -267,6 +368,15 @@ export class TaskItem extends LitElement {
 
   @property({ type: Number })
   capacityInMinutes = 25;
+
+  @property({ type: String })
+  timerActiveTaskId: string | null = null;
+
+  @property({ type: String })
+  timerStatus: TimerStatus = "idle";
+
+  @property({ type: Number })
+  timerRemainingSeconds = 0;
 
   private _handleEdit() {
     this.dispatchEvent(
@@ -332,16 +442,76 @@ export class TaskItem extends LitElement {
     );
   }
 
+  private _handleStartTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("start-timer", {
+        bubbles: true,
+        composed: true,
+        detail: { taskId: this.task.id },
+      }),
+    );
+  }
+
+  private _handlePauseTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("pause-timer", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private _handleResumeTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("resume-timer", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private _handleResetTimer(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("reset-timer", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   private _truncateDescription(text: string, maxLength: number = 100): string {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + "...";
   }
 
   override render() {
-    const { task, remaining, disabled } = this;
+    const {
+      task,
+      remaining,
+      disabled,
+      timerActiveTaskId,
+      timerStatus,
+      timerRemainingSeconds,
+    } = this;
     const finishedCount = task.finishedTomatoCount ?? 0;
     const overlapCount = Math.min(finishedCount, task.tomatoCount);
     const extraFinishedCount = Math.max(0, finishedCount - task.tomatoCount);
+
+    // Determine timer state for this task
+    const isThisTaskActive = timerActiveTaskId === task.id;
+    const hasActiveTimerElsewhere =
+      timerActiveTaskId !== null && timerActiveTaskId !== task.id;
+    const canStartTimer =
+      !disabled && !hasActiveTimerElsewhere && timerStatus === "idle";
+
+    // Timer display class based on status
+    const timerDisplayClass = isThisTaskActive
+      ? `timer-display ${timerStatus}`
+      : "timer-display";
 
     return html`
       <div class="task-card">
@@ -468,6 +638,65 @@ export class TaskItem extends LitElement {
                 >
               `
             : html`<span class="controls-label">done</span>`}
+        </div>
+
+        <!-- Timer Section -->
+        <div class="timer-section">
+          ${isThisTaskActive
+            ? html`
+                <span class=${timerDisplayClass}>
+                  ${formatTimerDisplay(timerRemainingSeconds)}
+                </span>
+                <div class="timer-controls">
+                  ${timerStatus === "running"
+                    ? html`
+                        <button
+                          class="timer-btn pause"
+                          @click=${this._handlePauseTimer}
+                          aria-label="Pause timer"
+                          title="Pause timer"
+                        >
+                          ⏸
+                        </button>
+                      `
+                    : html`
+                        <button
+                          class="timer-btn start"
+                          @click=${this._handleResumeTimer}
+                          aria-label="Resume timer"
+                          title="Resume timer"
+                        >
+                          ▶
+                        </button>
+                      `}
+                  <button
+                    class="timer-btn reset"
+                    @click=${this._handleResetTimer}
+                    aria-label="Reset timer"
+                    title="Reset timer"
+                  >
+                    ✕
+                  </button>
+                </div>
+              `
+            : hasActiveTimerElsewhere
+              ? html`<span class="timer-active-elsewhere"
+                  >Timer running for another task</span
+                >`
+              : html`
+                  <button
+                    class="timer-btn start"
+                    @click=${this._handleStartTimer}
+                    ?disabled=${!canStartTimer}
+                    aria-label="Start timer"
+                    title="Start timer"
+                  >
+                    ▶
+                  </button>
+                  <span class="timer-inactive">
+                    Start ${this.capacityInMinutes}min timer
+                  </span>
+                `}
         </div>
       </div>
     `;

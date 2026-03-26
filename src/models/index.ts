@@ -31,3 +31,16 @@ export {
   isValidPersistedState,
   migratePersistedState,
 } from "./storage.js";
+
+export type { TimerState, TimerStatus } from "./timer-state.js";
+export {
+  createInitialTimerState,
+  startTimer,
+  pauseTimer,
+  resumeTimer,
+  resetTimer,
+  tickTimer,
+  isTimerComplete,
+  formatTimerDisplay,
+  getElapsedSeconds,
+} from "./timer-state.js";
