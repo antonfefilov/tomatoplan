@@ -23,18 +23,36 @@ describe("createPersistedState", () => {
       },
     ];
 
-    const state = createPersistedState(10, 25, tasks, "2024-06-15");
+    const state = createPersistedState(
+      10,
+      25,
+      tasks,
+      "2024-06-15",
+      "08:00",
+      "18:25",
+    );
 
     expect(state.dailyCapacity).toBe(10);
     expect(state.capacityInMinutes).toBe(25);
+    expect(state.dayStart).toBe("08:00");
+    expect(state.dayEnd).toBe("18:25");
     expect(state.tasks).toEqual(tasks);
     expect(state.savedDate).toBe("2024-06-15");
     expect(state.version).toBe(STATE_VERSION);
   });
 
   it("should handle empty tasks array", () => {
-    const state = createPersistedState(10, 25, [], "2024-06-15");
+    const state = createPersistedState(
+      10,
+      25,
+      [],
+      "2024-06-15",
+      "09:00",
+      "17:00",
+    );
     expect(state.tasks).toEqual([]);
+    expect(state.dayStart).toBe("09:00");
+    expect(state.dayEnd).toBe("17:00");
   });
 });
 
@@ -43,9 +61,11 @@ describe("isValidPersistedState", () => {
     const data = {
       dailyCapacity: 10,
       capacityInMinutes: 25,
+      dayStart: "08:00",
+      dayEnd: "18:25",
       tasks: [],
       savedDate: "2024-06-15",
-      version: 1,
+      version: 2,
     };
 
     expect(isValidPersistedState(data)).toBe(true);
@@ -54,6 +74,18 @@ describe("isValidPersistedState", () => {
   it("should return true without capacityInMinutes (backward compatibility)", () => {
     const data = {
       dailyCapacity: 10,
+      tasks: [],
+      savedDate: "2024-06-15",
+      version: 1,
+    };
+
+    expect(isValidPersistedState(data)).toBe(true);
+  });
+
+  it("should return true without dayStart/dayEnd (backward compatibility)", () => {
+    const data = {
+      dailyCapacity: 10,
+      capacityInMinutes: 25,
       tasks: [],
       savedDate: "2024-06-15",
       version: 1,
@@ -174,5 +206,37 @@ describe("migratePersistedState", () => {
     expect(migrated.capacityInMinutes).toBe(30);
     expect(migrated.tasks).toHaveLength(1);
     expect(migrated.savedDate).toBe("2024-06-15");
+  });
+
+  it("should add default dayStart and dayEnd for version 1", () => {
+    const state = {
+      dailyCapacity: 10,
+      capacityInMinutes: 25,
+      tasks: [],
+      savedDate: "2024-06-15",
+      version: 1,
+    };
+
+    const migrated = migratePersistedState(state);
+
+    expect(migrated.dayStart).toBe("08:00");
+    expect(migrated.dayEnd).toBe("18:25");
+  });
+
+  it("should preserve existing dayStart and dayEnd if present", () => {
+    const state = {
+      dailyCapacity: 10,
+      capacityInMinutes: 25,
+      dayStart: "09:00",
+      dayEnd: "17:00",
+      tasks: [],
+      savedDate: "2024-06-15",
+      version: 1,
+    };
+
+    const migrated = migratePersistedState(state);
+
+    expect(migrated.dayStart).toBe("09:00");
+    expect(migrated.dayEnd).toBe("17:00");
   });
 });

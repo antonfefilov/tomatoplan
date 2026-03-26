@@ -297,6 +297,69 @@ export class TomatoPoolPanel extends LitElement {
       font-weight: 600;
       color: #374151;
     }
+
+    .schedule-controls {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .schedule-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .schedule-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      min-width: 80px;
+    }
+
+    .time-input {
+      flex: 1;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      background: white;
+      color: #374151;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .time-input:hover {
+      border-color: #d1d5db;
+    }
+
+    .time-input:focus {
+      outline: none;
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+
+    .calculated-capacity {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #fef2f2;
+      border-radius: 6px;
+      border: 1px solid #fecaca;
+    }
+
+    .calculated-label {
+      font-size: 12px;
+      color: #991b1b;
+    }
+
+    .calculated-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #dc2626;
+    }
   `;
 
   @property({ type: Number })
@@ -313,6 +376,12 @@ export class TomatoPoolPanel extends LitElement {
 
   @property({ type: Number })
   capacityInMinutes = 25;
+
+  @property({ type: String })
+  dayStart = "08:00";
+
+  @property({ type: String })
+  dayEnd = "18:25";
 
   @property({ type: Boolean, reflect: true })
   collapsed = false;
@@ -372,6 +441,28 @@ export class TomatoPoolPanel extends LitElement {
         }),
       );
     }
+  }
+
+  private _handleDayStartChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.dispatchEvent(
+      new CustomEvent("day-start-change", {
+        bubbles: true,
+        composed: true,
+        detail: { time: target.value },
+      }),
+    );
+  }
+
+  private _handleDayEndChange(e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.dispatchEvent(
+      new CustomEvent("day-end-change", {
+        bubbles: true,
+        composed: true,
+        detail: { time: target.value },
+      }),
+    );
   }
 
   private _getProgressPercent(): number {
@@ -483,64 +574,74 @@ export class TomatoPoolPanel extends LitElement {
         </div>
 
         <div class="section">
-          <div class="capacity-controls-row">
-            <div class="capacity-control-group">
-              <span class="capacity-control-label">Daily Capacity</span>
-              <div class="capacity-control">
-                <button
-                  class="capacity-btn"
-                  @click=${this._handleDecreaseCapacity}
-                  ?disabled=${this.capacity <= MIN_DAILY_CAPACITY}
-                  aria-label="Decrease capacity"
-                >
-                  −
-                </button>
-                <span class="capacity-value">${this.capacity}</span>
-                <button
-                  class="capacity-btn"
-                  @click=${this._handleIncreaseCapacity}
-                  ?disabled=${this.capacity >= MAX_DAILY_CAPACITY}
-                  aria-label="Increase capacity"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <div class="capacity-control-group">
-              <span class="capacity-control-label">Tomato Duration</span>
-              <div class="capacity-control">
-                <button
-                  class="capacity-btn"
-                  @click=${this._handleDecreaseDuration}
-                  ?disabled=${this.capacityInMinutes <= MIN_CAPACITY_IN_MINUTES}
-                  aria-label="Decrease duration"
-                >
-                  −
-                </button>
-                <span class="capacity-value"
-                  >${this.capacityInMinutes}<span class="duration-unit"
-                    >min</span
-                  ></span
-                >
-                <button
-                  class="capacity-btn"
-                  @click=${this._handleIncreaseDuration}
-                  ?disabled=${this.capacityInMinutes >= MAX_CAPACITY_IN_MINUTES}
-                  aria-label="Increase duration"
-                >
-                  +
-                </button>
-              </div>
-            </div>
+          <div class="section-header">
+            <span class="section-title">Schedule</span>
+          </div>
+          <div class="schedule-row">
+            <span class="schedule-label">Day Start</span>
+            <input
+              type="time"
+              class="time-input"
+              .value=${this.dayStart}
+              @change=${this._handleDayStartChange}
+              aria-label="Day start time"
+            />
+          </div>
+          <div class="schedule-row" style="margin-top: 8px;">
+            <span class="schedule-label">Day End</span>
+            <input
+              type="time"
+              class="time-input"
+              .value=${this.dayEnd}
+              @change=${this._handleDayEndChange}
+              aria-label="Day end time"
+            />
+          </div>
+          <div class="calculated-capacity">
+            <span class="calculated-label">Daily Capacity (calculated)</span>
+            <span class="calculated-value">${this.capacity} 🍅</span>
           </div>
 
-          <div class="capacity-time-info">
-            <span class="time-label">Total time:</span>
-            <span class="time-value"
-              >${this._formatMinutesToHoursMinutes(
-                this.capacity * this.capacityInMinutes,
-              )}</span
-            >
+          <div class="schedule-controls">
+            <div class="capacity-controls-row">
+              <div class="capacity-control-group">
+                <span class="capacity-control-label">Tomato Duration</span>
+                <div class="capacity-control">
+                  <button
+                    class="capacity-btn"
+                    @click=${this._handleDecreaseDuration}
+                    ?disabled=${this.capacityInMinutes <=
+                    MIN_CAPACITY_IN_MINUTES}
+                    aria-label="Decrease duration"
+                  >
+                    −
+                  </button>
+                  <span class="capacity-value"
+                    >${this.capacityInMinutes}<span class="duration-unit"
+                      >min</span
+                    ></span
+                  >
+                  <button
+                    class="capacity-btn"
+                    @click=${this._handleIncreaseDuration}
+                    ?disabled=${this.capacityInMinutes >=
+                    MAX_CAPACITY_IN_MINUTES}
+                    aria-label="Increase duration"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="capacity-time-info">
+              <span class="time-label">Total time:</span>
+              <span class="time-value"
+                >${this._formatMinutesToHoursMinutes(
+                  this.capacity * this.capacityInMinutes,
+                )}</span
+              >
+            </div>
           </div>
         </div>
 

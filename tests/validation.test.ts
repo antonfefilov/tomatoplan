@@ -12,6 +12,8 @@ import {
   canSetTomatoCount,
   validateTaskTitle,
   combineValidations,
+  validateTimeString,
+  validateTimeRange,
 } from "../src/utils/validation.js";
 import type { PlannerState } from "../src/models/planner-state.js";
 import { createInitialPlannerState } from "../src/models/planner-state.js";
@@ -274,5 +276,57 @@ describe("combineValidations", () => {
   it("should return valid for empty input", () => {
     const result = combineValidations();
     expect(result.valid).toBe(true);
+  });
+});
+
+describe("validateTimeString", () => {
+  it("should return valid for correct HH:MM format", () => {
+    expect(validateTimeString("08:00").valid).toBe(true);
+    expect(validateTimeString("12:30").valid).toBe(true);
+    expect(validateTimeString("00:00").valid).toBe(true);
+    expect(validateTimeString("23:59").valid).toBe(true);
+  });
+
+  it("should return valid for single digit hour", () => {
+    expect(validateTimeString("8:00").valid).toBe(true);
+    expect(validateTimeString("9:30").valid).toBe(true);
+  });
+
+  it("should return invalid for wrong format", () => {
+    expect(validateTimeString("").valid).toBe(false);
+    expect(validateTimeString("800").valid).toBe(false);
+    expect(validateTimeString("8:0").valid).toBe(false);
+    expect(validateTimeString("abc").valid).toBe(false);
+  });
+
+  it("should return invalid for out of range hours", () => {
+    expect(validateTimeString("24:00").valid).toBe(false);
+    expect(validateTimeString("25:00").valid).toBe(false);
+  });
+
+  it("should return invalid for out of range minutes", () => {
+    expect(validateTimeString("12:60").valid).toBe(false);
+    expect(validateTimeString("12:99").valid).toBe(false);
+  });
+});
+
+describe("validateTimeRange", () => {
+  it("should return valid when end > start", () => {
+    expect(validateTimeRange("08:00", "18:00").valid).toBe(true);
+    expect(validateTimeRange("09:00", "17:30").valid).toBe(true);
+  });
+
+  it("should return invalid when end <= start", () => {
+    const result1 = validateTimeRange("18:00", "08:00");
+    expect(result1.valid).toBe(false);
+    expect(result1.error).toContain("before");
+
+    const result2 = validateTimeRange("12:00", "12:00");
+    expect(result2.valid).toBe(false);
+  });
+
+  it("should return invalid for invalid time strings", () => {
+    expect(validateTimeRange("invalid", "18:00").valid).toBe(false);
+    expect(validateTimeRange("08:00", "invalid").valid).toBe(false);
   });
 });

@@ -13,6 +13,7 @@ import {
   getDailyCapacityInMinutes,
   getTotalAssignedMinutes,
   formatMinutesToHoursMinutes,
+  recalculatePoolCapacity,
   STATE_VERSION,
 } from "../src/models/planner-state.js";
 import type { Task } from "../src/models/task.js";
@@ -23,6 +24,8 @@ describe("createInitialPlannerState", () => {
 
     expect(state.pool.dailyCapacity).toBe(25);
     expect(state.pool.capacityInMinutes).toBe(25);
+    expect(state.pool.dayStart).toBe("08:00");
+    expect(state.pool.dayEnd).toBe("18:25");
     expect(state.tasks).toEqual([]);
     expect(state.version).toBe(STATE_VERSION);
   });
@@ -32,6 +35,13 @@ describe("createInitialPlannerState", () => {
 
     expect(state.pool.dailyCapacity).toBe(10);
     expect(state.pool.capacityInMinutes).toBe(30);
+  });
+
+  it("should create state with custom schedule", () => {
+    const state = createInitialPlannerState(10, 25, "09:00", "17:00");
+
+    expect(state.pool.dayStart).toBe("09:00");
+    expect(state.pool.dayEnd).toBe("17:00");
   });
 
   it("should set today's date on pool", () => {
@@ -78,6 +88,85 @@ describe("resetPlannerStateForNewDay", () => {
     const reset = resetPlannerStateForNewDay(state, 10, 30);
 
     expect(reset.pool.capacityInMinutes).toBe(30);
+  });
+
+  it("should preserve dayStart and dayEnd if not provided", () => {
+    const state = createInitialPlannerState(10, 25, "09:00", "17:00");
+    const reset = resetPlannerStateForNewDay(state);
+
+    expect(reset.pool.dayStart).toBe("09:00");
+    expect(reset.pool.dayEnd).toBe("17:00");
+  });
+
+  it("should use new dayStart and dayEnd if provided", () => {
+    const state = createInitialPlannerState(10, 25, "08:00", "18:00");
+    const reset = resetPlannerStateForNewDay(state, 10, 25, "09:00", "17:00");
+
+    expect(reset.pool.dayStart).toBe("09:00");
+    expect(reset.pool.dayEnd).toBe("17:00");
+  });
+});
+
+describe("recalculatePoolCapacity", () => {
+  it("should calculate capacity based on schedule", () => {
+    const pool = {
+      dailyCapacity: 10,
+      capacityInMinutes: 25,
+      dayStart: "08:00",
+      dayEnd: "18:25",
+      date: "2024-06-15",
+    };
+
+    const result = recalculatePoolCapacity(pool);
+
+    // 08:00 to 18:25 = 625 minutes / 25 min = 25 tomatoes
+    expect(result.dailyCapacity).toBe(25);
+  });
+
+  it("should return 0 when schedule is invalid (end <= start)", () => {
+    const pool = {
+      dailyCapacity: 10,
+      capacityInMinutes: 25,
+      dayStart: "18:00",
+      dayEnd: "08:00",
+      date: "2024-06-15",
+    };
+
+    const result = recalculatePoolCapacity(pool);
+
+    expect(result.dailyCapacity).toBe(0);
+  });
+
+  it("should update capacity when duration changes", () => {
+    const pool = {
+      dailyCapacity: 10,
+      capacityInMinutes: 30,
+      dayStart: "08:00",
+      dayEnd: "18:00",
+      date: "2024-06-15",
+    };
+
+    const result = recalculatePoolCapacity(pool);
+
+    // 08:00 to 18:00 = 600 minutes / 30 min = 20 tomatoes
+    expect(result.dailyCapacity).toBe(20);
+  });
+
+  it("should preserve other pool properties", () => {
+    const pool = {
+      dailyCapacity: 10,
+      capacityInMinutes: 25,
+      dayStart: "08:00",
+      dayEnd: "18:25",
+      date: "2024-06-15",
+    };
+
+    const result = recalculatePoolCapacity(pool);
+
+    expect(result.capacityInMinutes).toBe(25);
+    expect(result.dayStart).toBe("08:00");
+    expect(result.dayEnd).toBe("18:25");
+    expect(result.date).toBe("2024-06-15");
   });
 });
 

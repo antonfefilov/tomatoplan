@@ -10,6 +10,12 @@ export const DEFAULT_DAILY_CAPACITY = 25;
 /** Default duration of each tomato in minutes */
 export const DEFAULT_CAPACITY_IN_MINUTES = 25;
 
+/** Default day start time (HH:MM format) */
+export const DEFAULT_DAY_START = "08:00";
+
+/** Default day end time (HH:MM format) */
+export const DEFAULT_DAY_END = "18:25";
+
 /** Minimum allowed daily capacity */
 export const MIN_DAILY_CAPACITY = 1;
 

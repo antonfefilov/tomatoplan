@@ -17,6 +17,8 @@ describe("createTomatoPool", () => {
 
     expect(pool.dailyCapacity).toBe(10);
     expect(pool.capacityInMinutes).toBe(25); // default
+    expect(pool.dayStart).toBe("08:00"); // default
+    expect(pool.dayEnd).toBe("18:25"); // default
     expect(pool.date).toBeDefined();
   });
 
@@ -30,6 +32,13 @@ describe("createTomatoPool", () => {
     const pool = createTomatoPool(10, 25, "2024-06-15");
 
     expect(pool.date).toBe("2024-06-15");
+  });
+
+  it("should create pool with custom dayStart and dayEnd", () => {
+    const pool = createTomatoPool(10, 25, "2024-06-15", "09:00", "17:00");
+
+    expect(pool.dayStart).toBe("09:00");
+    expect(pool.dayEnd).toBe("17:00");
   });
 
   it("should use today's date when not specified", () => {

@@ -13,6 +13,7 @@ import {
   MIN_CAPACITY_IN_MINUTES,
   MAX_CAPACITY_IN_MINUTES,
 } from "../constants/defaults.js";
+import { parseTimeToMinutes } from "./time.js";
 
 /** Result of a validation check */
 export interface ValidationResult {
@@ -175,6 +176,47 @@ export function validateTaskTitle(title: string): ValidationResult {
 
   if (trimmed.length > 200) {
     return { valid: false, error: "Task title cannot exceed 200 characters" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates an HH:MM time string
+ */
+export function validateTimeString(time: string): ValidationResult {
+  const minutes = parseTimeToMinutes(time);
+
+  if (minutes === null) {
+    return {
+      valid: false,
+      error: "Invalid time format. Use HH:MM (e.g., 09:00)",
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates that day start is before day end
+ */
+export function validateTimeRange(
+  dayStart: string,
+  dayEnd: string,
+): ValidationResult {
+  const startMinutes = parseTimeToMinutes(dayStart);
+  const endMinutes = parseTimeToMinutes(dayEnd);
+
+  if (startMinutes === null) {
+    return { valid: false, error: "Invalid day start time format" };
+  }
+
+  if (endMinutes === null) {
+    return { valid: false, error: "Invalid day end time format" };
+  }
+
+  if (startMinutes >= endMinutes) {
+    return { valid: false, error: "Day start must be before day end" };
   }
 
   return { valid: true };

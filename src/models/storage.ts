@@ -5,6 +5,7 @@
 
 import type { Task } from "./task.js";
 import { STATE_VERSION } from "./planner-state.js";
+import { DEFAULT_DAY_START, DEFAULT_DAY_END } from "../constants/defaults.js";
 
 /**
  * Minimal state shape for localStorage persistence
@@ -16,6 +17,12 @@ export interface PersistedPlannerState {
 
   /** Duration of each tomato in minutes */
   capacityInMinutes?: number;
+
+  /** Start of the work day (HH:MM format) */
+  dayStart?: string;
+
+  /** End of the work day (HH:MM format) */
+  dayEnd?: string;
 
   /** Tasks for the current day */
   tasks: readonly Task[];
@@ -49,10 +56,14 @@ export function createPersistedState(
   capacityInMinutes: number,
   tasks: readonly Task[],
   savedDate: string,
+  dayStart: string,
+  dayEnd: string,
 ): PersistedPlannerState {
   return {
     dailyCapacity,
     capacityInMinutes,
+    dayStart,
+    dayEnd,
     tasks,
     savedDate,
     version: STATE_VERSION,
@@ -87,10 +98,20 @@ export function isValidPersistedState(
 export function migratePersistedState(
   state: PersistedPlannerState,
 ): PersistedPlannerState {
-  // Currently at version 1, no migrations needed yet
-  // Future migrations would check state.version and apply transformations
+  // Apply migrations based on version
+  let migrated = { ...state };
+
+  // Version 1 -> 2: Add dayStart and dayEnd
+  if (migrated.version < 2) {
+    migrated = {
+      ...migrated,
+      dayStart: migrated.dayStart ?? DEFAULT_DAY_START,
+      dayEnd: migrated.dayEnd ?? DEFAULT_DAY_END,
+    };
+  }
+
   return {
-    ...state,
+    ...migrated,
     version: STATE_VERSION,
   };
 }

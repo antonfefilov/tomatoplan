@@ -40,6 +40,8 @@ describe("persistence", () => {
       expect(loaded).not.toBeNull();
       expect(loaded!.pool.dailyCapacity).toBe(10);
       expect(loaded!.pool.capacityInMinutes).toBe(25);
+      expect(loaded!.pool.dayStart).toBe("08:00");
+      expect(loaded!.pool.dayEnd).toBe("18:25");
       expect(loaded!.tasks).toHaveLength(1);
       expect(loaded!.tasks[0]!.title).toBe("My Task");
     });
@@ -66,6 +68,38 @@ describe("persistence", () => {
 
       expect(loaded).not.toBeNull();
       expect(loaded!.pool.capacityInMinutes).toBe(25); // default
+    });
+
+    it("should handle state without dayStart/dayEnd (backward compatibility)", () => {
+      const state = createInitialPlannerState(10, 25);
+
+      // Save with the new format
+      saveState(state);
+
+      // Manually remove dayStart/dayEnd to simulate old data
+      const stored = JSON.parse(
+        localStorage.getItem(STORAGE_KEYS.PLANNER_STATE)!,
+      );
+      delete stored.dayStart;
+      delete stored.dayEnd;
+      localStorage.setItem(STORAGE_KEYS.PLANNER_STATE, JSON.stringify(stored));
+
+      const loaded = loadState();
+
+      expect(loaded).not.toBeNull();
+      expect(loaded!.pool.dayStart).toBe("08:00"); // default
+      expect(loaded!.pool.dayEnd).toBe("18:25"); // default
+    });
+
+    it("should save and load custom dayStart/dayEnd", () => {
+      const state = createInitialPlannerState(10, 25, "09:00", "17:00");
+      saveState(state);
+
+      const loaded = loadState();
+
+      expect(loaded).not.toBeNull();
+      expect(loaded!.pool.dayStart).toBe("09:00");
+      expect(loaded!.pool.dayEnd).toBe("17:00");
     });
   });
 
@@ -118,6 +152,8 @@ describe("persistence", () => {
 
       expect(parsed.dailyCapacity).toBe(10);
       expect(parsed.capacityInMinutes).toBe(25);
+      expect(parsed.dayStart).toBe("08:00");
+      expect(parsed.dayEnd).toBe("18:25");
       expect(parsed.tasks).toHaveLength(1);
       expect(parsed.exportedAt).toBeDefined();
       expect(parsed.appName).toBe("Tomato Plan");
@@ -134,7 +170,7 @@ describe("persistence", () => {
 
   describe("importState", () => {
     it("should import valid state", () => {
-      const state = createInitialPlannerState(10, 25);
+      const state = createInitialPlannerState(10, 25, "09:00", "17:00");
       state.tasks = [
         {
           id: "task-1",
@@ -152,6 +188,8 @@ describe("persistence", () => {
       expect(result.success).toBe(true);
       expect(result.state).toBeDefined();
       expect(result.state!.dailyCapacity).toBe(10);
+      expect(result.state!.dayStart).toBe("09:00");
+      expect(result.state!.dayEnd).toBe("17:00");
       expect(result.state!.tasks).toHaveLength(1);
     });
 
@@ -196,7 +234,7 @@ describe("persistence", () => {
 
   describe("persistence integration", () => {
     it("should handle full save/load cycle with tasks", () => {
-      const state = createInitialPlannerState(20, 30);
+      const state = createInitialPlannerState(20, 30, "09:00", "17:00");
       state.tasks = [
         {
           id: "task-1",
@@ -222,6 +260,8 @@ describe("persistence", () => {
 
       expect(loaded!.pool.dailyCapacity).toBe(20);
       expect(loaded!.pool.capacityInMinutes).toBe(30);
+      expect(loaded!.pool.dayStart).toBe("09:00");
+      expect(loaded!.pool.dayEnd).toBe("17:00");
       expect(loaded!.tasks).toHaveLength(2);
       expect(loaded!.tasks[0]!.title).toBe("Task 1");
       expect(loaded!.tasks[0]!.description).toBe("Description 1");

@@ -8,8 +8,11 @@ import type { TomatoPool } from "./tomato-pool.js";
 import {
   DEFAULT_DAILY_CAPACITY,
   DEFAULT_CAPACITY_IN_MINUTES,
+  DEFAULT_DAY_START,
+  DEFAULT_DAY_END,
 } from "../constants/defaults.js";
 import { createTomatoPool, getTodayString } from "./tomato-pool.js";
+import { calculateDailyCapacityFromSchedule } from "../utils/time.js";
 
 export interface PlannerState {
   /** The tomato pool for the current session */
@@ -23,7 +26,7 @@ export interface PlannerState {
 }
 
 /** Current state version for migrations */
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 
 /**
  * Creates the initial planner state
@@ -31,9 +34,17 @@ export const STATE_VERSION = 1;
 export function createInitialPlannerState(
   dailyCapacity: number = DEFAULT_DAILY_CAPACITY,
   capacityInMinutes: number = DEFAULT_CAPACITY_IN_MINUTES,
+  dayStart: string = DEFAULT_DAY_START,
+  dayEnd: string = DEFAULT_DAY_END,
 ): PlannerState {
   return {
-    pool: createTomatoPool(dailyCapacity, capacityInMinutes),
+    pool: createTomatoPool(
+      dailyCapacity,
+      capacityInMinutes,
+      undefined,
+      dayStart,
+      dayEnd,
+    ),
     tasks: [],
     version: STATE_VERSION,
   };
@@ -47,6 +58,8 @@ export function resetPlannerStateForNewDay(
   state: PlannerState,
   newCapacity?: number,
   newCapacityInMinutes?: number,
+  newDayStart?: string,
+  newDayEnd?: string,
 ): PlannerState {
   return {
     ...state,
@@ -54,8 +67,27 @@ export function resetPlannerStateForNewDay(
       newCapacity ?? state.pool.dailyCapacity,
       newCapacityInMinutes ?? state.pool.capacityInMinutes,
       getTodayString(),
+      newDayStart ?? state.pool.dayStart,
+      newDayEnd ?? state.pool.dayEnd,
     ),
     tasks: [],
+  };
+}
+
+/**
+ * Recalculates daily capacity based on schedule and duration
+ * Returns a new pool with updated dailyCapacity
+ */
+export function recalculatePoolCapacity(pool: TomatoPool): TomatoPool {
+  const newCapacity = calculateDailyCapacityFromSchedule(
+    pool.dayStart,
+    pool.dayEnd,
+    pool.capacityInMinutes,
+  );
+
+  return {
+    ...pool,
+    dailyCapacity: newCapacity,
   };
 }
 

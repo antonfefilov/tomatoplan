@@ -10,11 +10,21 @@ export interface TomatoPool {
   /** Duration of each tomato in minutes */
   capacityInMinutes: number;
 
+  /** Start of the work day (HH:MM format) */
+  dayStart: string;
+
+  /** End of the work day (HH:MM format) */
+  dayEnd: string;
+
   /** Date this pool is for (YYYY-MM-DD format) */
   date: string;
 }
 
-import { DEFAULT_CAPACITY_IN_MINUTES } from "../constants/defaults.js";
+import {
+  DEFAULT_CAPACITY_IN_MINUTES,
+  DEFAULT_DAY_START,
+  DEFAULT_DAY_END,
+} from "../constants/defaults.js";
 
 /**
  * Creates a new tomato pool for a specific date
@@ -23,10 +33,14 @@ export function createTomatoPool(
   dailyCapacity: number,
   capacityInMinutes: number = DEFAULT_CAPACITY_IN_MINUTES,
   date?: string,
+  dayStart: string = DEFAULT_DAY_START,
+  dayEnd: string = DEFAULT_DAY_END,
 ): TomatoPool {
   return {
     dailyCapacity,
     capacityInMinutes,
+    dayStart,
+    dayEnd,
     date: date ?? getDateString(new Date()),
   };
 }

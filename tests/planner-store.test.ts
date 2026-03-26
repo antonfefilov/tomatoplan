@@ -41,9 +41,11 @@ describe("PlannerStore", () => {
       store.addTask("Test Task");
 
       // Create new store instance - should load from localStorage
+      // Note: dailyCapacity is recalculated based on schedule when capacityInMinutes changes
+      // With 30 min duration and default schedule (08:00-18:25 = 625 min), capacity = floor(625/30) = 20
       const newStore = new PlannerStore();
 
-      expect(newStore.dailyCapacity).toBe(15);
+      expect(newStore.dailyCapacity).toBe(20);
       expect(newStore.capacityInMinutes).toBe(30);
       expect(newStore.tasks).toHaveLength(1);
     });
@@ -83,6 +85,70 @@ describe("PlannerStore", () => {
     it("should reject values above 60", () => {
       const result = store.setCapacityInMinutes(61);
       expect(result.success).toBe(false);
+    });
+
+    it("should recalculate daily capacity when duration changes", () => {
+      // Default schedule is 08:00 to 18:25 = 625 minutes
+      // With 25 min duration = 25 tomatoes
+      expect(store.dailyCapacity).toBe(25);
+
+      // With 30 min duration = 625 / 30 = 20 tomatoes
+      store.setCapacityInMinutes(30);
+      expect(store.dailyCapacity).toBe(20);
+    });
+  });
+
+  describe("setDayStart", () => {
+    it("should update day start time", () => {
+      const result = store.setDayStart("09:00");
+      expect(result.success).toBe(true);
+      expect(store.dayStart).toBe("09:00");
+    });
+
+    it("should validate time format", () => {
+      const result = store.setDayStart("invalid");
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject start time after end time", () => {
+      const result = store.setDayStart("20:00");
+      expect(result.success).toBe(false);
+    });
+
+    it("should recalculate daily capacity when start time changes", () => {
+      // Default: 08:00 to 18:25 = 625 minutes / 25 = 25 tomatoes
+      expect(store.dailyCapacity).toBe(25);
+
+      // 09:00 to 18:25 = 565 minutes / 25 = 22 tomatoes
+      store.setDayStart("09:00");
+      expect(store.dailyCapacity).toBe(22);
+    });
+  });
+
+  describe("setDayEnd", () => {
+    it("should update day end time", () => {
+      const result = store.setDayEnd("17:00");
+      expect(result.success).toBe(true);
+      expect(store.dayEnd).toBe("17:00");
+    });
+
+    it("should validate time format", () => {
+      const result = store.setDayEnd("invalid");
+      expect(result.success).toBe(false);
+    });
+
+    it("should reject end time before start time", () => {
+      const result = store.setDayEnd("06:00");
+      expect(result.success).toBe(false);
+    });
+
+    it("should recalculate daily capacity when end time changes", () => {
+      // Default: 08:00 to 18:25 = 625 minutes / 25 = 25 tomatoes
+      expect(store.dailyCapacity).toBe(25);
+
+      // 08:00 to 17:00 = 540 minutes / 25 = 21 tomatoes
+      store.setDayEnd("17:00");
+      expect(store.dailyCapacity).toBe(21);
     });
   });
 
@@ -434,6 +500,26 @@ describe("PlannerStore", () => {
 
       expect(store.tasks).toHaveLength(0);
       expect(store.dailyCapacity).toBe(15);
+    });
+
+    it("should preserve dayStart and dayEnd", () => {
+      store.setDayStart("09:00");
+      store.setDayEnd("17:00");
+      store.addTask("Task");
+
+      store.resetDay();
+
+      expect(store.dayStart).toBe("09:00");
+      expect(store.dayEnd).toBe("17:00");
+    });
+
+    it("should preserve capacityInMinutes", () => {
+      store.setCapacityInMinutes(30);
+      store.addTask("Task");
+
+      store.resetDay();
+
+      expect(store.capacityInMinutes).toBe(30);
     });
   });
 

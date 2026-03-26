@@ -12,7 +12,11 @@ import {
 } from "../models/storage.js";
 import { STORAGE_KEYS } from "../constants/storage-keys.js";
 import { getTodayString } from "../models/tomato-pool.js";
-import { DEFAULT_CAPACITY_IN_MINUTES } from "../constants/defaults.js";
+import {
+  DEFAULT_CAPACITY_IN_MINUTES,
+  DEFAULT_DAY_START,
+  DEFAULT_DAY_END,
+} from "../constants/defaults.js";
 
 /**
  * Saves the planner state to localStorage
@@ -23,6 +27,8 @@ export function saveState(state: PlannerState): void {
     state.pool.capacityInMinutes,
     state.tasks,
     getTodayString(),
+    state.pool.dayStart,
+    state.pool.dayEnd,
   );
 
   try {
@@ -50,11 +56,14 @@ export function loadState(): PlannerState | null {
 
   // Reconstruct PlannerState from PersistedPlannerState
   // Handle backward compatibility: capacityInMinutes defaults to 25 if not present
+  // dayStart and dayEnd default to 08:00 and 18:25 if not present
   return {
     pool: {
       dailyCapacity: loadResult.state.dailyCapacity,
       capacityInMinutes:
         loadResult.state.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES,
+      dayStart: loadResult.state.dayStart ?? DEFAULT_DAY_START,
+      dayEnd: loadResult.state.dayEnd ?? DEFAULT_DAY_END,
       date: loadResult.state.savedDate,
     },
     tasks: loadResult.state.tasks,
@@ -126,6 +135,8 @@ export function exportState(state: PlannerState): string {
       state.pool.capacityInMinutes,
       state.tasks,
       getTodayString(),
+      state.pool.dayStart,
+      state.pool.dayEnd,
     ),
     exportedAt: new Date().toISOString(),
     appName: "Tomato Plan",

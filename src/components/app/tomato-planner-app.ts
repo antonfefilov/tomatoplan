@@ -43,6 +43,12 @@ export class TomatoPlannerApp extends LitElement {
   private _capacityInMinutes = 25;
 
   @state()
+  private _dayStart = "08:00";
+
+  @state()
+  private _dayEnd = "18:25";
+
+  @state()
   private _showTaskDialog = false;
 
   @state()
@@ -68,6 +74,8 @@ export class TomatoPlannerApp extends LitElement {
       this._tasks = state.tasks;
       this._currentDate = state.pool.date;
       this._capacityInMinutes = state.pool.capacityInMinutes;
+      this._dayStart = state.pool.dayStart;
+      this._dayEnd = state.pool.dayEnd;
     });
   }
 
@@ -88,6 +96,14 @@ export class TomatoPlannerApp extends LitElement {
 
   private _handleDurationChange(e: CustomEvent<{ minutes: number }>) {
     plannerStore.setCapacityInMinutes(e.detail.minutes);
+  }
+
+  private _handleDayStartChange(e: CustomEvent<{ time: string }>) {
+    plannerStore.setDayStart(e.detail.time);
+  }
+
+  private _handleDayEndChange(e: CustomEvent<{ time: string }>) {
+    plannerStore.setDayEnd(e.detail.time);
   }
 
   // ============================================
@@ -203,9 +219,13 @@ export class TomatoPlannerApp extends LitElement {
           .remaining=${this._remaining}
           .taskCount=${this._tasks.length}
           .capacityInMinutes=${this._capacityInMinutes}
+          .dayStart=${this._dayStart}
+          .dayEnd=${this._dayEnd}
           .collapsed=${this._panelCollapsed}
           @capacity-change=${this._handleCapacityChange}
           @duration-change=${this._handleDurationChange}
+          @day-start-change=${this._handleDayStartChange}
+          @day-end-change=${this._handleDayEndChange}
           @toggle-collapse=${this._handleTogglePanelCollapse}
         ></tomato-pool-panel>
 

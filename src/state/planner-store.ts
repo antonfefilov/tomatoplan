@@ -16,6 +16,7 @@ import {
   getRemainingTomatoes,
   isAtCapacity,
   isOverCapacity,
+  recalculatePoolCapacity,
 } from "../models/planner-state.js";
 import { isStale } from "../models/tomato-pool.js";
 import { generateId } from "../utils/id.js";
@@ -25,10 +26,14 @@ import {
   canAssignTomato,
   canUnassignTomato,
   validateTomatoCount,
+  validateTimeString,
+  validateTimeRange,
 } from "../utils/validation.js";
 import {
   DEFAULT_DAILY_CAPACITY,
   DEFAULT_CAPACITY_IN_MINUTES,
+  DEFAULT_DAY_START,
+  DEFAULT_DAY_END,
 } from "../constants/defaults.js";
 import { loadState, saveState, clearState } from "./persistence.js";
 
@@ -57,17 +62,24 @@ class PlannerStore {
     if (persistedState && !isStale(persistedState.pool)) {
       // Use persisted state if it's from today
       // Handle backward compatibility: default to 25 minutes if not present
+      // dayStart and dayEnd default to 08:00 and 18:25 if not present
       const capacityInMinutes =
         persistedState.pool.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES;
+      const dayStart = persistedState.pool.dayStart ?? DEFAULT_DAY_START;
+      const dayEnd = persistedState.pool.dayEnd ?? DEFAULT_DAY_END;
       this.state = createInitialPlannerState(
         persistedState.pool.dailyCapacity,
         capacityInMinutes,
+        dayStart,
+        dayEnd,
       );
       this.state = {
         ...this.state,
         pool: {
           ...persistedState.pool,
           capacityInMinutes,
+          dayStart,
+          dayEnd,
         },
         tasks: persistedState.tasks,
       };
@@ -77,9 +89,13 @@ class PlannerStore {
         persistedState?.pool.dailyCapacity ?? DEFAULT_DAILY_CAPACITY;
       const savedCapacityInMinutes =
         persistedState?.pool.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES;
+      const savedDayStart = persistedState?.pool.dayStart ?? DEFAULT_DAY_START;
+      const savedDayEnd = persistedState?.pool.dayEnd ?? DEFAULT_DAY_END;
       this.state = createInitialPlannerState(
         savedCapacity,
         savedCapacityInMinutes,
+        savedDayStart,
+        savedDayEnd,
       );
     }
   }
@@ -160,6 +176,7 @@ class PlannerStore {
 
   /**
    * Sets the duration of each tomato in minutes
+   * Also recalculates daily capacity based on the new duration
    */
   setCapacityInMinutes(minutes: number): { success: boolean; error?: string } {
     if (typeof minutes !== "number" || minutes < 1 || minutes > 60) {
@@ -169,12 +186,70 @@ class PlannerStore {
       };
     }
 
+    const updatedPool = recalculatePoolCapacity({
+      ...this.state.pool,
+      capacityInMinutes: minutes,
+    });
+
     this.setState({
       ...this.state,
-      pool: {
-        ...this.state.pool,
-        capacityInMinutes: minutes,
-      },
+      pool: updatedPool,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Sets the day start time (HH:MM format)
+   * Recalculates daily capacity based on the new time range
+   */
+  setDayStart(time: string): { success: boolean; error?: string } {
+    const timeValidation = validateTimeString(time);
+    if (!timeValidation.valid) {
+      return { success: false, error: timeValidation.error };
+    }
+
+    const rangeValidation = validateTimeRange(time, this.state.pool.dayEnd);
+    if (!rangeValidation.valid) {
+      return { success: false, error: rangeValidation.error };
+    }
+
+    const updatedPool = recalculatePoolCapacity({
+      ...this.state.pool,
+      dayStart: time,
+    });
+
+    this.setState({
+      ...this.state,
+      pool: updatedPool,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Sets the day end time (HH:MM format)
+   * Recalculates daily capacity based on the new time range
+   */
+  setDayEnd(time: string): { success: boolean; error?: string } {
+    const timeValidation = validateTimeString(time);
+    if (!timeValidation.valid) {
+      return { success: false, error: timeValidation.error };
+    }
+
+    const rangeValidation = validateTimeRange(this.state.pool.dayStart, time);
+    if (!rangeValidation.valid) {
+      return { success: false, error: rangeValidation.error };
+    }
+
+    const updatedPool = recalculatePoolCapacity({
+      ...this.state.pool,
+      dayEnd: time,
+    });
+
+    this.setState({
+      ...this.state,
+      pool: updatedPool,
     });
 
     return { success: true };
@@ -462,9 +537,15 @@ class PlannerStore {
 
   /**
    * Resets the day - clears all tasks and refreshes the pool
+   * Preserves dayStart, dayEnd, and capacityInMinutes from the current state
    */
   resetDay(): void {
-    const newState = createInitialPlannerState(this.state.pool.dailyCapacity);
+    const newState = createInitialPlannerState(
+      this.state.pool.dailyCapacity,
+      this.state.pool.capacityInMinutes,
+      this.state.pool.dayStart,
+      this.state.pool.dayEnd,
+    );
     this.setState(newState);
   }
 
@@ -521,6 +602,20 @@ class PlannerStore {
    */
   get capacityInMinutes(): number {
     return this.state.pool.capacityInMinutes;
+  }
+
+  /**
+   * Gets the day start time (HH:MM format)
+   */
+  get dayStart(): string {
+    return this.state.pool.dayStart;
+  }
+
+  /**
+   * Gets the day end time (HH:MM format)
+   */
+  get dayEnd(): string {
+    return this.state.pool.dayEnd;
   }
 
   /**
