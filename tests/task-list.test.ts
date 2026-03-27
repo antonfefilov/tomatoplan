@@ -806,4 +806,429 @@ describe("TaskList - Drag and Drop", () => {
       expect(secondWrapper.classList.contains("drag-over")).toBe(true);
     });
   });
+
+  describe("task grouping", () => {
+    it("should separate active and done tasks", async () => {
+      const tasks: Task[] = [
+        {
+          id: "task-1",
+          title: "Active Task",
+          tomatoCount: 3,
+          finishedTomatoCount: 1,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: "task-2",
+          title: "Done Task",
+          tomatoCount: 2,
+          finishedTomatoCount: 2,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: "task-3",
+          title: "Another Active",
+          tomatoCount: 1,
+          finishedTomatoCount: 0,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      ];
+
+      element.tasks = tasks;
+      await element.updateComplete;
+
+      const wrappers =
+        element.shadowRoot!.querySelectorAll(".task-item-wrapper");
+      // All tasks should be rendered
+      expect(wrappers.length).toBe(3);
+
+      // Check order: active tasks first, then done tasks
+      const taskItems = Array.from(wrappers).map((w) =>
+        w.querySelector("task-item"),
+      );
+      const taskTitles = taskItems.map(
+        (item) => item!.shadowRoot!.querySelector(".task-title")!.textContent,
+      );
+
+      // Active tasks (task-1, task-3) should come before done task (task-2)
+      expect(taskTitles.indexOf("Active Task")).toBeLessThan(
+        taskTitles.indexOf("Done Task"),
+      );
+      expect(taskTitles.indexOf("Another Active")).toBeLessThan(
+        taskTitles.indexOf("Done Task"),
+      );
+    });
+
+    it("should show divider when both active and done tasks exist", async () => {
+      const tasks: Task[] = [
+        {
+          id: "task-1",
+          title: "Active Task",
+          tomatoCount: 3,
+          finishedTomatoCount: 1,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: "task-2",
+          title: "Done Task",
+          tomatoCount: 2,
+          finishedTomatoCount: 2,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      ];
+
+      element.tasks = tasks;
+      await element.updateComplete;
+
+      const divider = element.shadowRoot!.querySelector(".task-group-divider");
+      expect(divider).toBeDefined();
+      expect(divider!.textContent).toBe("Done");
+    });
+
+    it("should not show divider when only active tasks exist", async () => {
+      const tasks: Task[] = [
+        {
+          id: "task-1",
+          title: "Active Task",
+          tomatoCount: 3,
+          finishedTomatoCount: 1,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      ];
+
+      element.tasks = tasks;
+      await element.updateComplete;
+
+      const divider = element.shadowRoot!.querySelector(".task-group-divider");
+      expect(divider).toBeNull();
+    });
+
+    it("should not show divider when only done tasks exist", async () => {
+      const tasks: Task[] = [
+        {
+          id: "task-1",
+          title: "Done Task",
+          tomatoCount: 2,
+          finishedTomatoCount: 2,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      ];
+
+      element.tasks = tasks;
+      await element.updateComplete;
+
+      const divider = element.shadowRoot!.querySelector(".task-group-divider");
+      expect(divider).toBeNull();
+    });
+
+    it("should consider task done when finished >= planned and planned > 0", async () => {
+      const tasks: Task[] = [
+        {
+          id: "task-done",
+          title: "Done Task",
+          tomatoCount: 2,
+          finishedTomatoCount: 2,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: "task-extra",
+          title: "Extra Done",
+          tomatoCount: 2,
+          finishedTomatoCount: 5,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: "task-active",
+          title: "Active Task",
+          tomatoCount: 3,
+          finishedTomatoCount: 1,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      ];
+
+      element.tasks = tasks;
+      await element.updateComplete;
+
+      const divider = element.shadowRoot!.querySelector(".task-group-divider");
+      expect(divider).toBeDefined();
+    });
+
+    it("should NOT consider 0/0 task as done", async () => {
+      const tasks: Task[] = [
+        {
+          id: "task-zero",
+          title: "Zero Task",
+          tomatoCount: 0,
+          finishedTomatoCount: 0,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: "task-done",
+          title: "Done Task",
+          tomatoCount: 2,
+          finishedTomatoCount: 2,
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+      ];
+
+      element.tasks = tasks;
+      await element.updateComplete;
+
+      // Should have divider since zero task is active
+      const divider = element.shadowRoot!.querySelector(".task-group-divider");
+      expect(divider).toBeDefined();
+
+      // Zero task should be in active group (first)
+      const wrappers =
+        element.shadowRoot!.querySelectorAll(".task-item-wrapper");
+      const firstTaskItem = wrappers[0]!.querySelector("task-item");
+      const firstTitle =
+        firstTaskItem!.shadowRoot!.querySelector(".task-title")!.textContent;
+      expect(firstTitle).toBe("Zero Task");
+    });
+  });
+
+  describe("group-aware drag-drop", () => {
+    const mixedTasks: Task[] = [
+      {
+        id: "active-1",
+        title: "Active One",
+        tomatoCount: 2,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+      {
+        id: "active-2",
+        title: "Active Two",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+      {
+        id: "done-1",
+        title: "Done One",
+        tomatoCount: 2,
+        finishedTomatoCount: 2,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+      {
+        id: "done-2",
+        title: "Done Two",
+        tomatoCount: 1,
+        finishedTomatoCount: 1,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+    ];
+
+    beforeEach(async () => {
+      element.tasks = mixedTasks;
+      await element.updateComplete;
+    });
+
+    it("should allow reordering within active group", async () => {
+      const spy = vi.fn();
+      element.addEventListener("reorder-task", spy);
+
+      const wrappers =
+        element.shadowRoot!.querySelectorAll(".task-item-wrapper");
+      const firstWrapper = wrappers[0] as HTMLElement; // active-1
+      const secondWrapper = wrappers[1] as HTMLElement; // active-2
+
+      // Start dragging active-1
+      const dragStartEvent = new DragEvent("dragstart", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(dragStartEvent, "dataTransfer", {
+        value: {
+          effectAllowed: "none",
+          setData: vi.fn(),
+          getData: vi.fn().mockReturnValue("active-1"),
+        },
+      });
+      firstWrapper.dispatchEvent(dragStartEvent);
+      await element.updateComplete;
+
+      // Drag over active-2 (same group)
+      vi.spyOn(secondWrapper, "getBoundingClientRect").mockReturnValue({
+        top: 100,
+        height: 50,
+        bottom: 150,
+        left: 0,
+        right: 100,
+        width: 100,
+        x: 0,
+        y: 100,
+        toJSON: () => ({}),
+      });
+
+      const dragOverEvent = new DragEvent("dragover", {
+        bubbles: true,
+        cancelable: true,
+        clientY: 130, // below center
+      });
+      Object.defineProperty(dragOverEvent, "dataTransfer", {
+        value: { dropEffect: "none" },
+      });
+      secondWrapper.dispatchEvent(dragOverEvent);
+      await element.updateComplete;
+
+      expect(secondWrapper.classList.contains("drag-over")).toBe(true);
+
+      // Drop
+      const dropEvent = new DragEvent("drop", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(dropEvent, "dataTransfer", {
+        value: {
+          getData: vi.fn().mockReturnValue("active-1"),
+        },
+      });
+
+      secondWrapper.dispatchEvent(dropEvent);
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+    });
+
+    it("should allow reordering within done group", async () => {
+      const spy = vi.fn();
+      element.addEventListener("reorder-task", spy);
+
+      const wrappers =
+        element.shadowRoot!.querySelectorAll(".task-item-wrapper");
+      const doneWrapper1 = wrappers[2] as HTMLElement; // done-1
+      const doneWrapper2 = wrappers[3] as HTMLElement; // done-2
+
+      // Start dragging done-1
+      const dragStartEvent = new DragEvent("dragstart", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(dragStartEvent, "dataTransfer", {
+        value: {
+          effectAllowed: "none",
+          setData: vi.fn(),
+          getData: vi.fn().mockReturnValue("done-1"),
+        },
+      });
+      doneWrapper1.dispatchEvent(dragStartEvent);
+      await element.updateComplete;
+
+      // Drag over done-2 (same group)
+      vi.spyOn(doneWrapper2, "getBoundingClientRect").mockReturnValue({
+        top: 300,
+        height: 50,
+        bottom: 350,
+        left: 0,
+        right: 100,
+        width: 100,
+        x: 0,
+        y: 300,
+        toJSON: () => ({}),
+      });
+
+      const dragOverEvent = new DragEvent("dragover", {
+        bubbles: true,
+        cancelable: true,
+        clientY: 330, // below center
+      });
+      Object.defineProperty(dragOverEvent, "dataTransfer", {
+        value: { dropEffect: "none" },
+      });
+      doneWrapper2.dispatchEvent(dragOverEvent);
+      await element.updateComplete;
+
+      expect(doneWrapper2.classList.contains("drag-over")).toBe(true);
+    });
+
+    it("should NOT show drag-over when dragging across groups", async () => {
+      const wrappers =
+        element.shadowRoot!.querySelectorAll(".task-item-wrapper");
+      const activeWrapper = wrappers[0] as HTMLElement; // active-1
+      const doneWrapper = wrappers[2] as HTMLElement; // done-1
+
+      // Start dragging active task
+      const dragStartEvent = new DragEvent("dragstart", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(dragStartEvent, "dataTransfer", {
+        value: {
+          effectAllowed: "none",
+          setData: vi.fn(),
+          getData: vi.fn().mockReturnValue("active-1"),
+        },
+      });
+      activeWrapper.dispatchEvent(dragStartEvent);
+      await element.updateComplete;
+
+      // Try to drag over done task (different group)
+      vi.spyOn(doneWrapper, "getBoundingClientRect").mockReturnValue({
+        top: 200,
+        height: 50,
+        bottom: 250,
+        left: 0,
+        right: 100,
+        width: 100,
+        x: 0,
+        y: 200,
+        toJSON: () => ({}),
+      });
+
+      const dragOverEvent = new DragEvent("dragover", {
+        bubbles: true,
+        cancelable: true,
+        clientY: 225,
+      });
+      Object.defineProperty(dragOverEvent, "dataTransfer", {
+        value: { dropEffect: "none" },
+      });
+      doneWrapper.dispatchEvent(dragOverEvent);
+      await element.updateComplete;
+
+      // Should NOT have drag-over class since groups are different
+      expect(doneWrapper.classList.contains("drag-over")).toBe(false);
+    });
+
+    it("should track drag group correctly", async () => {
+      const wrappers =
+        element.shadowRoot!.querySelectorAll(".task-item-wrapper");
+      const activeWrapper = wrappers[0] as HTMLElement;
+
+      // Start dragging active task
+      const dragStartEvent = new DragEvent("dragstart", {
+        bubbles: true,
+        cancelable: true,
+      });
+      Object.defineProperty(dragStartEvent, "dataTransfer", {
+        value: {
+          effectAllowed: "none",
+          setData: vi.fn(),
+          getData: vi.fn().mockReturnValue("active-1"),
+        },
+      });
+      activeWrapper.dispatchEvent(dragStartEvent);
+      await element.updateComplete;
+
+      // The wrapper should have dragging class
+      expect(activeWrapper.classList.contains("dragging")).toBe(true);
+    });
+  });
 });

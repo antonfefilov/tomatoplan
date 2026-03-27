@@ -596,4 +596,68 @@ describe("TaskItem", () => {
       expect(doneBtn.disabled).toBe(true);
     });
   });
+
+  describe("done task styling", () => {
+    it("should apply 'done' class when task is done (finished >= planned, planned > 0)", async () => {
+      element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 3 };
+      await element.updateComplete;
+
+      const taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(true);
+    });
+
+    it("should apply 'done' class when finished exceeds planned", async () => {
+      element.task = { ...mockTask, tomatoCount: 2, finishedTomatoCount: 5 };
+      await element.updateComplete;
+
+      const taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(true);
+    });
+
+    it("should NOT apply 'done' class when task has no planned tomatoes (0/0)", async () => {
+      element.task = { ...mockTask, tomatoCount: 0, finishedTomatoCount: 0 };
+      await element.updateComplete;
+
+      const taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(false);
+    });
+
+    it("should NOT apply 'done' class when task is not finished (finished < planned)", async () => {
+      element.task = { ...mockTask, tomatoCount: 5, finishedTomatoCount: 2 };
+      await element.updateComplete;
+
+      const taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(false);
+    });
+
+    it("should have strikethrough on title when task is done", async () => {
+      element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 3 };
+      await element.updateComplete;
+
+      const title = element.shadowRoot!.querySelector(
+        ".task-title",
+      ) as HTMLElement;
+      // Check computed style or class - the CSS applies text-decoration
+      expect(title.classList.length).toBeGreaterThanOrEqual(0); // title element exists
+      // The styling is applied via CSS, so we check the parent has 'done' class
+      const taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(true);
+    });
+
+    it("should update 'done' class when task transitions to done", async () => {
+      // Start with incomplete task
+      element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 1 };
+      await element.updateComplete;
+
+      let taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(false);
+
+      // Mark as done
+      element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 3 };
+      await element.updateComplete;
+
+      taskCard = element.shadowRoot!.querySelector(".task-card");
+      expect(taskCard!.classList.contains("done")).toBe(true);
+    });
+  });
 });

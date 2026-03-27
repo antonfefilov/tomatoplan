@@ -6,6 +6,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import { isTaskDone } from "../../models/task.js";
 import type { TimerStatus } from "../../models/timer-state.js";
 import { formatTimerDisplay } from "../../models/timer-state.js";
 import { formatTimeEstimate } from "../../utils/time.js";
@@ -385,6 +386,40 @@ export class TaskItem extends LitElement {
       opacity: 0.5;
       cursor: not-allowed;
     }
+
+    /* Done task styling */
+    .task-card.done {
+      background: #f9fafb;
+      border-color: #e5e7eb;
+      box-shadow: none;
+    }
+
+    .task-card.done:hover {
+      border-color: #e5e7eb;
+      box-shadow: none;
+    }
+
+    .task-card.done .task-title {
+      color: #6b7280;
+      text-decoration: line-through;
+      text-decoration-color: #9ca3af;
+    }
+
+    .task-card.done .task-description,
+    .task-card.done .task-estimation,
+    .task-card.done .progress-text,
+    .task-card.done .timer-inactive,
+    .task-card.done .timer-active-elsewhere {
+      color: #9ca3af;
+    }
+
+    .task-card.done .progress-bar {
+      background: #f3f4f6;
+    }
+
+    .task-card.done .progress-fill {
+      background: #86efac;
+    }
   `;
 
   @property({ type: Object })
@@ -554,8 +589,11 @@ export class TaskItem extends LitElement {
       ? `timer-display ${timerStatus}`
       : "timer-display";
 
+    // Determine if task is done
+    const taskIsDone = isTaskDone(task);
+
     return html`
-      <div class="task-card">
+      <div class="task-card${taskIsDone ? " done" : ""}">
         <div class="task-header">
           <div class="tomato-control-wrapper">
             <button

@@ -133,3 +133,13 @@ export function markTaskDone(task: Task): Task {
     updatedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Determines if a task is considered "done".
+ * A task is done when it has at least one planned tomato (tomatoCount > 0)
+ * AND the finished count meets or exceeds the planned count.
+ * Note: Tasks with 0/0 tomatoes are NOT considered done.
+ */
+export function isTaskDone(task: Task): boolean {
+  return task.tomatoCount > 0 && task.finishedTomatoCount >= task.tomatoCount;
+}

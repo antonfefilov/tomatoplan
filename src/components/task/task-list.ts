@@ -6,6 +6,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import { isTaskDone } from "../../models/task.js";
 import type { TimerStatus } from "../../models/timer-state.js";
 import "./task-item.js";
 import "../shared/empty-state.js";
@@ -54,6 +55,26 @@ export class TaskList extends LitElement {
       top: auto;
       bottom: -6px;
     }
+
+    .task-group-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 8px 0 4px;
+      color: #9ca3af;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .task-group-divider::before,
+    .task-group-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e5e7eb;
+    }
   `;
 
   @property({ type: Array })
@@ -85,6 +106,9 @@ export class TaskList extends LitElement {
 
   @state()
   private _dropPosition: "above" | "below" = "above";
+
+  @state()
+  private _dragGroup: "active" | "done" | null = null;
 
   private _handleEditTask(e: CustomEvent<{ taskId: string }>) {
     e.stopPropagation();
@@ -186,7 +210,11 @@ export class TaskList extends LitElement {
   // Drag and Drop Handlers
   // ============================================
 
-  private _handleDragStart(e: DragEvent, taskId: string) {
+  private _handleDragStart(
+    e: DragEvent,
+    taskId: string,
+    group: "active" | "done",
+  ) {
     // Prevent drag when disabled
     if (this.disabled) {
       e.preventDefault();
@@ -194,6 +222,7 @@ export class TaskList extends LitElement {
     }
 
     this._draggedTaskId = taskId;
+    this._dragGroup = group;
     if (e.dataTransfer) {
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", taskId);
@@ -203,11 +232,16 @@ export class TaskList extends LitElement {
   private _handleDragEnd() {
     this._draggedTaskId = null;
     this._dragOverTaskId = null;
+    this._dragGroup = null;
   }
 
-  private _handleDragOver(e: DragEvent, taskId: string) {
-    // Prevent drop when disabled
-    if (this.disabled) {
+  private _handleDragOver(
+    e: DragEvent,
+    taskId: string,
+    group: "active" | "done",
+  ) {
+    // Prevent drop when disabled or when dragging across groups
+    if (this.disabled || this._dragGroup !== group) {
       return;
     }
 
@@ -318,40 +352,48 @@ export class TaskList extends LitElement {
       `;
     }
 
+    // Split tasks into active and done groups
+    const activeTasks = this.tasks.filter((task) => !isTaskDone(task));
+    const doneTasks = this.tasks.filter((task) => isTaskDone(task));
+
+    const renderTaskItem = (task: Task, group: "active" | "done") => html`
+      <div
+        class=${this._getDragClasses(task.id)}
+        draggable=${!this.disabled}
+        @dragstart=${(e: DragEvent) => this._handleDragStart(e, task.id, group)}
+        @dragend=${this._handleDragEnd}
+        @dragover=${(e: DragEvent) => this._handleDragOver(e, task.id, group)}
+        @dragleave=${this._handleDragLeave}
+        @drop=${(e: DragEvent) => this._handleDrop(e, task.id)}
+      >
+        <task-item
+          .task=${task}
+          .remaining=${this.remaining}
+          .disabled=${this.disabled}
+          .capacityInMinutes=${this.capacityInMinutes}
+          .timerActiveTaskId=${this.timerActiveTaskId}
+          .timerStatus=${this.timerStatus}
+          .timerRemainingSeconds=${this.timerRemainingSeconds}
+          @edit-task=${this._handleEditTask}
+          @delete-task=${this._handleDeleteTask}
+          @mark-tomato-finished=${this._handleMarkTomatoFinished}
+          @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
+          @start-timer=${this._handleStartTimer}
+          @pause-timer=${this._handlePauseTimer}
+          @resume-timer=${this._handleResumeTimer}
+          @reset-timer=${this._handleResetTimer}
+          @mark-done=${this._handleMarkDone}
+        ></task-item>
+      </div>
+    `;
+
     return html`
       <div class="task-list">
-        ${this.tasks.map(
-          (task) => html`
-            <div
-              class=${this._getDragClasses(task.id)}
-              draggable=${!this.disabled}
-              @dragstart=${(e: DragEvent) => this._handleDragStart(e, task.id)}
-              @dragend=${this._handleDragEnd}
-              @dragover=${(e: DragEvent) => this._handleDragOver(e, task.id)}
-              @dragleave=${this._handleDragLeave}
-              @drop=${(e: DragEvent) => this._handleDrop(e, task.id)}
-            >
-              <task-item
-                .task=${task}
-                .remaining=${this.remaining}
-                .disabled=${this.disabled}
-                .capacityInMinutes=${this.capacityInMinutes}
-                .timerActiveTaskId=${this.timerActiveTaskId}
-                .timerStatus=${this.timerStatus}
-                .timerRemainingSeconds=${this.timerRemainingSeconds}
-                @edit-task=${this._handleEditTask}
-                @delete-task=${this._handleDeleteTask}
-                @mark-tomato-finished=${this._handleMarkTomatoFinished}
-                @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
-                @start-timer=${this._handleStartTimer}
-                @pause-timer=${this._handlePauseTimer}
-                @resume-timer=${this._handleResumeTimer}
-                @reset-timer=${this._handleResetTimer}
-                @mark-done=${this._handleMarkDone}
-              ></task-item>
-            </div>
-          `,
-        )}
+        ${activeTasks.map((task) => renderTaskItem(task, "active"))}
+        ${doneTasks.length > 0 && activeTasks.length > 0
+          ? html`<div class="task-group-divider">Done</div>`
+          : null}
+        ${doneTasks.map((task) => renderTaskItem(task, "done"))}
       </div>
     `;
   }
