@@ -248,7 +248,14 @@ class WeeklyStore {
 
   /**
    * Removes a project
-   * Unassigns tasks from the project but does not delete them
+   *
+   * NOTE: For proper project deletion that unassigns planner tasks,
+   * use the removeProject function from project-coordinator.ts instead.
+   *
+   * This method includes defensive task cleanup for edge cases where
+   * tasks exist in weekly store but not in planner store (e.g., historical data).
+   * When called via the coordinator, tasks are already unassigned from planner store
+   * and synced here, making this cleanup redundant but harmless.
    */
   removeProject(projectId: string): ActionResult {
     const projectIndex = this.state.projects.findIndex(
@@ -259,7 +266,8 @@ class WeeklyStore {
       return { success: false, error: "Project not found" };
     }
 
-    // Unassign tasks from this project
+    // Defensive cleanup: unassign tasks from this project
+    // This handles edge cases where tasks exist here but not in planner store
     const updatedTasks = this.state.tasks.map((t) =>
       t.projectId === projectId
         ? { ...t, projectId: undefined, updatedAt: new Date().toISOString() }

@@ -642,6 +642,29 @@ class PlannerStore {
   }
 
   /**
+   * Unassigns all tasks from a given project
+   * Used when a project is deleted to ensure tasks don't reference a non-existent project
+   */
+  unassignTasksFromProject(projectId: string): void {
+    const tasksToUpdate = this.state.tasks.filter(
+      (t) => t.projectId === projectId,
+    );
+
+    if (tasksToUpdate.length === 0) {
+      return; // No tasks to update
+    }
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) =>
+        t.projectId === projectId
+          ? { ...t, projectId: undefined, updatedAt: new Date().toISOString() }
+          : t,
+      ),
+    });
+  }
+
+  /**
    * Resets the day - clears all tasks and refreshes the pool
    * Preserves dayStart, dayEnd, and capacityInMinutes from the current state
    */
