@@ -141,11 +141,11 @@ export class TomatoPoolVisual extends LitElement {
             <div class="legend">
               <div class="legend-item">
                 <div class="legend-dot assigned"></div>
-                <span>Assigned (${assigned})</span>
+                <span>Assigned</span>
               </div>
               <div class="legend-item">
                 <div class="legend-dot remaining"></div>
-                <span>Available (${remaining})</span>
+                <span>Available</span>
               </div>
             </div>
           `

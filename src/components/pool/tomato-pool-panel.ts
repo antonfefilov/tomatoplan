@@ -95,40 +95,6 @@ export class TomatoPoolPanel extends LitElement {
       display: none;
     }
 
-    .stats-card {
-      background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 16px;
-    }
-
-    .stat-item {
-      text-align: center;
-    }
-
-    .stat-value {
-      font-size: 32px;
-      font-weight: 700;
-      color: #ef4444;
-      line-height: 1;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 4px;
-    }
-
-    .stat-item.remaining .stat-value {
-      color: #22c55e;
-    }
-
     .section {
       margin-bottom: 20px;
     }
@@ -546,57 +512,6 @@ export class TomatoPoolPanel extends LitElement {
       </div>
 
       <div class="panel-content" id="panel-content">
-        <div class="stats-card">
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-value">${this.assigned}</div>
-              <div class="stat-label">Assigned</div>
-            </div>
-            <div class="stat-item remaining">
-              <div class="stat-value">${Math.max(0, this.remaining)}</div>
-              <div class="stat-label">Available</div>
-            </div>
-          </div>
-
-          <div
-            class="tomato-grid-section"
-            aria-label="Tomato allocation visualization"
-          >
-            <div class="tomato-grid">${this._renderTomatoCells()}</div>
-            <div class="tomato-legend" aria-hidden="true">
-              <div class="legend-item">
-                <div class="legend-swatch assigned"></div>
-                <span>Assigned (${this.assigned})</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-swatch available"></div>
-                <span
-                  >Available
-                  (${Math.max(0, this.capacity - this.assigned)})</span
-                >
-              </div>
-            </div>
-          </div>
-
-          ${isOverCapacity
-            ? html`
-                <div class="warning-message">
-                  <span>⚠️</span>
-                  <span
-                    >Over capacity by ${Math.abs(this.remaining)} tomatoes</span
-                  >
-                </div>
-              `
-            : isAtCapacity
-              ? html`
-                  <div class="at-capacity-message">
-                    <span>✅</span>
-                    <span>All tomatoes assigned!</span>
-                  </div>
-                `
-              : null}
-        </div>
-
         <div class="section">
           <div class="section-header">
             <span class="section-title">Schedule</span>
@@ -625,6 +540,41 @@ export class TomatoPoolPanel extends LitElement {
             <span class="calculated-label">Daily Capacity (calculated)</span>
             <span class="calculated-value">${this.capacity} 🍅</span>
           </div>
+
+          <div
+            class="tomato-grid-section"
+            aria-label="Tomato allocation visualization"
+          >
+            <div class="tomato-grid">${this._renderTomatoCells()}</div>
+            <div class="tomato-legend" aria-hidden="true">
+              <div class="legend-item">
+                <div class="legend-swatch assigned"></div>
+                <span>Assigned</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-swatch available"></div>
+                <span>Available</span>
+              </div>
+            </div>
+          </div>
+
+          ${isOverCapacity
+            ? html`
+                <div class="warning-message">
+                  <span>⚠️</span>
+                  <span
+                    >Over capacity by ${Math.abs(this.remaining)} tomatoes</span
+                  >
+                </div>
+              `
+            : isAtCapacity
+              ? html`
+                  <div class="at-capacity-message">
+                    <span>✅</span>
+                    <span>All tomatoes assigned!</span>
+                  </div>
+                `
+              : null}
 
           <div class="schedule-controls">
             <div class="capacity-controls-row">
