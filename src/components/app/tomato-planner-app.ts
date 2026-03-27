@@ -6,8 +6,10 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { plannerStore } from "../../state/planner-store.js";
+import { weeklyStore } from "../../state/weekly-store.js";
 import { timerStore } from "../../state/timer-store.js";
 import type { Task } from "../../models/task.js";
+import type { Project } from "../../models/project.js";
 import type { TimerStatus } from "../../models/timer-state.js";
 import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
 import "../layout/app-shell.js";
@@ -74,8 +76,16 @@ export class TomatoPlannerApp extends LitElement {
   @state()
   private _timerRemainingSeconds = 0;
 
+  // ============================================
+  // Weekly Planning State
+  // ============================================
+
+  @state()
+  private _projects: readonly Project[] = [];
+
   private _unsubscribe: (() => void) | null = null;
   private _timerUnsubscribe: (() => void) | null = null;
+  private _weeklyUnsubscribe: (() => void) | null = null;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -95,6 +105,10 @@ export class TomatoPlannerApp extends LitElement {
       this._timerStatus = state.status;
       this._timerRemainingSeconds = state.remainingSeconds;
     });
+
+    this._weeklyUnsubscribe = weeklyStore.subscribe((state) => {
+      this._projects = state.projects;
+    });
   }
 
   override disconnectedCallback() {
@@ -104,6 +118,9 @@ export class TomatoPlannerApp extends LitElement {
     }
     if (this._timerUnsubscribe) {
       this._timerUnsubscribe();
+    }
+    if (this._weeklyUnsubscribe) {
+      this._weeklyUnsubscribe();
     }
   }
 
@@ -145,16 +162,27 @@ export class TomatoPlannerApp extends LitElement {
   }
 
   private _handleSaveTask(
-    e: CustomEvent<{ taskId?: string; title: string; description?: string }>,
+    e: CustomEvent<{
+      taskId?: string;
+      title: string;
+      description?: string;
+      projectId?: string;
+    }>,
   ) {
-    const { taskId, title, description } = e.detail;
+    const { taskId, title, description, projectId } = e.detail;
 
     if (taskId) {
       // Edit existing task
       plannerStore.updateTask(taskId, { title, description });
+      // Update project assignment
+      plannerStore.setTaskProject(taskId, projectId);
     } else {
       // Create new task
-      plannerStore.addTask(title, description);
+      const result = plannerStore.addTask(title, description);
+      // Set project assignment if a project was selected
+      if (result.success && result.taskId && projectId) {
+        plannerStore.setTaskProject(result.taskId, projectId);
+      }
     }
 
     this._closeTaskDialog();
@@ -318,6 +346,7 @@ export class TomatoPlannerApp extends LitElement {
       <task-editor-dialog
         .open=${this._showTaskDialog}
         .task=${this._editingTask}
+        .projects=${this._projects}
         .isEdit=${isEdit}
         @save=${this._handleSaveTask}
         @cancel=${this._closeTaskDialog}

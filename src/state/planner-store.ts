@@ -37,6 +37,7 @@ import {
   DEFAULT_DAY_END,
 } from "../constants/defaults.js";
 import { loadState, saveState, clearState } from "./persistence.js";
+import { weeklyStore } from "./weekly-store.js";
 
 /** Type for subscriber callback functions */
 type Subscriber = (state: PlannerState) => void;
@@ -144,10 +145,12 @@ class PlannerStore {
 
   /**
    * Updates state and persists to storage
+   * Also syncs tasks to weekly store
    */
   private setState(newState: PlannerState): void {
     this.state = newState;
     saveState(newState);
+    weeklyStore.syncTasks(newState.tasks);
     this.notify();
   }
 
@@ -607,6 +610,32 @@ class PlannerStore {
     this.setState({
       ...this.state,
       tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Sets the project ID for a task
+   * Pass undefined to unassign from project
+   */
+  setTaskProject(
+    taskId: string,
+    projectId: string | undefined,
+  ): { success: boolean; error?: string } {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) =>
+        t.id === taskId
+          ? { ...t, projectId, updatedAt: new Date().toISOString() }
+          : t,
+      ),
     });
 
     return { success: true };

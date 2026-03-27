@@ -6,6 +6,7 @@
 import { LitElement, html, css, type PropertyValues } from "lit";
 import { customElement, property, state, query } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import type { Project } from "../../models/project.js";
 
 @customElement("task-form")
 export class TaskForm extends LitElement {
@@ -63,6 +64,32 @@ export class TaskForm extends LitElement {
     textarea {
       min-height: 80px;
       resize: vertical;
+    }
+
+    select {
+      padding: 10px 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.15s ease;
+      background: white;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+    }
+
+    .project-color {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+      vertical-align: middle;
     }
 
     .char-count {
@@ -134,6 +161,9 @@ export class TaskForm extends LitElement {
   @property({ type: Object })
   task?: Task;
 
+  @property({ type: Array })
+  projects?: readonly Project[];
+
   @property({ type: String })
   submitLabel = "Create Task";
 
@@ -142,6 +172,9 @@ export class TaskForm extends LitElement {
 
   @state()
   private _description = "";
+
+  @state()
+  private _projectId?: string;
 
   @state()
   private _titleError = "";
@@ -162,10 +195,12 @@ export class TaskForm extends LitElement {
       if (this.task) {
         this._title = this.task.title;
         this._description = this.task.description ?? "";
+        this._projectId = this.task.projectId;
       } else {
         // Reset for new task mode
         this._title = "";
         this._description = "";
+        this._projectId = undefined;
       }
       // Clear any previous validation errors when task changes
       this._titleError = "";
@@ -201,6 +236,11 @@ export class TaskForm extends LitElement {
     this._description = (e.target as HTMLTextAreaElement).value;
   }
 
+  private _handleProjectChange(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    this._projectId = value || undefined;
+  }
+
   private _handleSubmit(e: Event) {
     e.preventDefault();
 
@@ -215,6 +255,7 @@ export class TaskForm extends LitElement {
         detail: {
           title: this._title.trim(),
           description: this._description.trim(),
+          projectId: this._projectId,
         },
       }),
     );
@@ -281,6 +322,34 @@ export class TaskForm extends LitElement {
             ${descRemaining} characters remaining
           </div>
         </div>
+
+        ${this.projects && this.projects.length > 0
+          ? html`
+              <div class="form-group">
+                <label for="project-input">Project (optional)</label>
+                <select
+                  id="project-input"
+                  .value=${this._projectId ?? ""}
+                  @change=${this._handleProjectChange}
+                >
+                  <option value="">No project</option>
+                  ${this.projects
+                    .filter((p) => p.status === "active")
+                    .map(
+                      (p) => html`
+                        <option value=${p.id}>
+                          <span
+                            class="project-color"
+                            style="background-color: ${p.color ?? "#999"}"
+                          ></span>
+                          ${p.title}
+                        </option>
+                      `,
+                    )}
+                </select>
+              </div>
+            `
+          : null}
 
         <div class="form-actions">
           <button

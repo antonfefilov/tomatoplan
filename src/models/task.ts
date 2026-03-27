@@ -19,6 +19,9 @@ export interface Task {
   /** Number of tomatoes that have been finished/completed */
   finishedTomatoCount: number;
 
+  /** Optional reference to a weekly project */
+  projectId?: string;
+
   /** When the task was created */
   readonly createdAt: string; // ISO 8601 date string
 
@@ -33,6 +36,7 @@ export function createTask(
   id: string,
   title: string,
   description?: string,
+  projectId?: string,
 ): Task {
   const now = new Date().toISOString();
   return {
@@ -41,6 +45,7 @@ export function createTask(
     description,
     tomatoCount: 0,
     finishedTomatoCount: 0,
+    projectId,
     createdAt: now,
     updatedAt: now,
   };
@@ -108,11 +113,35 @@ export function updateTaskFinishedCount(task: Task, count: number): Task {
  */
 export function updateTask(
   task: Task,
-  updates: Partial<Pick<Task, "title" | "description" | "tomatoCount">>,
+  updates: Partial<
+    Pick<Task, "title" | "description" | "tomatoCount" | "projectId">
+  >,
 ): Task {
   return {
     ...task,
     ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Assigns a task to a project
+ */
+export function assignTaskToProject(task: Task, projectId: string): Task {
+  return {
+    ...task,
+    projectId,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Removes a task from its project
+ */
+export function unassignTaskFromProject(task: Task): Task {
+  const { projectId: _, ...rest } = task;
+  return {
+    ...rest,
     updatedAt: new Date().toISOString(),
   };
 }

@@ -14,7 +14,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     setCapacityInMinutes: vi.fn(),
     setDayStart: vi.fn(),
     setDayEnd: vi.fn(),
-    addTask: vi.fn(),
+    addTask: vi.fn().mockReturnValue({ success: true, taskId: "test-task-id" }),
     updateTask: vi.fn(),
     removeTask: vi.fn(),
     assignTomato: vi.fn(),
@@ -24,6 +24,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     reorderTask: vi.fn(),
     resetDay: vi.fn(),
     getTaskById: vi.fn(),
+    setTaskProject: vi.fn(),
     assignedTomatoes: 3,
     remainingTomatoes: 7,
   },
@@ -62,6 +63,7 @@ const mockStore = plannerStore as unknown as {
   reorderTask: ReturnType<typeof vi.fn>;
   resetDay: ReturnType<typeof vi.fn>;
   getTaskById: ReturnType<typeof vi.fn>;
+  setTaskProject: ReturnType<typeof vi.fn>;
   assignedTomatoes: number;
   remainingTomatoes: number;
 };
@@ -106,6 +108,10 @@ describe("TomatoPlannerApp", () => {
         return unsubscribeSpy;
       },
     );
+    mockStore.addTask.mockReturnValue({
+      success: true,
+      taskId: "test-task-id",
+    });
     mockStore.assignedTomatoes = 3;
     mockStore.remainingTomatoes = 7;
 
