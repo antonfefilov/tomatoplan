@@ -104,7 +104,8 @@ export class TomatoAssignmentControl extends LitElement {
   @property({ type: Boolean })
   showCount = true;
 
-  private _handleAdd() {
+  private _handleAdd(e: Event) {
+    e.stopPropagation();
     if (this.disabled || this.count >= this.maxCount || this.remaining <= 0) {
       return;
     }
@@ -117,7 +118,8 @@ export class TomatoAssignmentControl extends LitElement {
     );
   }
 
-  private _handleRemove() {
+  private _handleRemove(e: Event) {
+    e.stopPropagation();
     if (this.disabled || this.count <= 0) {
       return;
     }
