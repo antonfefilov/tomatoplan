@@ -11,7 +11,6 @@ import {
   DEFAULT_DAILY_CAPACITY,
 } from "../../constants/defaults.js";
 import "../tomato/tomato-icon.js";
-import "../tomato/tomato-pool-visual.js";
 import "../shared/empty-state.js";
 
 @customElement("tomato-pool-panel")
@@ -219,34 +218,66 @@ export class TomatoPoolPanel extends LitElement {
       margin-left: 1px;
     }
 
-    .progress-section {
+    .tomato-grid-section {
       margin-top: 16px;
     }
 
-    .progress-bar {
-      height: 8px;
-      background: #e5e7eb;
-      border-radius: 4px;
-      overflow: hidden;
+    .tomato-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 24px);
+      gap: 4px;
+      padding: 12px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
     }
 
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #22c55e, #ef4444);
-      border-radius: 4px;
-      transition: width 0.3s ease;
-    }
-
-    .progress-fill.over-capacity {
-      background: #ef4444;
-    }
-
-    .progress-label {
+    .tomato-cell {
       display: flex;
-      justify-content: space-between;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.15s ease;
+    }
+
+    .tomato-cell:hover {
+      transform: scale(1.1);
+    }
+
+    .tomato-cell.assigned {
+      opacity: 1;
+    }
+
+    .tomato-cell.available {
+      opacity: 0.55;
+    }
+
+    .tomato-legend {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
       font-size: 11px;
-      color: #9ca3af;
-      margin-top: 4px;
+      color: #6b7280;
+    }
+
+    .legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+    }
+
+    .legend-swatch.assigned {
+      background-color: #ef4444;
+    }
+
+    .legend-swatch.available {
+      background-color: #fecaca;
     }
 
     .warning-message {
@@ -439,11 +470,6 @@ export class TomatoPoolPanel extends LitElement {
     );
   }
 
-  private _getProgressPercent(): number {
-    if (this.capacity === 0) return 0;
-    return Math.min(100, (this.assigned / this.capacity) * 100);
-  }
-
   private _isOverCapacity(): boolean {
     return this.remaining < 0;
   }
@@ -471,8 +497,26 @@ export class TomatoPoolPanel extends LitElement {
     return `${hours}h ${mins}m`;
   }
 
+  private _renderTomatoCells() {
+    const cells = [];
+    const displayAssigned = Math.min(this.assigned, this.capacity);
+
+    for (let i = 0; i < this.capacity; i++) {
+      const isAssigned = i < displayAssigned;
+      cells.push(html`
+        <div class="tomato-cell ${isAssigned ? "assigned" : "available"}">
+          <tomato-icon
+            size="24"
+            color="${isAssigned ? "#ef4444" : "#fecaca"}"
+          ></tomato-icon>
+        </div>
+      `);
+    }
+
+    return cells;
+  }
+
   override render() {
-    const progressPercent = this._getProgressPercent();
     const isOverCapacity = this._isOverCapacity();
     const isAtCapacity = this._isAtCapacity();
 
@@ -514,17 +558,23 @@ export class TomatoPoolPanel extends LitElement {
             </div>
           </div>
 
-          <div class="progress-section">
-            <div class="progress-bar">
-              <div
-                class="progress-fill ${isOverCapacity ? "over-capacity" : ""}"
-                style="width: ${progressPercent}%"
-              ></div>
-            </div>
-            <div class="progress-label">
-              <span>0</span>
-              <span>${this.assigned} / ${this.capacity}</span>
-              <span>${this.capacity}</span>
+          <div
+            class="tomato-grid-section"
+            aria-label="Tomato allocation visualization"
+          >
+            <div class="tomato-grid">${this._renderTomatoCells()}</div>
+            <div class="tomato-legend" aria-hidden="true">
+              <div class="legend-item">
+                <div class="legend-swatch assigned"></div>
+                <span>Assigned (${this.assigned})</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-swatch available"></div>
+                <span
+                  >Available
+                  (${Math.max(0, this.capacity - this.assigned)})</span
+                >
+              </div>
             </div>
           </div>
 
@@ -617,16 +667,6 @@ export class TomatoPoolPanel extends LitElement {
               >
             </div>
           </div>
-        </div>
-
-        <div class="section">
-          <div class="section-header">
-            <span class="section-title">Visual</span>
-          </div>
-          <tomato-pool-visual
-            .capacity=${this.capacity}
-            .assigned=${this.assigned}
-          ></tomato-pool-visual>
         </div>
       </div>
     `;
