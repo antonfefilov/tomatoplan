@@ -70,6 +70,16 @@ export class TaskListPanel extends LitElement {
       color: #6b7280;
     }
 
+    .header-tomato-finished {
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    .header-tomato-separator,
+    .header-tomato-assigned {
+      color: #6b7280;
+    }
+
     .add-btn {
       display: flex;
       align-items: center;
@@ -189,6 +199,18 @@ export class TaskListPanel extends LitElement {
     }
 
     return `${hours}h ${mins}m`;
+  }
+
+  /**
+   * Computes total finished tomatoes (capped at assigned per task)
+   * This prevents finished count from exceeding assigned count
+   */
+  private _getFinishedAssignedTomatoes(): number {
+    return this.tasks.reduce(
+      (sum, task) =>
+        sum + Math.min(task.finishedTomatoCount ?? 0, task.tomatoCount ?? 0),
+      0,
+    );
   }
 
   private _handleAddTask(e: Event) {
@@ -324,14 +346,24 @@ export class TaskListPanel extends LitElement {
           </div>
           ${this.assigned > 0
             ? html`
-                <div class="header-time-display">
+                <div
+                  class="header-time-display"
+                  title="${this._getFinishedAssignedTomatoes()} of ${this
+                    .assigned} assigned tomatoes finished"
+                >
                   <span class="header-time-value"
                     >${this._formatMinutesToHoursMinutes(
                       this.assigned * this.capacityInMinutes,
                     )}</span
                   >
                   <span class="header-time-label"
-                    >(${this.assigned} × ${this.capacityInMinutes}m)</span
+                    >(<span class="header-tomato-finished"
+                      >${this._getFinishedAssignedTomatoes()}</span
+                    ><span class="header-tomato-separator">/</span
+                    ><span class="header-tomato-assigned"
+                      >${this.assigned}</span
+                    >
+                    × ${this.capacityInMinutes}m)</span
                   >
                 </div>
               `
