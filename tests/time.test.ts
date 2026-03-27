@@ -10,6 +10,7 @@ import {
   getMinutesBetween,
   calculateDailyCapacityFromSchedule,
   isValidTimeString,
+  calculateTomatoesRemainingUntilDayEnd,
 } from "../src/utils/time.js";
 
 describe("formatTimeEstimate", () => {
@@ -163,5 +164,175 @@ describe("isValidTimeString", () => {
     expect(isValidTimeString("24:00")).toBe(false);
     expect(isValidTimeString("12:60")).toBe(false);
     expect(isValidTimeString("abc")).toBe(false);
+  });
+});
+
+describe("calculateTomatoesRemainingUntilDayEnd", () => {
+  // Typical day: 08:00 to 18:25 (625 minutes = 25 tomatoes at 25 min each)
+
+  it("should return full capacity before day start", () => {
+    // 07:00 (420 minutes) - before 08:00 start
+    // Should return floor(625 / 25) = 25
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      420,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(25);
+  });
+
+  it("should return exactly full capacity at day start", () => {
+    // 08:00 (480 minutes) - exactly at start
+    // Should return (1105 - 480) / 25 = 625 / 25 = 25
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      480,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(25);
+  });
+
+  it("should calculate correctly in middle of day", () => {
+    // 12:00 (720 minutes) - 6.5 hours into day
+    // Remaining: 1105 - 720 = 385 minutes = 15.4 tomatoes
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      720,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(15.4);
+  });
+
+  it("should calculate correctly near end of day", () => {
+    // 18:00 (1080 minutes)
+    // Remaining: 1105 - 1080 = 25 minutes = 1 tomato
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      1080,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(1);
+  });
+
+  it("should return 0 at day end", () => {
+    // 18:25 (1105 minutes) - exactly at end
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      1105,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(0);
+  });
+
+  it("should return 0 after day end", () => {
+    // 20:00 (1200 minutes) - after 18:25 end
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      1200,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(0);
+  });
+
+  it("should return 0 late at night after day end", () => {
+    // 23:00 (1380 minutes)
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      1380,
+      "08:00",
+      "18:25",
+      25,
+    );
+    expect(result).toBe(0);
+  });
+
+  it("should handle different capacity values", () => {
+    // With 30-minute tomatoes: 625 / 30 = 20.83...
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      420, // 07:00
+      "08:00",
+      "18:25",
+      30,
+    );
+    expect(result).toBe(20); // floor(625/30)
+  });
+
+  it("should handle 15-minute tomatoes", () => {
+    // With 15-minute tomatoes: 625 / 15 = 41.66...
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      420, // 07:00
+      "08:00",
+      "18:25",
+      15,
+    );
+    expect(result).toBe(41); // floor(625/15)
+  });
+
+  it("should return null for invalid dayStart", () => {
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      720,
+      "invalid",
+      "18:25",
+      25,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("should return null for invalid dayEnd", () => {
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      720,
+      "08:00",
+      "invalid",
+      25,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("should return null for zero capacity", () => {
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      720,
+      "08:00",
+      "18:25",
+      0,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("should return null for negative capacity", () => {
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      720,
+      "08:00",
+      "18:25",
+      -5,
+    );
+    expect(result).toBeNull();
+  });
+
+  it("should calculate partial tomato correctly", () => {
+    // 18:00 (1080 minutes), 10 minutes remaining = 0.4 tomatoes
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      1095, // 18:15
+      "08:00",
+      "18:25",
+      25,
+    );
+    // Remaining: 1105 - 1095 = 10 minutes = 0.4 tomatoes
+    expect(result).toBe(0.4);
+  });
+
+  it("should handle short day schedules", () => {
+    // 09:00 to 12:00 = 180 minutes = 7.2 tomatoes at 25 min
+    const result = calculateTomatoesRemainingUntilDayEnd(
+      540, // 09:00
+      "09:00",
+      "12:00",
+      25,
+    );
+    expect(result).toBe(7.2);
   });
 });

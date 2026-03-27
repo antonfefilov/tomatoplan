@@ -4,8 +4,9 @@
  */
 
 import { LitElement, html, css } from "lit";
-import { customElement, property } from "lit/decorators.js";
+import { customElement, property, state } from "lit/decorators.js";
 import "../tomato/tomato-icon.js";
+import { calculateTomatoesRemainingUntilDayEnd } from "../../utils/time.js";
 
 @customElement("app-header")
 export class AppHeader extends LitElement {
@@ -48,12 +49,33 @@ export class AppHeader extends LitElement {
       font-weight: 400;
     }
 
-    .date-display {
+    .header-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .date-display,
+    .time-display,
+    .remaining-display {
       font-size: 14px;
       color: #6b7280;
       background: #f3f4f6;
       padding: 6px 12px;
       border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .remaining-display {
+      gap: 4px;
+    }
+
+    .remaining-display tomato-icon {
+      flex-shrink: 0;
     }
 
     .actions {
@@ -85,6 +107,73 @@ export class AppHeader extends LitElement {
   @property({ type: Boolean })
   showReset = false;
 
+  @property({ type: String })
+  dayStart = "08:00";
+
+  @property({ type: String })
+  dayEnd = "18:25";
+
+  @property({ type: Number })
+  capacityInMinutes = 25;
+
+  @property({ type: Number })
+  dailyCapacity = 25;
+
+  @state()
+  private _currentTime = "";
+
+  @state()
+  private _tomatoesRemaining: number | null = null;
+
+  private _timerId: number | null = null;
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    this._updateTime();
+    this._scheduleNextUpdate();
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._clearTimer();
+  }
+
+  private _updateTime(): void {
+    const now = new Date();
+    this._currentTime = now.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+
+    // Calculate tomatoes remaining until day end
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    this._tomatoesRemaining = calculateTomatoesRemainingUntilDayEnd(
+      nowMinutes,
+      this.dayStart,
+      this.dayEnd,
+      this.capacityInMinutes,
+    );
+  }
+
+  private _scheduleNextUpdate(): void {
+    const now = new Date();
+    const msUntilNextMinute =
+      (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+    this._timerId = window.setTimeout(() => {
+      this._updateTime();
+      this._timerId = window.setInterval(() => this._updateTime(), 60000);
+    }, msUntilNextMinute);
+  }
+
+  private _clearTimer(): void {
+    if (this._timerId !== null) {
+      window.clearTimeout(this._timerId);
+      window.clearInterval(this._timerId);
+      this._timerId = null;
+    }
+  }
+
   private _formatDate(dateStr: string): string {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -105,6 +194,20 @@ export class AppHeader extends LitElement {
   }
 
   override render() {
+    // Format tomatoes remaining (whole numbers only, rounded down)
+    const tomatoesDisplay =
+      this._tomatoesRemaining !== null
+        ? Math.floor(this._tomatoesRemaining)
+        : null;
+
+    const remainingDisplay =
+      tomatoesDisplay !== null
+        ? html`<span class="remaining-display">
+            <tomato-icon size="16"></tomato-icon>
+            ${tomatoesDisplay} left today
+          </span>`
+        : null;
+
     return html`
       <header>
         <div class="logo-section">
@@ -113,11 +216,17 @@ export class AppHeader extends LitElement {
             <span class="subtitle">Pomodoro Task Manager</span>
           </div>
         </div>
-        ${this.currentDate
-          ? html`<div class="date-display">
-              ${this._formatDate(this.currentDate)}
-            </div>`
-          : null}
+        <div class="header-info">
+          ${this.currentDate
+            ? html`<div class="date-display">
+                ${this._formatDate(this.currentDate)}
+              </div>`
+            : null}
+          ${this._currentTime
+            ? html`<div class="time-display">${this._currentTime}</div>`
+            : null}
+          ${remainingDisplay}
+        </div>
         ${this.showReset
           ? html`
               <div class="actions">

@@ -98,3 +98,45 @@ export function calculateDailyCapacityFromSchedule(
 export function isValidTimeString(time: string): boolean {
   return parseTimeToMinutes(time) !== null;
 }
+
+/**
+ * Calculates the number of tomatoes remaining until day end
+ * Based on the current time and day schedule
+ *
+ * @param nowMinutes - Current time in minutes from midnight
+ * @param dayStart - Day start time in HH:MM format
+ * @param dayEnd - Day end time in HH:MM format
+ * @param capacityInMinutes - Duration of one tomato in minutes
+ * @returns Number of tomatoes remaining (with decimal), or null if invalid inputs
+ */
+export function calculateTomatoesRemainingUntilDayEnd(
+  nowMinutes: number,
+  dayStart: string,
+  dayEnd: string,
+  capacityInMinutes: number,
+): number | null {
+  const dayStartMinutes = parseTimeToMinutes(dayStart);
+  const dayEndMinutes = parseTimeToMinutes(dayEnd);
+
+  if (dayStartMinutes === null || dayEndMinutes === null) {
+    return null;
+  }
+
+  if (capacityInMinutes <= 0) {
+    return null;
+  }
+
+  // Before day start: show full scheduled capacity
+  if (nowMinutes < dayStartMinutes) {
+    return Math.floor((dayEndMinutes - dayStartMinutes) / capacityInMinutes);
+  }
+
+  // After day end: show 0
+  if (nowMinutes >= dayEndMinutes) {
+    return 0;
+  }
+
+  // During day: calculate remaining time in tomato units
+  const remainingMinutes = dayEndMinutes - nowMinutes;
+  return remainingMinutes / capacityInMinutes;
+}

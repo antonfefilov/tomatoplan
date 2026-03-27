@@ -263,6 +263,10 @@ export class TomatoPlannerApp extends LitElement {
         <app-header
           slot="header"
           .currentDate=${this._currentDate}
+          .dayStart=${this._dayStart}
+          .dayEnd=${this._dayEnd}
+          .capacityInMinutes=${this._capacityInMinutes}
+          .dailyCapacity=${this._capacity}
           .showReset=${true}
           @reset-day=${this._handleResetDay}
         ></app-header>
