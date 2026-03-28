@@ -21,6 +21,13 @@ export class AppShell extends LitElement {
       background: #f9fafb;
     }
 
+    .tabs-slot {
+      display: flex;
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 16px;
+    }
+
     .main-content {
       display: flex;
       flex: 1;
@@ -86,6 +93,9 @@ export class AppShell extends LitElement {
   override render() {
     return html`
       <div class="shell-container">
+        <div class="tabs-slot">
+          <slot name="tabs"></slot>
+        </div>
         <slot name="header"></slot>
         <div class="main-content">
           <div
