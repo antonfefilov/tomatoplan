@@ -116,6 +116,278 @@ describe("WeeklyStore", () => {
     });
   });
 
+  describe("capacity enforcement", () => {
+    describe("addProject", () => {
+      it("should reject project when total estimates would exceed capacity", () => {
+        // Default capacity is 125 tomatoes
+        store.setWeeklyCapacity(50);
+        store.addProject("Project 1", undefined, 30);
+        store.addProject("Project 2", undefined, 15);
+
+        // 45 used, trying to add 10 more = 55 > 50
+        const result = store.addProject("Project 3", undefined, 10);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("exceed weekly capacity");
+        expect(result.error).toContain("5 tomatoes remaining");
+        expect(store.projects).toHaveLength(2);
+      });
+
+      it("should accept project when total estimates exactly equal capacity", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Project 1", undefined, 30);
+
+        // 30 used, adding 20 more = 50 exactly
+        const result = store.addProject("Project 2", undefined, 20);
+
+        expect(result.success).toBe(true);
+        expect(store.projects).toHaveLength(2);
+        expect(store.totalProjectEstimates).toBe(50);
+      });
+
+      it("should accept project with zero estimate regardless of capacity", () => {
+        store.setWeeklyCapacity(10);
+        store.addProject("Project 1", undefined, 10);
+
+        // At capacity, but adding a zero-estimate project should work
+        const result = store.addProject("Project 2", undefined, 0);
+
+        expect(result.success).toBe(true);
+        expect(store.projects).toHaveLength(2);
+      });
+
+      it("should not modify state when validation fails", () => {
+        store.setWeeklyCapacity(10);
+        store.addProject("Project 1", undefined, 10);
+
+        const stateBefore = store.getState();
+        store.addProject("Project 2", undefined, 5);
+        const stateAfter = store.getState();
+
+        // State should be unchanged
+        expect(stateAfter.projects).toHaveLength(1);
+        expect(stateAfter.projects[0]).toEqual(stateBefore.projects[0]);
+      });
+
+      it("should only count active projects toward capacity", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Active 1", undefined, 20);
+        const { projectId } = store.addProject("To Archive", undefined, 20);
+        store.archiveProject(projectId!);
+
+        // 20 active (archived doesn't count), should be able to add 30 more
+        const result = store.addProject("Active 2", undefined, 30);
+
+        expect(result.success).toBe(true);
+        expect(store.totalProjectEstimates).toBe(50);
+      });
+
+      it("should reject negative estimate", () => {
+        const result = store.addProject("Project", undefined, -5);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe(
+          "Estimate must be a non-negative finite number",
+        );
+        expect(store.projects).toHaveLength(0);
+      });
+
+      it("should reject NaN estimate", () => {
+        const result = store.addProject("Project", undefined, NaN);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe(
+          "Estimate must be a non-negative finite number",
+        );
+        expect(store.projects).toHaveLength(0);
+      });
+
+      it("should reject Infinity estimate", () => {
+        const result = store.addProject("Project", undefined, Infinity);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe(
+          "Estimate must be a non-negative finite number",
+        );
+        expect(store.projects).toHaveLength(0);
+      });
+
+      it("should reject negative Infinity estimate", () => {
+        const result = store.addProject("Project", undefined, -Infinity);
+
+        expect(result.success).toBe(false);
+        expect(result.error).toBe(
+          "Estimate must be a non-negative finite number",
+        );
+        expect(store.projects).toHaveLength(0);
+      });
+
+      it("should not modify state after invalid estimate attempts", () => {
+        store.addProject("Valid Project", undefined, 5);
+        const stateBefore = store.getState();
+
+        // Attempt various invalid estimates
+        store.addProject("Bad 1", undefined, -1);
+        store.addProject("Bad 2", undefined, NaN);
+        store.addProject("Bad 3", undefined, Infinity);
+
+        const stateAfter = store.getState();
+
+        // State should be unchanged - only the original project
+        expect(stateAfter.projects).toHaveLength(1);
+        expect(stateAfter.projects[0]).toEqual(stateBefore.projects[0]);
+      });
+    });
+
+    describe("updateProject", () => {
+      it("should reject update when increasing estimate past capacity", () => {
+        store.setWeeklyCapacity(40);
+        store.addProject("Project 1", undefined, 20);
+        const { projectId } = store.addProject("Project 2", undefined, 15);
+
+        // 35 used, trying to increase Project 2 to 25 = 45 total would exceed by 5
+        const result = store.updateProject(projectId!, { tomatoEstimate: 25 });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("exceed weekly capacity");
+        // State unchanged
+        expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(15);
+      });
+
+      it("should allow reducing estimate", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Project 1", undefined, 30);
+        const { projectId } = store.addProject("Project 2", undefined, 15);
+
+        // Reducing should always be allowed
+        const result = store.updateProject(projectId!, { tomatoEstimate: 5 });
+
+        expect(result.success).toBe(true);
+        expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(5);
+        expect(store.totalProjectEstimates).toBe(35);
+      });
+
+      it("should allow updating estimate to exactly capacity", () => {
+        store.setWeeklyCapacity(50);
+        const { projectId } = store.addProject("Project 1", undefined, 30);
+
+        // Can update to exactly 50
+        const result = store.updateProject(projectId!, { tomatoEstimate: 50 });
+
+        expect(result.success).toBe(true);
+        expect(store.totalProjectEstimates).toBe(50);
+      });
+
+      it("should reject reactivating archived project that would exceed capacity", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Active", undefined, 30);
+        const { projectId } = store.addProject("To Archive", undefined, 20);
+        store.archiveProject(projectId!);
+
+        // Archived project doesn't count (30 active)
+        // Reactivating would bring total to 50, exactly at capacity
+        // But if we try to reactivate with the same estimate (20), 30 + 20 = 50 should be allowed
+        // Let's test a case that truly exceeds: first increase Active estimate
+        store.updateProject(
+          store.projects.find((p) => p.title === "Active")!.id,
+          { tomatoEstimate: 35 },
+        );
+        // Now 35 active, reactivating with 20 = 55 > 50
+        const result = store.updateProject(projectId!, { status: "active" });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain("exceed weekly capacity");
+        // Project should remain archived
+        expect(store.getProjectById(projectId!)!.status).toBe("archived");
+      });
+
+      it("should allow reactivating archived project within capacity", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Active", undefined, 20);
+        const { projectId } = store.addProject("To Archive", undefined, 25);
+        store.archiveProject(projectId!);
+
+        // 20 active, reactivating brings total to 45
+        const result = store.updateProject(projectId!, { status: "active" });
+
+        expect(result.success).toBe(true);
+        expect(store.getProjectById(projectId!)!.status).toBe("active");
+        expect(store.totalProjectEstimates).toBe(45);
+      });
+
+      it("should allow archiving active project", () => {
+        store.setWeeklyCapacity(50);
+        const { projectId } = store.addProject("Project", undefined, 40);
+
+        // Archiving should be allowed
+        const result = store.updateProject(projectId!, { status: "archived" });
+
+        expect(result.success).toBe(true);
+        expect(store.getProjectById(projectId!)!.status).toBe("archived");
+        expect(store.totalProjectEstimates).toBe(0);
+      });
+
+      it("should allow completing active project", () => {
+        store.setWeeklyCapacity(50);
+        const { projectId } = store.addProject("Project", undefined, 40);
+
+        // Completing should be allowed
+        const result = store.updateProject(projectId!, { status: "completed" });
+
+        expect(result.success).toBe(true);
+        expect(store.getProjectById(projectId!)!.status).toBe("completed");
+        expect(store.totalProjectEstimates).toBe(0);
+      });
+
+      it("should not modify state when validation fails", () => {
+        store.setWeeklyCapacity(50);
+        const { projectId } = store.addProject("Project", undefined, 50);
+
+        const stateBefore = store.getState();
+        const result = store.updateProject(projectId!, { tomatoEstimate: 60 });
+        const stateAfter = store.getState();
+
+        expect(result.success).toBe(false);
+        expect(stateAfter.projects[0]).toEqual(stateBefore.projects[0]);
+      });
+
+      it("should handle simultaneous status and estimate changes", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Active", undefined, 30);
+        const { projectId } = store.addProject("To Archive", undefined, 15);
+        store.archiveProject(projectId!);
+
+        // Reactivating with increased estimate (15 -> 18, total = 48)
+        const result = store.updateProject(projectId!, {
+          status: "active",
+          tomatoEstimate: 18,
+        });
+
+        expect(result.success).toBe(true);
+        expect(store.getProjectById(projectId!)!.status).toBe("active");
+        expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(18);
+        expect(store.totalProjectEstimates).toBe(48);
+      });
+
+      it("should reject simultaneous status and estimate changes that exceed capacity", () => {
+        store.setWeeklyCapacity(50);
+        store.addProject("Active", undefined, 30);
+        const { projectId } = store.addProject("To Archive", undefined, 15);
+        store.archiveProject(projectId!);
+
+        // Reactivating with increased estimate (15 -> 25, total = 55)
+        const result = store.updateProject(projectId!, {
+          status: "active",
+          tomatoEstimate: 25,
+        });
+
+        expect(result.success).toBe(false);
+        expect(store.getProjectById(projectId!)!.status).toBe("archived");
+        expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(15);
+      });
+    });
+  });
+
   describe("updateProject", () => {
     it("should update project title", () => {
       const { projectId } = store.addProject("Original");
@@ -157,11 +429,64 @@ describe("WeeklyStore", () => {
       expect(result.success).toBe(false);
     });
 
-    it("should validate estimate", () => {
+    it("should validate estimate (negative)", () => {
       const { projectId } = store.addProject("Project");
       const result = store.updateProject(projectId!, { tomatoEstimate: -5 });
 
       expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        "Estimate must be a non-negative finite number",
+      );
+    });
+
+    it("should reject NaN estimate", () => {
+      const { projectId } = store.addProject("Project");
+      const result = store.updateProject(projectId!, { tomatoEstimate: NaN });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        "Estimate must be a non-negative finite number",
+      );
+    });
+
+    it("should reject Infinity estimate", () => {
+      const { projectId } = store.addProject("Project");
+      const result = store.updateProject(projectId!, {
+        tomatoEstimate: Infinity,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        "Estimate must be a non-negative finite number",
+      );
+    });
+
+    it("should reject negative Infinity estimate", () => {
+      const { projectId } = store.addProject("Project");
+      const result = store.updateProject(projectId!, {
+        tomatoEstimate: -Infinity,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(
+        "Estimate must be a non-negative finite number",
+      );
+    });
+
+    it("should not modify state after invalid estimate update attempts", () => {
+      const { projectId } = store.addProject("Project", undefined, 5);
+      const stateBefore = store.getState();
+
+      // Attempt various invalid estimate updates
+      store.updateProject(projectId!, { tomatoEstimate: -1 });
+      store.updateProject(projectId!, { tomatoEstimate: NaN });
+      store.updateProject(projectId!, { tomatoEstimate: Infinity });
+
+      const stateAfter = store.getState();
+
+      // State should be unchanged
+      expect(stateAfter.projects[0]!.tomatoEstimate).toBe(5);
+      expect(stateAfter.projects[0]).toEqual(stateBefore.projects[0]);
     });
   });
 

@@ -165,6 +165,7 @@ class WeeklyStore {
 
   /**
    * Adds a new project
+   * Rejects if the project estimate would exceed weekly capacity
    */
   addProject(
     title: string,
@@ -177,6 +178,33 @@ class WeeklyStore {
       return { success: false, error: validation.error };
     }
 
+    // Validate tomatoEstimate BEFORE capacity checks to prevent bypass
+    if (tomatoEstimate !== undefined) {
+      if (
+        typeof tomatoEstimate !== "number" ||
+        !Number.isFinite(tomatoEstimate) ||
+        tomatoEstimate < 0
+      ) {
+        return {
+          success: false,
+          error: "Estimate must be a non-negative finite number",
+        };
+      }
+    }
+
+    const estimate = tomatoEstimate ?? 0;
+    const currentTotal = getTotalProjectEstimates(this.state);
+    const weeklyCapacity = this.state.pool.weeklyCapacity;
+
+    // Check if adding this project would exceed capacity
+    if (currentTotal + estimate > weeklyCapacity) {
+      const remaining = weeklyCapacity - currentTotal;
+      return {
+        success: false,
+        error: `Project estimates exceed weekly capacity. ${remaining} tomatoes remaining.`,
+      };
+    }
+
     const projectId = generateId();
     const weekId = getCurrentWeekId();
 
@@ -185,7 +213,7 @@ class WeeklyStore {
 
     const newProject = createProject(projectId, title.trim(), weekId, {
       description: description?.trim(),
-      tomatoEstimate: tomatoEstimate ?? 0,
+      tomatoEstimate: estimate,
       color: projectColor,
     });
 
@@ -199,6 +227,7 @@ class WeeklyStore {
 
   /**
    * Updates an existing project
+   * Rejects if the update would cause total active estimates to exceed weekly capacity
    */
   updateProject(
     projectId: string,
@@ -225,13 +254,44 @@ class WeeklyStore {
     if (updates.tomatoEstimate !== undefined) {
       if (
         typeof updates.tomatoEstimate !== "number" ||
+        !Number.isFinite(updates.tomatoEstimate) ||
         updates.tomatoEstimate < 0
       ) {
         return {
           success: false,
-          error: "Estimate must be a non-negative number",
+          error: "Estimate must be a non-negative finite number",
         };
       }
+    }
+
+    // Capacity validation: check if update would exceed weekly capacity
+    const weeklyCapacity = this.state.pool.weeklyCapacity;
+    const currentTotal = getTotalProjectEstimates(this.state);
+
+    // Calculate the projected total after the update
+    // We need to consider:
+    // 1. The project's current contribution to the total (if active)
+    // 2. The project's new contribution after the update
+    const currentProjectContribution =
+      project.status === "active" ? project.tomatoEstimate : 0;
+
+    // Determine the new status and estimate after update
+    const newStatus = updates.status ?? project.status;
+    const newEstimate = updates.tomatoEstimate ?? project.tomatoEstimate;
+    const newProjectContribution = newStatus === "active" ? newEstimate : 0;
+
+    // Calculate projected total: remove current contribution, add new contribution
+    const projectedTotal =
+      currentTotal - currentProjectContribution + newProjectContribution;
+
+    // Only reject if we're exceeding capacity
+    if (projectedTotal > weeklyCapacity) {
+      const remaining = weeklyCapacity - currentTotal;
+      const deficit = projectedTotal - weeklyCapacity;
+      return {
+        success: false,
+        error: `Update would exceed weekly capacity by ${deficit} tomatoes. ${remaining} tomatoes remaining.`,
+      };
     }
 
     const updatedProject = updateProjectModel(project, updates);
