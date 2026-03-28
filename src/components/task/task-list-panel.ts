@@ -59,6 +59,12 @@ export class TaskListPanel extends LitElement {
       gap: 6px;
     }
 
+    .header-time-display:focus-visible {
+      outline: 2px solid #ef4444;
+      outline-offset: 2px;
+      border-radius: 4px;
+    }
+
     .header-time-value {
       font-size: 16px;
       font-weight: 600;
@@ -348,6 +354,10 @@ export class TaskListPanel extends LitElement {
             ? html`
                 <div
                   class="header-time-display"
+                  tabindex="0"
+                  role="group"
+                  aria-label="${this._getFinishedAssignedTomatoes()} of ${this
+                    .assigned} assigned tomatoes finished"
                   title="${this._getFinishedAssignedTomatoes()} of ${this
                     .assigned} assigned tomatoes finished"
                 >
