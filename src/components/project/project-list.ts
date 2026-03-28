@@ -58,6 +58,10 @@ export class ProjectList extends LitElement {
   @property({ type: Object })
   progressData: Record<string, { finished: number; estimated: number }> = {};
 
+  /** Display mode: planning shows +/- controls, analytics shows read-only progress */
+  @property({ type: String })
+  mode: "planning" | "analytics" = "analytics";
+
   private _handleEditProject(e: CustomEvent<{ projectId: string }>) {
     this.dispatchEvent(
       new CustomEvent("edit-project", {
@@ -81,6 +85,26 @@ export class ProjectList extends LitElement {
   private _handleSelectProject(e: CustomEvent<{ projectId: string }>) {
     this.dispatchEvent(
       new CustomEvent("select-project", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
+  private _handleIncreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("increase-project-plan", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
+  private _handleDecreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("decrease-project-plan", {
         bubbles: true,
         composed: true,
         detail: e.detail,
@@ -121,9 +145,12 @@ export class ProjectList extends LitElement {
               .finishedTomatoes=${this.progressData[project.id]?.finished ?? 0}
               .estimatedTomatoes=${this.progressData[project.id]?.estimated ??
               0}
+              .mode=${this.mode}
               @edit-project=${this._handleEditProject}
               @delete-project=${this._handleDeleteProject}
               @select-project=${this._handleSelectProject}
+              @increase-project-plan=${this._handleIncreaseProjectPlan}
+              @decrease-project-plan=${this._handleDecreaseProjectPlan}
             ></project-item>
           `,
         )}

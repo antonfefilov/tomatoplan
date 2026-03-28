@@ -3,3 +3,4 @@
  */
 
 export { TomatoPoolPanel } from "./tomato-pool-panel.js";
+export { WeekTomatoPoolPanel } from "./week-tomato-pool-panel.js";

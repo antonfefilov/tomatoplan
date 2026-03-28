@@ -1,11 +1,16 @@
 /**
  * ProjectItem - Single project display component
  * Shows project title, progress bar, and task count
+ * In planning mode, shows +/- controls for tomato estimate
  */
 
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Project } from "../../models/project.js";
+import {
+  getProjectProgressPercent,
+  getProgressColor,
+} from "../../models/project-analytics.js";
 
 @customElement("project-item")
 export class ProjectItem extends LitElement {
@@ -178,6 +183,65 @@ export class ProjectItem extends LitElement {
       background: #f3f4f6;
       color: #6b7280;
     }
+
+    /* Planning mode styles */
+    .planning-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .estimate-label {
+      font-size: 12px;
+      color: #6b7280;
+      flex: 1;
+    }
+
+    .estimate-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+
+    .estimate-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: none;
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      font-size: 14px;
+      font-weight: 600;
+      color: #6b7280;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .estimate-btn:hover:not(:disabled) {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .estimate-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .estimate-value {
+      min-width: 32px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      color: #374151;
+    }
   `;
 
   @property({ type: Object })
@@ -192,20 +256,19 @@ export class ProjectItem extends LitElement {
   @property({ type: Number })
   estimatedTomatoes = 0;
 
+  /** Display mode: planning shows +/- controls, analytics shows read-only progress */
+  @property({ type: String })
+  mode: "planning" | "analytics" = "analytics";
+
   private _getProgressPercent(): number {
-    if (this.estimatedTomatoes === 0) return 0;
-    return Math.min(
-      100,
-      (this.finishedTomatoes / this.estimatedTomatoes) * 100,
+    return getProjectProgressPercent(
+      this.finishedTomatoes,
+      this.estimatedTomatoes,
     );
   }
 
   private _getProgressColor(): string {
-    const percent = this._getProgressPercent();
-    if (percent >= 100) return "#22c55e";
-    if (percent >= 75) return "#84cc16";
-    if (percent >= 50) return "#f59e0b";
-    return this.project.color ?? "#ef4444";
+    return getProgressColor(this._getProgressPercent(), this.project.color);
   }
 
   private _handleEdit(e: Event) {
@@ -233,6 +296,28 @@ export class ProjectItem extends LitElement {
   private _handleClick() {
     this.dispatchEvent(
       new CustomEvent("select-project", {
+        bubbles: true,
+        composed: true,
+        detail: { projectId: this.project.id },
+      }),
+    );
+  }
+
+  private _handleIncreaseEstimate(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("increase-project-plan", {
+        bubbles: true,
+        composed: true,
+        detail: { projectId: this.project.id },
+      }),
+    );
+  }
+
+  private _handleDecreaseEstimate(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("decrease-project-plan", {
         bubbles: true,
         composed: true,
         detail: { projectId: this.project.id },
@@ -303,19 +388,50 @@ export class ProjectItem extends LitElement {
           </span>
         </div>
 
-        <div class="progress-section">
-          <div class="progress-header">
-            <span class="progress-label">Progress</span>
-            <span class="progress-value">${Math.round(progressPercent)}%</span>
-          </div>
-          <div class="progress-bar">
-            <div
-              class="progress-fill"
-              style="width: ${progressPercent}%; background-color: ${progressColor}"
-            ></div>
-          </div>
-        </div>
-
+        ${this.mode === "planning"
+          ? html`
+              <div class="planning-controls">
+                <span class="estimate-label">Planned Tomatoes</span>
+                <div class="estimate-control">
+                  <button
+                    class="estimate-btn"
+                    @click=${this._handleDecreaseEstimate}
+                    ?disabled=${this.project.tomatoEstimate <= 0 ||
+                    this.project.status !== "active"}
+                    aria-label="Decrease planned tomatoes"
+                  >
+                    −
+                  </button>
+                  <span class="estimate-value"
+                    >${this.project.tomatoEstimate}</span
+                  >
+                  <button
+                    class="estimate-btn"
+                    @click=${this._handleIncreaseEstimate}
+                    ?disabled=${this.project.status !== "active"}
+                    aria-label="Increase planned tomatoes"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            `
+          : html`
+              <div class="progress-section">
+                <div class="progress-header">
+                  <span class="progress-label">Progress</span>
+                  <span class="progress-value"
+                    >${Math.round(progressPercent)}%</span
+                  >
+                </div>
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    style="width: ${progressPercent}%; background-color: ${progressColor}"
+                  ></div>
+                </div>
+              </div>
+            `}
         ${this.project.status === "active"
           ? html`
               <div class="project-actions">

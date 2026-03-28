@@ -559,6 +559,93 @@ describe("WeeklyStore", () => {
     });
   });
 
+  describe("incrementProjectEstimate", () => {
+    it("should increment project estimate by 1", () => {
+      const { projectId } = store.addProject("Project", undefined, 5);
+      const result = store.incrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(true);
+      expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(6);
+    });
+
+    it("should reject when exceeding capacity", () => {
+      store.setWeeklyCapacity(10);
+      const { projectId } = store.addProject("Project", undefined, 10);
+
+      // At capacity, increment should fail
+      const result = store.incrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("exceed weekly capacity");
+      expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(10);
+    });
+
+    it("should fail for non-existent project", () => {
+      const result = store.incrementProjectEstimate("non-existent");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+
+    it("should fail for inactive project", () => {
+      const { projectId } = store.addProject("Project", undefined, 5);
+      store.archiveProject(projectId!);
+
+      const result = store.incrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("inactive");
+    });
+  });
+
+  describe("decrementProjectEstimate", () => {
+    it("should decrement project estimate by 1", () => {
+      const { projectId } = store.addProject("Project", undefined, 5);
+      const result = store.decrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(true);
+      expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(4);
+    });
+
+    it("should reject when estimate is already 0", () => {
+      const { projectId } = store.addProject("Project", undefined, 0);
+
+      const result = store.decrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("negative");
+      expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(0);
+    });
+
+    it("should fail for non-existent project", () => {
+      const result = store.decrementProjectEstimate("non-existent");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+
+    it("should fail for inactive project", () => {
+      const { projectId } = store.addProject("Project", undefined, 5);
+      store.archiveProject(projectId!);
+
+      const result = store.decrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("inactive");
+    });
+
+    it("should allow decrement when at capacity", () => {
+      store.setWeeklyCapacity(10);
+      const { projectId } = store.addProject("Project", undefined, 10);
+
+      // At capacity, decrement should still work
+      const result = store.decrementProjectEstimate(projectId!);
+
+      expect(result.success).toBe(true);
+      expect(store.getProjectById(projectId!)!.tomatoEstimate).toBe(9);
+    });
+  });
+
   describe("getProjectProgressById", () => {
     it("should return progress for project", () => {
       const { projectId } = store.addProject("Project", undefined, 10);

@@ -13,12 +13,19 @@ import type { Task } from "../../models/task.js";
 import type { Project, ProjectColor } from "../../models/project.js";
 import type { TimerStatus } from "../../models/timer-state.js";
 import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
+import {
+  getProjectTaskCounts,
+  getProjectProgressMap,
+  getOverallProjectMetrics,
+} from "../../models/project-analytics.js";
 import "../layout/app-shell.js";
 import "../layout/app-header.js";
 import "../pool/tomato-pool-panel.js";
+import "../pool/week-tomato-pool-panel.js";
 import "../task/task-list-panel.js";
 import "../task/task-editor-dialog.js";
 import "../project/project-list-panel.js";
+import "../project/projects-analytics-panel.js";
 import "../shared/confirm-dialog.js";
 
 @customElement("tomato-planner-app")
@@ -122,7 +129,7 @@ export class TomatoPlannerApp extends LitElement {
   // ============================================
 
   @state()
-  private _activeView: "day" | "week" = "day";
+  private _activeView: "day" | "week" | "projects" = "day";
 
   // ============================================
   // Weekly Planning State
@@ -141,10 +148,7 @@ export class TomatoPlannerApp extends LitElement {
   private _weekEndDate = "";
 
   @state()
-  private _totalEstimated = 0;
-
-  @state()
-  private _totalFinished = 0;
+  private _capacityInMinutesWeekly = 25;
 
   @state()
   private _projectTaskCounts: Record<string, number> = {};
@@ -154,6 +158,18 @@ export class TomatoPlannerApp extends LitElement {
     string,
     { finished: number; estimated: number }
   > = {};
+
+  @state()
+  private _overallMetrics = {
+    totalPlanned: 0,
+    totalFinished: 0,
+    projectCount: 0,
+    activeProjectCount: 0,
+    completedProjectCount: 0,
+    archivedProjectCount: 0,
+    remainingCapacity: 0,
+    weeklyCapacity: 0,
+  };
 
   private _unsubscribe: (() => void) | null = null;
   private _timerUnsubscribe: (() => void) | null = null;
@@ -185,51 +201,18 @@ export class TomatoPlannerApp extends LitElement {
       this._weeklyCapacity = state.pool.weeklyCapacity;
       this._weekStartDate = state.pool.weekStartDate;
       this._weekEndDate = state.pool.weekEndDate;
+      this._capacityInMinutesWeekly = state.pool.capacityInMinutes;
 
-      // Compute task counts per project
-      const taskCounts: Record<string, number> = {};
-      for (const task of state.tasks) {
-        if (task.projectId) {
-          taskCounts[task.projectId] = (taskCounts[task.projectId] ?? 0) + 1;
-        }
-      }
-      this._projectTaskCounts = taskCounts;
-
-      // Compute progress data per project (finished tomatoes vs estimated)
-      const progressData: Record<
-        string,
-        { finished: number; estimated: number }
-      > = {};
-      let totalEstimated = 0;
-      let totalFinished = 0;
-
-      for (const project of state.projects) {
-        // Get tasks for this project
-        const projectTasks = state.tasks.filter(
-          (t) => t.projectId === project.id,
-        );
-
-        // Sum finished tomatoes from tasks
-        const finishedTomatoes = projectTasks.reduce(
-          (sum, t) => sum + t.finishedTomatoCount,
-          0,
-        );
-
-        // Use project estimate as the estimated value
-        const estimatedTomatoes = project.tomatoEstimate;
-
-        progressData[project.id] = {
-          finished: finishedTomatoes,
-          estimated: estimatedTomatoes,
-        };
-
-        totalEstimated += estimatedTomatoes;
-        totalFinished += finishedTomatoes;
-      }
-
-      this._projectProgressData = progressData;
-      this._totalEstimated = totalEstimated;
-      this._totalFinished = totalFinished;
+      // Compute analytics using extracted functions
+      this._projectTaskCounts = getProjectTaskCounts(
+        state.tasks,
+        state.projects,
+      );
+      this._projectProgressData = getProjectProgressMap(
+        state.tasks,
+        state.projects,
+      );
+      this._overallMetrics = getOverallProjectMetrics(state);
     });
   }
 
@@ -264,6 +247,14 @@ export class TomatoPlannerApp extends LitElement {
 
   private _handleDayEndChange(e: CustomEvent<{ time: string }>) {
     plannerStore.setDayEnd(e.detail.time);
+  }
+
+  // ============================================
+  // Week Capacity Actions
+  // ============================================
+
+  private _handleWeeklyCapacityChange(e: CustomEvent<{ capacity: number }>) {
+    weeklyStore.setWeeklyCapacity(e.detail.capacity);
   }
 
   // ============================================
@@ -416,6 +407,12 @@ export class TomatoPlannerApp extends LitElement {
     this._panelCollapsed = false;
   }
 
+  private _handleSwitchToProjectsView() {
+    this._activeView = "projects";
+    // Auto-expand panel when switching to Projects view
+    this._panelCollapsed = false;
+  }
+
   // ============================================
   // Weekly Project Actions
   // ============================================
@@ -458,11 +455,23 @@ export class TomatoPlannerApp extends LitElement {
     this._activeView = "day";
   }
 
+  private _handleIncreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
+    weeklyStore.incrementProjectEstimate(e.detail.projectId);
+  }
+
+  private _handleDecreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
+    weeklyStore.decrementProjectEstimate(e.detail.projectId);
+  }
+
   override render() {
     const isEdit = !!this._editingTask;
     const deleteTask = this._deletingTaskId
       ? this._tasks.find((t) => t.id === this._deletingTaskId)
       : undefined;
+
+    // Calculate remaining capacity for week view
+    const weekRemaining =
+      this._weeklyCapacity - this._overallMetrics.totalPlanned;
 
     return html`
       <app-shell ?left-panel-collapsed=${this._panelCollapsed}>
@@ -484,6 +493,15 @@ export class TomatoPlannerApp extends LitElement {
             @click=${this._handleSwitchToWeekView}
           >
             Week
+          </button>
+          <button
+            class="tab-btn ${this._activeView === "projects" ? "active" : ""}"
+            role="tab"
+            aria-selected=${this._activeView === "projects"}
+            aria-controls="projects-view"
+            @click=${this._handleSwitchToProjectsView}
+          >
+            Projects
           </button>
         </div>
 
@@ -517,49 +535,89 @@ export class TomatoPlannerApp extends LitElement {
                   @toggle-collapse=${this._handleTogglePanelCollapse}
                 ></tomato-pool-panel>
               </div>
+              <task-list-panel
+                slot="task-panel"
+                .tasks=${this._tasks}
+                .remaining=${this._remaining}
+                .assigned=${this._assigned}
+                .capacityInMinutes=${this._capacityInMinutes}
+                .disabled=${false}
+                .timerActiveTaskId=${this._timerActiveTaskId}
+                .timerStatus=${this._timerStatus}
+                .timerRemainingSeconds=${this._timerRemainingSeconds}
+                @open-task-dialog=${this._handleOpenTaskDialog}
+                @edit-task=${this._handleEditTask}
+                @delete-task=${this._handleDeleteTask}
+                @add-tomato=${this._handleAddTomato}
+                @remove-tomato=${this._handleRemoveTomato}
+                @mark-tomato-finished=${this._handleMarkTomatoFinished}
+                @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
+                @reorder-task=${this._handleReorderTask}
+                @start-timer=${this._handleStartTimer}
+                @pause-timer=${this._handlePauseTimer}
+                @resume-timer=${this._handleResumeTimer}
+                @reset-timer=${this._handleResetTimer}
+                @mark-done=${this._handleMarkDone}
+              ></task-list-panel>
             `
-          : html`
-              <div id="week-view" role="tabpanel" slot="pool-panel">
+          : this._activeView === "week"
+            ? html`
+                <div id="week-view" role="tabpanel" slot="pool-panel">
+                  <week-tomato-pool-panel
+                    .weeklyCapacity=${this._weeklyCapacity}
+                    .planned=${this._overallMetrics.totalPlanned}
+                    .remaining=${weekRemaining}
+                    .finished=${this._overallMetrics.totalFinished}
+                    .weekStartDate=${this._weekStartDate}
+                    .weekEndDate=${this._weekEndDate}
+                    .capacityInMinutes=${this._capacityInMinutesWeekly}
+                    .collapsed=${this._panelCollapsed}
+                    @weekly-capacity-change=${this._handleWeeklyCapacityChange}
+                    @toggle-collapse=${this._handleTogglePanelCollapse}
+                  ></week-tomato-pool-panel>
+                </div>
                 <project-list-panel
+                  slot="task-panel"
                   .projects=${this._projects}
-                  .weeklyCapacity=${this._weeklyCapacity}
-                  .weekStartDate=${this._weekStartDate}
-                  .weekEndDate=${this._weekEndDate}
-                  .totalEstimated=${this._totalEstimated}
-                  .totalFinished=${this._totalFinished}
                   .taskCounts=${this._projectTaskCounts}
                   .progressData=${this._projectProgressData}
+                  .maxEstimate=${this._weeklyCapacity}
+                  .mode=${"planning"}
+                  @save-project=${this._handleSaveProject}
+                  @delete-project=${this._handleDeleteProject}
+                  @select-project=${this._handleSelectProject}
+                  @increase-project-plan=${this._handleIncreaseProjectPlan}
+                  @decrease-project-plan=${this._handleDecreaseProjectPlan}
+                ></project-list-panel>
+              `
+            : html`
+                <div id="projects-view" role="tabpanel" slot="pool-panel">
+                  <projects-analytics-panel
+                    .weeklyCapacity=${this._weeklyCapacity}
+                    .totalPlanned=${this._overallMetrics.totalPlanned}
+                    .totalFinished=${this._overallMetrics.totalFinished}
+                    .projectCount=${this._overallMetrics.projectCount}
+                    .activeProjectCount=${this._overallMetrics
+                      .activeProjectCount}
+                    .completedProjectCount=${this._overallMetrics
+                      .completedProjectCount}
+                    .archivedProjectCount=${this._overallMetrics
+                      .archivedProjectCount}
+                    .capacityInMinutes=${this._capacityInMinutesWeekly}
+                  ></projects-analytics-panel>
+                </div>
+                <project-list-panel
+                  slot="task-panel"
+                  .projects=${this._projects}
+                  .taskCounts=${this._projectTaskCounts}
+                  .progressData=${this._projectProgressData}
+                  .maxEstimate=${this._weeklyCapacity}
+                  .mode=${"analytics"}
                   @save-project=${this._handleSaveProject}
                   @delete-project=${this._handleDeleteProject}
                   @select-project=${this._handleSelectProject}
                 ></project-list-panel>
-              </div>
-            `}
-
-        <task-list-panel
-          slot="task-panel"
-          .tasks=${this._tasks}
-          .remaining=${this._remaining}
-          .assigned=${this._assigned}
-          .capacityInMinutes=${this._capacityInMinutes}
-          .disabled=${false}
-          .timerActiveTaskId=${this._timerActiveTaskId}
-          .timerStatus=${this._timerStatus}
-          .timerRemainingSeconds=${this._timerRemainingSeconds}
-          @open-task-dialog=${this._handleOpenTaskDialog}
-          @edit-task=${this._handleEditTask}
-          @delete-task=${this._handleDeleteTask}
-          @add-tomato=${this._handleAddTomato}
-          @remove-tomato=${this._handleRemoveTomato}
-          @mark-tomato-finished=${this._handleMarkTomatoFinished}
-          @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
-          @reorder-task=${this._handleReorderTask}
-          @start-timer=${this._handleStartTimer}
-          @pause-timer=${this._handlePauseTimer}
-          @resume-timer=${this._handleResumeTimer}
-          @reset-timer=${this._handleResetTimer}
-          @mark-done=${this._handleMarkDone}
-        ></task-list-panel>
+              `}
       </app-shell>
 
       <!-- Task Editor Dialog -->

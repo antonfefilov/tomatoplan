@@ -387,6 +387,62 @@ class WeeklyStore {
     return { success: true };
   }
 
+  /**
+   * Increments the tomato estimate for a project by 1
+   * Validates capacity constraints before updating
+   */
+  incrementProjectEstimate(projectId: string): ActionResult {
+    const project = this.state.projects.find((p) => p.id === projectId);
+
+    if (!project) {
+      return { success: false, error: "Project not found" };
+    }
+
+    if (project.status !== "active") {
+      return { success: false, error: "Cannot modify inactive project" };
+    }
+
+    const newEstimate = project.tomatoEstimate + 1;
+    const weeklyCapacity = this.state.pool.weeklyCapacity;
+    const currentTotal = getTotalProjectEstimates(this.state);
+
+    // Calculate projected total: remove current project contribution, add new contribution
+    const projectedTotal = currentTotal - project.tomatoEstimate + newEstimate;
+
+    if (projectedTotal > weeklyCapacity) {
+      const remaining = weeklyCapacity - currentTotal;
+      return {
+        success: false,
+        error: `Cannot exceed weekly capacity. ${remaining} tomatoes remaining.`,
+      };
+    }
+
+    return this.updateProject(projectId, { tomatoEstimate: newEstimate });
+  }
+
+  /**
+   * Decrements the tomato estimate for a project by 1
+   * Never allows negative estimates
+   */
+  decrementProjectEstimate(projectId: string): ActionResult {
+    const project = this.state.projects.find((p) => p.id === projectId);
+
+    if (!project) {
+      return { success: false, error: "Project not found" };
+    }
+
+    if (project.status !== "active") {
+      return { success: false, error: "Cannot modify inactive project" };
+    }
+
+    if (project.tomatoEstimate <= 0) {
+      return { success: false, error: "Estimate cannot be negative" };
+    }
+
+    const newEstimate = project.tomatoEstimate - 1;
+    return this.updateProject(projectId, { tomatoEstimate: newEstimate });
+  }
+
   // ============================================
   // TASK ASSIGNMENT ACTIONS
   // ============================================
