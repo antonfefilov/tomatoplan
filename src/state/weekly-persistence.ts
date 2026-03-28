@@ -6,7 +6,9 @@
 import type { WeeklyState } from "../models/weekly-state.js";
 import type { Task } from "../models/task.js";
 import type { Project } from "../models/project.js";
+import type { Track } from "../models/track.js";
 import { PROJECT_COLORS } from "../models/project.js";
+import { WEEKLY_STATE_VERSION } from "../models/weekly-state.js";
 import { STORAGE_KEYS } from "../constants/storage-keys.js";
 import { DEFAULT_CAPACITY_IN_MINUTES } from "../constants/defaults.js";
 
@@ -41,6 +43,7 @@ interface PersistedWeeklyState {
     updatedAt: string;
   }[];
   tasks: readonly Task[];
+  tracks?: readonly Track[]; // Optional for backward compatibility (v1)
   version: number;
 }
 
@@ -78,12 +81,14 @@ function toPersistedState(state: WeeklyState): PersistedWeeklyState {
     weekEndDate: state.pool.weekEndDate,
     projects: state.projects,
     tasks: state.tasks,
+    tracks: state.tracks,
     version: state.version,
   };
 }
 
 /**
  * Converts PersistedWeeklyState to WeeklyState
+ * Handles migration from older versions
  */
 function fromPersistedState(persisted: PersistedWeeklyState): WeeklyState {
   // Map projects and validate colors
@@ -91,6 +96,9 @@ function fromPersistedState(persisted: PersistedWeeklyState): WeeklyState {
     ...p,
     color: p.color && isValidProjectColor(p.color) ? p.color : undefined,
   })) as readonly Project[];
+
+  // Handle tracks (migrate from v1 if needed)
+  const tracks: readonly Track[] = migrateTracks(persisted);
 
   return {
     pool: {
@@ -103,8 +111,21 @@ function fromPersistedState(persisted: PersistedWeeklyState): WeeklyState {
     },
     projects,
     tasks: persisted.tasks,
-    version: persisted.version,
+    tracks,
+    version: WEEKLY_STATE_VERSION,
   };
+}
+
+/**
+ * Migrates tracks from persisted state
+ * For v1 states (without tracks), returns empty array
+ */
+function migrateTracks(persisted: PersistedWeeklyState): readonly Track[] {
+  if (persisted.tracks && Array.isArray(persisted.tracks)) {
+    return persisted.tracks;
+  }
+  // v1 didn't have tracks - return empty array
+  return [];
 }
 
 /**

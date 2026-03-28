@@ -5,6 +5,20 @@
 export type { Task } from "./task.js";
 export { createTask, updateTaskTomatoCount, updateTask } from "./task.js";
 
+export type { Track, TrackEdge } from "./track.js";
+export {
+  createTrack,
+  updateTrack,
+  addTaskToTrack,
+  removeTaskFromTrack,
+  addEdgeToTrack,
+  removeEdgeFromTrack,
+  getOutgoingEdges,
+  getIncomingEdges,
+  getDownstreamTaskIds,
+  getUpstreamTaskIds,
+} from "./track.js";
+
 export type { TomatoPool } from "./tomato-pool.js";
 export {
   createTomatoPool,

@@ -22,6 +22,9 @@ export interface Task {
   /** Optional reference to a weekly project */
   projectId?: string;
 
+  /** Optional reference to a track (workflow) */
+  trackId?: string;
+
   /** When the task was created */
   readonly createdAt: string; // ISO 8601 date string
 

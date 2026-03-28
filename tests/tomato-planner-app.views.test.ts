@@ -166,7 +166,8 @@ function createMockWeeklyState(projects: Project[] = []): WeeklyState {
     },
     projects,
     tasks: [],
-    version: 1,
+    tracks: [],
+    version: 2,
   };
 }
 
@@ -315,7 +316,7 @@ describe("TomatoPlannerApp Views", () => {
 
     it("should have correct aria attributes on tabs", async () => {
       const tabs = element.shadowRoot!.querySelectorAll(".tab-btn");
-      expect(tabs.length).toBe(3);
+      expect(tabs.length).toBe(4);
 
       tabs.forEach((tab) => {
         expect(tab.hasAttribute("role")).toBe(true);

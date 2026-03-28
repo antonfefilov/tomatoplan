@@ -6,6 +6,7 @@
 import type { Task } from "./task.js";
 import type { WeeklyPool } from "./weekly-pool.js";
 import type { Project } from "./project.js";
+import type { Track } from "./track.js";
 import { createDefaultWeeklyPool } from "./weekly-pool.js";
 import { getCurrentWeekId } from "./project.js";
 import {
@@ -23,12 +24,15 @@ export interface WeeklyState {
   /** Tasks with projectId references (mirrored from plannerStore) */
   tasks: readonly Task[];
 
+  /** Tracks (workflows with task dependencies) */
+  tracks: readonly Track[];
+
   /** Version for potential migrations */
   readonly version: number;
 }
 
 /** Current state version for migrations */
-export const WEEKLY_STATE_VERSION = 1;
+export const WEEKLY_STATE_VERSION = 2;
 
 /**
  * Creates the initial weekly state
@@ -41,6 +45,7 @@ export function createInitialWeeklyState(
     pool: createDefaultWeeklyPool(dailyCapacity, capacityInMinutes),
     projects: [],
     tasks: [],
+    tracks: [],
     version: WEEKLY_STATE_VERSION,
   };
 }
@@ -62,6 +67,7 @@ export function resetWeeklyStateForNewWeek(
     ),
     projects: [],
     tasks: [],
+    tracks: [],
   };
 }
 
@@ -194,4 +200,52 @@ export function formatMinutesToHoursMinutes(minutes: number): string {
   }
 
   return `${hours}h ${mins}m`;
+}
+
+/**
+ * Gets a track by ID
+ */
+export function getTrackById(
+  state: WeeklyState,
+  trackId: string,
+): Track | undefined {
+  return state.tracks.find((t) => t.id === trackId);
+}
+
+/**
+ * Gets all tracks
+ */
+export function getAllTracks(state: WeeklyState): readonly Track[] {
+  return state.tracks;
+}
+
+/**
+ * Gets tracks for a specific project
+ */
+export function getProjectTracks(
+  state: WeeklyState,
+  projectId: string,
+): readonly Track[] {
+  return state.tracks.filter((t) => t.projectId === projectId);
+}
+
+/**
+ * Gets tasks for a specific track
+ */
+export function getTrackTasks(
+  state: WeeklyState,
+  trackId: string,
+): readonly Task[] {
+  const track = getTrackById(state, trackId);
+  if (!track) {
+    return [];
+  }
+  return state.tasks.filter((t) => track.taskIds.includes(t.id));
+}
+
+/**
+ * Gets tasks without a track
+ */
+export function getUntrackedTasks(state: WeeklyState): readonly Task[] {
+  return state.tasks.filter((t) => !t.trackId);
 }
