@@ -6,6 +6,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
+import type { Project } from "../../models/project.js";
 import "./task-form.js";
 
 @customElement("task-editor-dialog")
@@ -103,6 +104,9 @@ export class TaskEditorDialog extends LitElement {
   @property({ type: Object })
   task?: Task;
 
+  @property({ type: Array })
+  projects?: readonly Project[];
+
   @property({ type: Boolean })
   isEdit = false;
 
@@ -134,7 +138,11 @@ export class TaskEditorDialog extends LitElement {
   }
 
   private _handleSubmit(
-    e: CustomEvent<{ title: string; description?: string }>,
+    e: CustomEvent<{
+      title: string;
+      description?: string;
+      projectId?: string;
+    }>,
   ) {
     this.dispatchEvent(
       new CustomEvent("save", {
@@ -193,6 +201,7 @@ export class TaskEditorDialog extends LitElement {
           <div class="dialog-content">
             <task-form
               .task=${this.task}
+              .projects=${this.projects}
               .submitLabel=${this._getSubmitLabel()}
               @submit=${this._handleSubmit}
               @cancel=${this._handleCancel}

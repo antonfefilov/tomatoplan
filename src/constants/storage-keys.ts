@@ -12,6 +12,9 @@ export const STORAGE_KEYS = {
 
   /** Timer state key (for running timer persistence) */
   TIMER_STATE: "tomato-planner-timer",
+
+  /** Weekly planner state key */
+  WEEKLY_PLANNER_STATE: "tomato-planner-weekly-state",
 } as const;
 
 /** Type for storage key values */

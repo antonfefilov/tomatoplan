@@ -16,3 +16,6 @@ export {
 
 export { timerStore, TimerStore } from "./timer-store.js";
 export type { TimerSubscriber, TimerUnsubscribe } from "./timer-store.js";
+
+// Export coordinated project actions
+export { removeProject } from "./project-coordinator.js";

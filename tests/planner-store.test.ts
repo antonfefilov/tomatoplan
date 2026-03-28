@@ -587,6 +587,105 @@ describe("PlannerStore", () => {
     });
   });
 
+  describe("setTaskProject", () => {
+    it("should assign task to a project", () => {
+      const { taskId } = store.addTask("Task");
+      const result = store.setTaskProject(taskId!, "project-1");
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.projectId).toBe("project-1");
+    });
+
+    it("should unassign task from project", () => {
+      const { taskId } = store.addTask("Task");
+      store.setTaskProject(taskId!, "project-1");
+
+      const result = store.setTaskProject(taskId!, undefined);
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById(taskId!)!.projectId).toBeUndefined();
+    });
+
+    it("should fail for non-existent task", () => {
+      const result = store.setTaskProject("non-existent", "project-1");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+
+    it("should update updatedAt timestamp", () => {
+      const { taskId } = store.addTask("Task");
+      const originalUpdatedAt = store.getTaskById(taskId!)!.updatedAt;
+
+      vi.advanceTimersByTime(1000);
+      store.setTaskProject(taskId!, "project-1");
+
+      const updatedTask = store.getTaskById(taskId!);
+      expect(updatedTask!.updatedAt).not.toBe(originalUpdatedAt);
+    });
+  });
+
+  describe("unassignTasksFromProject", () => {
+    it("should unassign all tasks from a project", () => {
+      store.addTask("Task 1");
+      store.addTask("Task 2");
+      store.addTask("Task 3");
+
+      store.setTaskProject(store.tasks[0]!.id, "project-1");
+      store.setTaskProject(store.tasks[1]!.id, "project-1");
+      store.setTaskProject(store.tasks[2]!.id, "project-2");
+
+      store.unassignTasksFromProject("project-1");
+
+      expect(store.getTaskById(store.tasks[0]!.id)!.projectId).toBeUndefined();
+      expect(store.getTaskById(store.tasks[1]!.id)!.projectId).toBeUndefined();
+      expect(store.getTaskById(store.tasks[2]!.id)!.projectId).toBe(
+        "project-2",
+      );
+    });
+
+    it("should update updatedAt timestamp for affected tasks", () => {
+      const { taskId } = store.addTask("Task");
+      store.setTaskProject(taskId!, "project-1");
+      const originalUpdatedAt = store.getTaskById(taskId!)!.updatedAt;
+
+      vi.advanceTimersByTime(1000);
+      store.unassignTasksFromProject("project-1");
+
+      const updatedTask = store.getTaskById(taskId!);
+      expect(updatedTask!.updatedAt).not.toBe(originalUpdatedAt);
+    });
+
+    it("should do nothing when no tasks assigned to project", () => {
+      store.addTask("Task 1");
+      store.addTask("Task 2");
+
+      // No tasks assigned to project-1
+      const callback = vi.fn();
+      store.subscribe(callback);
+      callback.mockClear(); // Clear initial call
+
+      store.unassignTasksFromProject("project-1");
+
+      // No state change, so subscriber not called
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("should not affect tasks with different projectId", () => {
+      store.addTask("Task 1");
+      store.addTask("Task 2");
+
+      store.setTaskProject(store.tasks[0]!.id, "project-1");
+      store.setTaskProject(store.tasks[1]!.id, "project-2");
+
+      store.unassignTasksFromProject("project-1");
+
+      expect(store.getTaskById(store.tasks[1]!.id)!.projectId).toBe(
+        "project-2",
+      );
+    });
+  });
+
   describe("reorderTask", () => {
     beforeEach(() => {
       store.addTask("Task 1");
