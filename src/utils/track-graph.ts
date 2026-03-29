@@ -232,7 +232,7 @@ export function getReadyTasks(
 
 /**
  * Calculates auto-layout positions for nodes in the track graph
- * Returns positions in a grid layout based on levels and horizontal spread
+ * Returns positions in a grid layout based on levels spread on the x-axis
  */
 export function calculateNodePositions(
   track: Track,
@@ -254,13 +254,13 @@ export function calculateNodePositions(
 
   // Calculate positions
   for (const [level, tasks] of tasksByLevel) {
-    const y = level * (nodeHeight + verticalGap);
-    const totalWidth =
-      tasks.length * nodeWidth + (tasks.length - 1) * horizontalGap;
-    const startX = -totalWidth / 2; // Center horizontally
+    const x = level * (nodeWidth + horizontalGap);
+    const totalHeight =
+      tasks.length * nodeHeight + (tasks.length - 1) * verticalGap;
+    const startY = -totalHeight / 2; // Center vertically
 
     tasks.forEach((taskId, index) => {
-      const x = startX + index * (nodeWidth + horizontalGap);
+      const y = startY + index * (nodeHeight + verticalGap);
       positions.set(taskId, { x, y });
     });
   }
@@ -278,16 +278,16 @@ export function getEdgePath(
   nodeWidth: number = 180,
   nodeHeight: number = 60,
 ): string {
-  // Calculate connection points (bottom of source, top of target)
-  const sourceX = sourcePos.x + nodeWidth / 2;
-  const sourceY = sourcePos.y + nodeHeight;
-  const targetX = targetPos.x + nodeWidth / 2;
-  const targetY = targetPos.y;
+  // Calculate connection points (right of source, left of target for horizontal flow)
+  const sourceX = sourcePos.x + nodeWidth; // right side of source
+  const sourceY = sourcePos.y + nodeHeight / 2; // center vertically
+  const targetX = targetPos.x; // left side of target
+  const targetY = targetPos.y + nodeHeight / 2; // center vertically
 
-  // Create bezier curve with control points for smooth connection
-  const midY = (sourceY + targetY) / 2;
+  // Create bezier curve with control points for smooth horizontal connection
+  const midX = (sourceX + targetX) / 2;
 
-  return `M ${sourceX} ${sourceY} C ${sourceX} ${midY}, ${targetX} ${midY}, ${targetX} ${targetY}`;
+  return `M ${sourceX} ${sourceY} C ${midX} ${sourceY}, ${midX} ${targetY}, ${targetX} ${targetY}`;
 }
 
 /**

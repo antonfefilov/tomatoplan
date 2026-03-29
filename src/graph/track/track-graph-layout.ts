@@ -12,7 +12,7 @@ export interface TrackStylesheetEntry {
 /** Dagre layout options for track graph */
 export interface DagreLayoutOptions {
   name: "dagre";
-  /** Direction of the layout (TB = top-to-bottom) */
+  /** Direction of the layout (LR = left-to-right) */
   rankDir?: "TB" | "BT" | "LR" | "RL";
   /** Alignment of nodes within a rank */
   align?: "UL" | "UR" | "DL" | "DR";
@@ -40,12 +40,12 @@ export interface DagreLayoutOptions {
 
 /**
  * Creates the default dagre layout options for track graphs
- * Optimized for top-to-bottom DAG visualization
+ * Optimized for left-to-right DAG visualization
  */
 export function createDefaultLayoutOptions(): DagreLayoutOptions {
   return {
     name: "dagre",
-    rankDir: "TB", // Top to bottom - natural for dependency graphs
+    rankDir: "LR", // Left to right - natural for process flows
     nodeSep: 60, // Horizontal separation between nodes
     edgeSep: 20, // Separation between edges
     rankSep: 100, // Vertical separation between ranks/levels

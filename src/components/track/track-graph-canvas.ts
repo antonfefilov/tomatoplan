@@ -239,9 +239,9 @@ export class TrackGraphCanvas extends LitElement {
       this._nodeHeight,
     );
 
-    // Calculate arrow position at the end of the edge
-    const targetX = targetPos.x + this._nodeWidth / 2;
-    const targetY = targetPos.y;
+    // Calculate arrow position at the end of the edge (for left-pointing arrow)
+    const targetX = targetPos.x; // left side of target node
+    const targetY = targetPos.y + this._nodeHeight / 2; // center vertically
     const arrowSize = 8;
 
     return html`
@@ -253,9 +253,8 @@ export class TrackGraphCanvas extends LitElement {
         <path class="edge-path" d=${path} />
         <polygon
           class="edge-arrow"
-          points="${targetX - arrowSize},${targetY -
-          arrowSize / 2} ${targetX},${targetY} ${targetX +
-          arrowSize},${targetY - arrowSize / 2}"
+          points="${targetX},${targetY -
+          arrowSize} ${targetX},${targetY} ${targetX},${targetY + arrowSize}"
         />
       </g>
     `;
@@ -322,14 +321,14 @@ export class TrackGraphCanvas extends LitElement {
         <div class="canvas-scroll">
           <div
             class="canvas-content"
-            style="min-width: ${Math.max(maxX, 600)}px; min-height: ${Math.max(
+            style="min-width: ${Math.max(maxX, 900)}px; min-height: ${Math.max(
               maxY,
-              400,
+              500,
             )}px;"
           >
             <svg
               class="graph-svg"
-              viewBox="0 0 ${Math.max(maxX, 600)} ${Math.max(maxY, 400)}"
+              viewBox="0 0 ${Math.max(maxX, 900)} ${Math.max(maxY, 500)}"
             >
               ${this.track.edges.map((edge) => this._renderEdge(edge))}
             </svg>
