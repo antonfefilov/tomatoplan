@@ -389,6 +389,28 @@ export class TrackGraphEditor extends LitElement {
       const node = event.target as NodeSingular;
       this._emitNodeRemoveRequest(node.id());
     });
+
+    // Node hover events (for class-based hover styling)
+    this._cy.on("mouseover", "node", (event) => {
+      const node = event.target as NodeSingular;
+      node.addClass("hover");
+    });
+
+    this._cy.on("mouseout", "node", (event) => {
+      const node = event.target as NodeSingular;
+      node.removeClass("hover");
+    });
+
+    // Edge hover events (for class-based hover styling)
+    this._cy.on("mouseover", "edge", (event) => {
+      const edge = event.target as EdgeSingular;
+      edge.addClass("hover");
+    });
+
+    this._cy.on("mouseout", "edge", (event) => {
+      const edge = event.target as EdgeSingular;
+      edge.removeClass("hover");
+    });
   }
 
   private async _syncGraph() {

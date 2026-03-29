@@ -119,19 +119,13 @@ export function createTrackGraphStylesheet(): TrackStylesheetEntry[] {
         "text-wrap": "wrap",
         "text-max-width": 160,
         padding: "12px",
-        "shadow-color": "rgba(0, 0, 0, 0.05)",
-        "shadow-blur": 8,
-        "shadow-offset-x": 0,
-        "shadow-offset-y": 2,
       },
     },
-    // Node hover state
+    // Node hover state (class-based, not :hover pseudo-selector)
     {
-      selector: "node:hover",
+      selector: "node.hover",
       style: {
         "border-color": "#ef4444",
-        "shadow-color": "rgba(239, 68, 68, 0.15)",
-        "shadow-blur": 12,
       },
     },
     // Selected node
@@ -159,11 +153,11 @@ export function createTrackGraphStylesheet(): TrackStylesheetEntry[] {
         opacity: 0.85,
       },
     },
-    // Readonly mode node
+    // Readonly mode node (cursor removed - not valid in Cytoscape)
     {
       selector: "node.readonly",
       style: {
-        cursor: "default",
+        // cursor property removed - not supported by Cytoscape
       },
     },
     // Default edge styling
@@ -179,14 +173,13 @@ export function createTrackGraphStylesheet(): TrackStylesheetEntry[] {
         opacity: 0.9,
       },
     },
-    // Edge hover state
+    // Edge hover state (class-based, not :hover pseudo-selector)
     {
-      selector: "edge:hover",
+      selector: "edge.hover",
       style: {
         "line-color": "#ef4444",
         "target-arrow-color": "#ef4444",
         width: 3,
-        cursor: "pointer",
       },
     },
     // Selected edge
@@ -198,11 +191,11 @@ export function createTrackGraphStylesheet(): TrackStylesheetEntry[] {
         width: 3,
       },
     },
-    // Readonly mode edge
+    // Readonly mode edge (cursor removed - not valid in Cytoscape)
     {
       selector: "edge.readonly",
       style: {
-        cursor: "default",
+        // cursor property removed - not supported by Cytoscape
       },
     },
   ];
