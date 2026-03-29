@@ -55,11 +55,6 @@ export interface TrackEdgeRemoveRequestEventDetail {
 
 @customElement("track-graph-editor")
 export class TrackGraphEditor extends LitElement {
-  /** Use Light DOM for Cytoscape compatibility */
-  override createRenderRoot() {
-    return this;
-  }
-
   static override styles = css`
     .track-graph-container {
       width: 100%;
@@ -268,7 +263,7 @@ export class TrackGraphEditor extends LitElement {
   }
 
   private _initializeCytoscape() {
-    const container = this.querySelector(`#${this._containerId}`);
+    const container = this.renderRoot.querySelector(`#${this._containerId}`);
     if (!container) {
       console.error("Cytoscape container not found");
       return;
@@ -444,7 +439,7 @@ export class TrackGraphEditor extends LitElement {
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     // Check container has size
-    const container = this.querySelector(`#${this._containerId}`);
+    const container = this.renderRoot.querySelector(`#${this._containerId}`);
     if (
       !container ||
       (container as HTMLElement).clientWidth === 0 ||
@@ -640,7 +635,7 @@ export class TrackGraphEditor extends LitElement {
   }
 
   private _setupResizeObserver() {
-    const container = this.querySelector(`#${this._containerId}`);
+    const container = this.renderRoot.querySelector(`#${this._containerId}`);
     if (!container) return;
 
     this._resizeObserver = new ResizeObserver(() => {
