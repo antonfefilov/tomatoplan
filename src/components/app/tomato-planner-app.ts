@@ -433,6 +433,14 @@ export class TomatoPlannerApp extends LitElement {
   // Track Actions
   // ============================================
 
+  private _getAvailableTasksForTracks(): readonly Task[] {
+    const trackedTaskIds = new Set(
+      this._tracks.flatMap((track) => track.taskIds),
+    );
+
+    return this._tasks.filter((task) => !trackedTaskIds.has(task.id));
+  }
+
   private _handleSaveTrack(
     e: CustomEvent<{
       trackId?: string;
@@ -706,7 +714,7 @@ export class TomatoPlannerApp extends LitElement {
                       (t) => t.id === this._selectedTrackId,
                     )}
                     .tasks=${this._tasks}
-                    .availableTasks=${this._tasks}
+                    .availableTasks=${this._getAvailableTasksForTracks()}
                     .projects=${this._projects}
                     @add-task-to-track=${this._handleAddTaskToTrack}
                     @remove-task-from-track=${this._handleRemoveTaskFromTrack}
