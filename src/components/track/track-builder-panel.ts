@@ -1,6 +1,6 @@
 /**
  * TrackBuilderPanel - Main builder container for track visualization
- * Shows the track graph with nodes and edges
+ * Shows the track graph with nodes and edges using Cytoscape + dagre
  */
 
 import { LitElement, html, css } from "lit";
@@ -8,14 +8,10 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Track } from "../../models/track.js";
 import type { Task } from "../../models/task.js";
 import type { Project } from "../../models/project.js";
-import {
-  calculateNodePositions,
-  getTaskLevels,
-  NodePosition,
-} from "../../utils/track-graph.js";
+import { getTaskLevels } from "../../utils/track-graph.js";
 import "../shared/empty-state.js";
 import "./track-task-palette.js";
-import "./track-graph-canvas.js";
+import "./track-graph-editor.js";
 
 @customElement("track-builder-panel")
 export class TrackBuilderPanel extends LitElement {
@@ -133,29 +129,10 @@ export class TrackBuilderPanel extends LitElement {
   projects: readonly Project[] = [];
 
   @state()
-  private _nodePositions: Map<string, NodePosition> = new Map();
-
-  @state()
   private _selectedNodeId: string | undefined = undefined;
 
   @state()
   private _pendingEdgeSource: string | undefined = undefined;
-
-  override updated(changedProperties: Map<string, unknown>) {
-    super.updated(changedProperties);
-
-    if (changedProperties.has("track") || changedProperties.has("tasks")) {
-      this._updateNodePositions();
-    }
-  }
-
-  private _updateNodePositions() {
-    if (this.track) {
-      this._nodePositions = calculateNodePositions(this.track);
-    } else {
-      this._nodePositions = new Map();
-    }
-  }
 
   private _getTrackTasks(): readonly Task[] {
     if (!this.track) return [];
@@ -219,30 +196,50 @@ export class TrackBuilderPanel extends LitElement {
     );
   }
 
-  private _handleNodeSelect(e: CustomEvent<{ taskId: string }>) {
-    const taskId = e.detail.taskId;
+  // Handle events from the new track-graph-editor
+  private _handleGraphNodeSelect(e: CustomEvent<{ nodeId: string }>) {
+    const nodeId = e.detail.nodeId;
 
     if (this._pendingEdgeSource) {
       // We're in edge creation mode - complete the edge
-      if (taskId !== this._pendingEdgeSource) {
+      if (nodeId !== this._pendingEdgeSource) {
         this._handleAddEdge({
           detail: {
             sourceTaskId: this._pendingEdgeSource,
-            targetTaskId: taskId,
+            targetTaskId: nodeId,
           },
         } as CustomEvent<{ sourceTaskId: string; targetTaskId: string }>);
       }
       this._pendingEdgeSource = undefined;
     } else {
-      this._selectedNodeId = taskId;
+      this._selectedNodeId = nodeId;
     }
   }
 
-  private _handleStartEdgeCreation(e: CustomEvent<{ taskId: string }>) {
-    this._pendingEdgeSource = e.detail.taskId;
+  private _handleGraphEdgeCreateRequest(
+    e: CustomEvent<{ sourceTaskId: string; targetTaskId: string }>,
+  ) {
+    this._handleAddEdge(e);
+    this._pendingEdgeSource = undefined;
   }
 
-  private _handleCancelEdgeCreation() {
+  private _handleGraphNodeRemoveRequest(e: CustomEvent<{ nodeId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("remove-task-from-track", {
+        bubbles: true,
+        composed: true,
+        detail: { trackId: this.track?.id, taskId: e.detail.nodeId },
+      }),
+    );
+  }
+
+  private _handleGraphEdgeRemoveRequest(
+    e: CustomEvent<{ sourceTaskId: string; targetTaskId: string }>,
+  ) {
+    this._handleRemoveEdge(e);
+  }
+
+  private _handleGraphEdgeCreationCancel() {
     this._pendingEdgeSource = undefined;
   }
 
@@ -339,18 +336,18 @@ export class TrackBuilderPanel extends LitElement {
           </div>
 
           <div class="graph-section">
-            <track-graph-canvas
+            <track-graph-editor
               .track=${this.track}
               .tasks=${trackTasks}
-              .nodePositions=${this._nodePositions}
               .selectedNodeId=${this._selectedNodeId}
               .pendingEdgeSource=${this._pendingEdgeSource}
-              @node-select=${this._handleNodeSelect}
-              @start-edge-creation=${this._handleStartEdgeCreation}
-              @cancel-edge-creation=${this._handleCancelEdgeCreation}
-              @remove-edge=${this._handleRemoveEdge}
-              @remove-task-from-track=${this._handleRemoveTaskFromTrack}
-            ></track-graph-canvas>
+              .readonly=${false}
+              @track-node-select=${this._handleGraphNodeSelect}
+              @track-edge-create-request=${this._handleGraphEdgeCreateRequest}
+              @track-node-remove-request=${this._handleGraphNodeRemoveRequest}
+              @track-edge-remove-request=${this._handleGraphEdgeRemoveRequest}
+              @track-edge-creation-cancel=${this._handleGraphEdgeCreationCancel}
+            ></track-graph-editor>
           </div>
         </div>
       </div>
