@@ -16,7 +16,6 @@ import cytoscape, {
 import dagre from "cytoscape-dagre";
 import {
   createGraphElements,
-  hasStructureChanged,
   taskToNodeData,
 } from "../../graph/track/track-graph-adapter.js";
 import {
@@ -202,13 +201,23 @@ export class TrackGraphEditor extends LitElement {
   @state()
   private _cy?: Core;
 
+  /** Previous structure signature for detecting actual structure changes */
+  private _previousStructureSignature?: string;
+
+  /** Flag to track if a rebuild was deferred due to zero-size container */
   @state()
-  private _previousTrack?: Track;
+  private _pendingStructureRebuild = false;
+
+  /** Version counter to prevent race conditions in async sync operations */
+  private _syncVersion = 0;
 
   @state()
   private _isInitialized = false;
 
   private _containerId = `cy-container-${Math.random().toString(36).slice(2, 9)}`;
+
+  /** ResizeObserver to handle container size changes from flex layout */
+  private _resizeObserver?: ResizeObserver;
 
   override firstUpdated() {
     // Only initialize if we have a track with tasks (container exists)
@@ -289,12 +298,29 @@ export class TrackGraphEditor extends LitElement {
     this._setupEventHandlers();
 
     this._isInitialized = true;
-    this._previousTrack = this.track;
+    this._previousStructureSignature = this._getStructureSignature(this.track);
+
+    // Setup resize observer to handle flex layout changes
+    this._setupResizeObserver();
 
     // Fit graph after initial layout
     if (elements.length > 0) {
       this._fitGraph();
     }
+  }
+
+  /**
+   * Generate a signature string for the track structure.
+   * This is used to detect actual structure changes vs. object reference changes.
+   */
+  private _getStructureSignature(track?: Track): string {
+    if (!track) return "";
+    const taskIds = [...track.taskIds].sort().join(",");
+    const edgeIds = track.edges
+      .map((e) => `${e.sourceTaskId}->${e.targetTaskId}`)
+      .sort()
+      .join(",");
+    return `${track.id}:${taskIds}:${edgeIds}`;
   }
 
   private _setupEventHandlers() {
@@ -365,34 +391,54 @@ export class TrackGraphEditor extends LitElement {
     });
   }
 
-  private _syncGraph() {
+  private async _syncGraph() {
     if (!this._cy) return;
 
-    const hasStructChange = hasStructureChanged(
-      this._previousTrack,
-      this.track,
-    );
+    const syncVersion = ++this._syncVersion;
+    const currentSignature = this._getStructureSignature(this.track);
+    const hasStructChange =
+      this._previousStructureSignature !== currentSignature;
 
     if (hasStructChange || !this.track) {
       // Full rebuild
-      this._rebuildGraph();
+      const result = await this._rebuildGraph();
+      // Only update signature if rebuild succeeded and this is still the latest sync
+      if (syncVersion === this._syncVersion && result === "rebuilt") {
+        this._previousStructureSignature = currentSignature;
+      }
+      // If deferred, signature not updated - will retry on resize
     } else {
       // Just sync data/classes
       this._syncNodeData();
       this._syncNodeClasses();
     }
-
-    this._previousTrack = this.track;
   }
 
-  private _rebuildGraph() {
-    if (!this._cy) return;
+  private async _rebuildGraph(): Promise<"rebuilt" | "deferred"> {
+    if (!this._cy) return "deferred";
+
+    // Wait for DOM to stabilize
+    await this.updateComplete;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    // Check container has size
+    const container = this.querySelector(`#${this._containerId}`);
+    if (
+      !container ||
+      (container as HTMLElement).clientWidth === 0 ||
+      (container as HTMLElement).clientHeight === 0
+    ) {
+      console.warn("Cytoscape container has zero size, deferring rebuild");
+      this._pendingStructureRebuild = true;
+      return "deferred";
+    }
 
     // Remove all elements
     this._cy.elements().remove();
 
     if (!this.track) {
-      return;
+      this._pendingStructureRebuild = false;
+      return "rebuilt";
     }
 
     // Add new elements
@@ -405,12 +451,24 @@ export class TrackGraphEditor extends LitElement {
     if (elements.length > 0) {
       this._cy.add(elements);
 
-      // Run layout for new structure
-      this._runLayout(createStructureChangeLayoutOptions());
+      // Resize cytoscape to ensure proper layout
+      this._cy.resize();
 
-      // Fit to show all elements
-      this._fitGraph();
+      // Run layout for new structure
+      const layout = this._cy.layout(
+        createStructureChangeLayoutOptions() as unknown as LayoutOptions,
+      );
+
+      // Fit graph after layout completes
+      layout.one("layoutstop", () => {
+        this._fitGraph();
+      });
+
+      layout.run();
     }
+
+    this._pendingStructureRebuild = false;
+    return "rebuilt";
   }
 
   private _syncNodeData() {
@@ -559,11 +617,37 @@ export class TrackGraphEditor extends LitElement {
     this._cancelEdgeCreation();
   }
 
+  private _setupResizeObserver() {
+    const container = this.querySelector(`#${this._containerId}`);
+    if (!container) return;
+
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._cy) {
+        this._cy.resize();
+
+        // If we have a pending rebuild, retry it now
+        if (this._pendingStructureRebuild) {
+          this._syncGraph();
+        } else {
+          this._fitGraph();
+        }
+      }
+    });
+    this._resizeObserver.observe(container);
+  }
+
   private _destroyCytoscape() {
+    // Clean up resize observer
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = undefined;
+    }
+
     if (this._cy) {
       this._cy.destroy();
       this._cy = undefined;
       this._isInitialized = false;
+      this._pendingStructureRebuild = false;
     }
   }
 
