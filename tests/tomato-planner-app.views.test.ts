@@ -155,7 +155,10 @@ function createMockPlannerState(tasks: Task[] = []): PlannerState {
 }
 
 // Helper to create mock weekly state
-function createMockWeeklyState(projects: Project[] = []): WeeklyState {
+function createMockWeeklyState(
+  projects: Project[] = [],
+  tasks: Task[] = [],
+): WeeklyState {
   return {
     pool: {
       weekId: "2024-W24",
@@ -165,7 +168,7 @@ function createMockWeeklyState(projects: Project[] = []): WeeklyState {
       capacityInMinutes: 25,
     },
     projects,
-    tasks: [],
+    tasks,
     tracks: [],
     version: 2,
   };
@@ -826,6 +829,430 @@ describe("TomatoPlannerApp Views", () => {
       };
 
       expect(taskListPanel?.timerActiveTaskId).toBe("task-1");
+    });
+  });
+
+  // ============================================
+  // Regression Test: Tasks Data Source for project-list-panel
+  // ============================================
+
+  describe("project-list-panel data source (regression)", () => {
+    it("should pass tasks from weeklyStore (not plannerStore) to project-list-panel in Week view", async () => {
+      // Create different tasks for plannerStore and weeklyStore
+      // This proves the data source is weeklyStore, not plannerStore
+      const plannerTasks: Task[] = [
+        createMockTask("planner-task-1", "Planner Task 1"),
+        createMockTask("planner-task-2", "Planner Task 2"),
+      ];
+
+      const weeklyTasksWithProjects: Task[] = [
+        createMockTask("weekly-task-1", "Weekly Task 1", "project-alpha"),
+        createMockTask("weekly-task-2", "Weekly Task 2", "project-beta"),
+      ];
+
+      const projects = [
+        createMockProject("project-alpha", "Alpha Project"),
+        createMockProject("project-beta", "Beta Project"),
+      ];
+
+      // Set up plannerStore with its own tasks
+      mockPlannerStore.subscribe.mockImplementation(
+        (callback: (state: PlannerState) => void) => {
+          callback(createMockPlannerState(plannerTasks));
+          return plannerUnsubscribe;
+        },
+      );
+
+      // Set up weeklyStore with different tasks (that have projectIds)
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(createMockWeeklyState(projects, weeklyTasksWithProjects));
+          return weeklyUnsubscribe;
+        },
+      );
+
+      // Recreate element to pick up new mock data
+      element.remove();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      // Switch to Week view
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      // Get project-list-panel and verify it received weeklyStore tasks
+      const projectListPanel = element.shadowRoot!.querySelector(
+        "project-list-panel",
+      ) as HTMLElement & {
+        tasks: readonly Task[];
+        projects: readonly Project[];
+      };
+
+      expect(projectListPanel).not.toBeNull();
+      expect(projectListPanel!.tasks).toHaveLength(2);
+
+      // Verify the tasks are from weeklyStore (not plannerStore)
+      expect(projectListPanel!.tasks[0]!.id).toBe("weekly-task-1");
+      expect(projectListPanel!.tasks[0]!.projectId).toBe("project-alpha");
+      expect(projectListPanel!.tasks[1]!.id).toBe("weekly-task-2");
+      expect(projectListPanel!.tasks[1]!.projectId).toBe("project-beta");
+
+      // Verify it's NOT the plannerStore tasks
+      const taskIds = projectListPanel!.tasks.map((t) => t.id);
+      expect(taskIds).not.toContain("planner-task-1");
+      expect(taskIds).not.toContain("planner-task-2");
+    });
+
+    it("should pass tasks from weeklyStore to project-list-panel in Projects view", async () => {
+      const plannerTasks: Task[] = [
+        createMockTask("planner-only-task", "Planner Only Task"),
+      ];
+
+      const weeklyTasksWithProjects: Task[] = [
+        createMockTask(
+          "weekly-task-projects",
+          "Weekly Task in Projects",
+          "project-gamma",
+        ),
+      ];
+
+      const projects = [createMockProject("project-gamma", "Gamma Project")];
+
+      // Set up stores with different tasks
+      mockPlannerStore.subscribe.mockImplementation(
+        (callback: (state: PlannerState) => void) => {
+          callback(createMockPlannerState(plannerTasks));
+          return plannerUnsubscribe;
+        },
+      );
+
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(createMockWeeklyState(projects, weeklyTasksWithProjects));
+          return weeklyUnsubscribe;
+        },
+      );
+
+      // Recreate element to pick up new mock data
+      element.remove();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      // Switch to Projects view
+      const projectsTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='projects-view']",
+      ) as HTMLButtonElement;
+      projectsTab.click();
+      await element.updateComplete;
+
+      // Get project-list-panel and verify it received weeklyStore tasks
+      const projectListPanel = element.shadowRoot!.querySelector(
+        "project-list-panel",
+      ) as HTMLElement & {
+        tasks: readonly Task[];
+      };
+
+      expect(projectListPanel).not.toBeNull();
+      expect(projectListPanel.tasks).toHaveLength(1);
+
+      // Verify the task is from weeklyStore (not plannerStore)
+      const task = projectListPanel.tasks[0];
+      expect(task).toBeDefined();
+      expect(task!.id).toBe("weekly-task-projects");
+      expect(task!.projectId).toBe("project-gamma");
+
+      // Verify it's NOT the plannerStore task
+      expect(task!.id).not.toBe("planner-only-task");
+    });
+
+    it("should pass tracks from weeklyStore to project-list-panel", async () => {
+      const mockTrack = {
+        id: "track-1",
+        title: "Test Track",
+        taskIds: ["task-1"],
+        edges: [],
+        weekId: "2024-W24",
+        createdAt: "2024-06-10T00:00:00.000Z",
+        updatedAt: "2024-06-10T00:00:00.000Z",
+      };
+
+      const weeklyStateWithTracks: WeeklyState = {
+        pool: {
+          weekId: "2024-W24",
+          weekStartDate: "2024-06-10",
+          weekEndDate: "2024-06-16",
+          weeklyCapacity: 125,
+          capacityInMinutes: 25,
+        },
+        projects: [],
+        tasks: [],
+        tracks: [mockTrack],
+        version: 2,
+      };
+
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(weeklyStateWithTracks);
+          return weeklyUnsubscribe;
+        },
+      );
+
+      // Recreate element to pick up new mock data
+      element.remove();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      // Switch to Week view
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      // Get project-list-panel and verify it received tracks
+      const projectListPanel = element.shadowRoot!.querySelector(
+        "project-list-panel",
+      ) as HTMLElement & {
+        tracks: readonly { id: string }[];
+      };
+
+      expect(projectListPanel).not.toBeNull();
+      expect(projectListPanel.tracks).toHaveLength(1);
+      const track = projectListPanel.tracks[0];
+      expect(track).toBeDefined();
+      expect(track!.id).toBe("track-1");
+    });
+  });
+
+  // ============================================
+  // Header Model View-Specific Content Tests
+  // ============================================
+
+  describe("header model view-specific content", () => {
+    it("should show day-specific header content in Day view", async () => {
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        headerModel: { view: string; date: string; showReset: boolean };
+      };
+
+      expect(appHeader.headerModel?.view).toBe("day");
+      expect(appHeader.headerModel?.date).toBe("2024-06-15");
+      expect(appHeader.headerModel?.showReset).toBe(true);
+
+      // Verify reset button is visible in day view
+      const resetBtn = appHeader.shadowRoot!.querySelector(".reset-btn");
+      expect(resetBtn).not.toBeNull();
+    });
+
+    it("should show week-specific header content in Week view", async () => {
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        headerModel: {
+          view: string;
+          weekStartDate: string;
+          weekEndDate: string;
+          planned: number;
+          capacity: number;
+        };
+      };
+
+      expect(appHeader.headerModel?.view).toBe("week");
+      expect(appHeader.headerModel?.weekStartDate).toBe("2024-06-10");
+      expect(appHeader.headerModel?.weekEndDate).toBe("2024-06-16");
+      expect(appHeader.headerModel?.planned).toBe(0);
+      expect(appHeader.headerModel?.capacity).toBe(125);
+
+      // Verify reset button is NOT visible in week view
+      const resetBtn = appHeader.shadowRoot!.querySelector(".reset-btn");
+      expect(resetBtn).toBeNull();
+    });
+
+    it("should show projects-specific header content in Projects view", async () => {
+      const projectsTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='projects-view']",
+      ) as HTMLButtonElement;
+      projectsTab.click();
+      await element.updateComplete;
+
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        headerModel: {
+          view: string;
+          projectCount: number;
+          activeProjectCount: number;
+          totalFinished: number;
+          totalPlanned: number;
+        };
+      };
+
+      expect(appHeader.headerModel?.view).toBe("projects");
+      expect(appHeader.headerModel?.projectCount).toBe(0);
+      expect(appHeader.headerModel?.activeProjectCount).toBe(0);
+      expect(appHeader.headerModel?.totalFinished).toBe(0);
+      expect(appHeader.headerModel?.totalPlanned).toBe(0);
+
+      // Verify reset button is NOT visible in projects view
+      const resetBtn = appHeader.shadowRoot!.querySelector(".reset-btn");
+      expect(resetBtn).toBeNull();
+    });
+
+    it("should show tracks-specific header content in Tracks view", async () => {
+      const tracksTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='tracks-view']",
+      ) as HTMLButtonElement;
+      tracksTab.click();
+      await element.updateComplete;
+
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        headerModel: {
+          view: string;
+          trackCount: number;
+          selectedTrackTitle?: string;
+        };
+      };
+
+      expect(appHeader.headerModel?.view).toBe("tracks");
+      expect(appHeader.headerModel?.trackCount).toBe(0);
+      expect(appHeader.headerModel?.selectedTrackTitle).toBeUndefined();
+
+      // Verify reset button is NOT visible in tracks view
+      const resetBtn = appHeader.shadowRoot!.querySelector(".reset-btn");
+      expect(resetBtn).toBeNull();
+    });
+
+    it("should show selected track title in Tracks view when track is selected", async () => {
+      // Create a mock track
+      const mockTrack = {
+        id: "track-1",
+        title: "Test Track",
+        taskIds: [],
+        edges: [],
+        weekId: "2024-W24",
+        createdAt: "2024-06-10T00:00:00.000Z",
+        updatedAt: "2024-06-10T00:00:00.000Z",
+      };
+
+      const weeklyStateWithTrack: WeeklyState = {
+        pool: {
+          weekId: "2024-W24",
+          weekStartDate: "2024-06-10",
+          weekEndDate: "2024-06-16",
+          weeklyCapacity: 125,
+          capacityInMinutes: 25,
+        },
+        projects: [],
+        tasks: [],
+        tracks: [mockTrack],
+        version: 2,
+      };
+
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(weeklyStateWithTrack);
+          return weeklyUnsubscribe;
+        },
+      );
+
+      // Recreate element to pick up new mock data
+      element.remove();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+
+      // Switch to Tracks view
+      const tracksTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='tracks-view']",
+      ) as HTMLButtonElement;
+      tracksTab.click();
+      await element.updateComplete;
+
+      // Select a track
+      const trackListPanel =
+        element.shadowRoot!.querySelector("track-list-panel");
+      trackListPanel!.dispatchEvent(
+        new CustomEvent("select-track", {
+          bubbles: true,
+          composed: true,
+          detail: { trackId: "track-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        headerModel: {
+          view: string;
+          trackCount: number;
+          selectedTrackTitle?: string;
+        };
+      };
+
+      expect(appHeader.headerModel?.view).toBe("tracks");
+      expect(appHeader.headerModel?.trackCount).toBe(1);
+      expect(appHeader.headerModel?.selectedTrackTitle).toBe("Test Track");
+    });
+
+    it("should switch header content when switching views", async () => {
+      // Start in Day view
+      const appHeader = element.shadowRoot!.querySelector(
+        "app-header",
+      ) as HTMLElement & {
+        headerModel: { view: string };
+      };
+      expect(appHeader.headerModel?.view).toBe("day");
+
+      // Switch to Week view
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      expect(appHeader.headerModel?.view).toBe("week");
+
+      // Switch to Projects view
+      const projectsTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='projects-view']",
+      ) as HTMLButtonElement;
+      projectsTab.click();
+      await element.updateComplete;
+
+      expect(appHeader.headerModel?.view).toBe("projects");
+
+      // Back to Day view
+      const dayTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='day-view']",
+      ) as HTMLButtonElement;
+      dayTab.click();
+      await element.updateComplete;
+
+      expect(appHeader.headerModel?.view).toBe("day");
     });
   });
 });

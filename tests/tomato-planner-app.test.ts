@@ -165,14 +165,15 @@ describe("TomatoPlannerApp", () => {
   });
 
   describe("passing store values to child components", () => {
-    it("should pass currentDate to app-header", async () => {
+    it("should pass headerModel with day view data to app-header", async () => {
       const appHeader = element.shadowRoot!.querySelector(
         "app-header",
       ) as HTMLElement & {
-        currentDate: string;
+        headerModel: { view: string; date: string };
       };
       expect(appHeader).toBeDefined();
-      expect(appHeader.currentDate).toBe("2024-06-15");
+      expect(appHeader.headerModel?.view).toBe("day");
+      expect(appHeader.headerModel?.date).toBe("2024-06-15");
     });
 
     it("should pass capacity to tomato-pool-panel", async () => {

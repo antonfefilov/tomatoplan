@@ -1,12 +1,15 @@
 /**
  * AppHeader - App title and header
  * Main header component for the application
+ * Displays view-specific content based on HeaderModel
  */
 
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "../tomato/tomato-icon.js";
 import { calculateTomatoesRemainingUntilDayEnd } from "../../utils/time.js";
+import { formatWeekRangeFromDates } from "../../models/weekly-pool.js";
+import type { HeaderModel } from "./app-header.types.js";
 
 @customElement("app-header")
 export class AppHeader extends LitElement {
@@ -59,7 +62,11 @@ export class AppHeader extends LitElement {
 
     .date-display,
     .time-display,
-    .remaining-display {
+    .remaining-display,
+    .week-range-display,
+    .week-stats-display,
+    .projects-stats-display,
+    .tracks-stats-display {
       font-size: 14px;
       color: #6b7280;
       background: #f3f4f6;
@@ -74,7 +81,9 @@ export class AppHeader extends LitElement {
       gap: 4px;
     }
 
-    .remaining-display tomato-icon {
+    .remaining-display tomato-icon,
+    .week-stats-display tomato-icon,
+    .projects-stats-display tomato-icon {
       flex-shrink: 0;
     }
 
@@ -101,23 +110,8 @@ export class AppHeader extends LitElement {
     }
   `;
 
-  @property({ type: String })
-  currentDate = "";
-
-  @property({ type: Boolean })
-  showReset = false;
-
-  @property({ type: String })
-  dayStart = "08:00";
-
-  @property({ type: String })
-  dayEnd = "18:25";
-
-  @property({ type: Number })
-  capacityInMinutes = 25;
-
-  @property({ type: Number })
-  dailyCapacity = 25;
+  @property({ attribute: false })
+  headerModel: HeaderModel | null = null;
 
   @state()
   private _currentTime = "";
@@ -138,7 +132,57 @@ export class AppHeader extends LitElement {
     this._clearTimer();
   }
 
+  /**
+   * willUpdate runs BEFORE render, so setting state here won't trigger
+   * an additional update cycle (avoiding the Lit warning)
+   */
+  override willUpdate(changedProperties: Map<string, unknown>): void {
+    if (changedProperties.has("headerModel")) {
+      const oldModel = changedProperties.get(
+        "headerModel",
+      ) as HeaderModel | null;
+      const newModel = this.headerModel;
+
+      // Update time display when entering day view or timing settings changed
+      if (this._shouldUpdateTimeDisplay(oldModel, newModel)) {
+        this._updateTime();
+      } else if (newModel?.view !== "day") {
+        // Leaving day view - clear display state
+        this._currentTime = "";
+        this._tomatoesRemaining = null;
+      }
+    }
+  }
+
+  /**
+   * updated runs AFTER render, so we only do non-render-triggering work here
+   * Timer scheduling doesn't set state, so it's safe here
+   */
+  override updated(changedProperties: Map<string, unknown>): void {
+    if (changedProperties.has("headerModel")) {
+      const oldModel = changedProperties.get(
+        "headerModel",
+      ) as HeaderModel | null;
+      const newModel = this.headerModel;
+
+      if (this._shouldRescheduleTimer(oldModel, newModel)) {
+        this._clearTimer();
+        this._scheduleNextUpdate();
+      } else if (newModel?.view !== "day" && oldModel?.view === "day") {
+        // Leaving day view - clear timer
+        this._clearTimer();
+      }
+    }
+  }
+
   private _updateTime(): void {
+    // Only compute time and remaining tomatoes for day view
+    if (this.headerModel?.view !== "day") {
+      this._currentTime = "";
+      this._tomatoesRemaining = null;
+      return;
+    }
+
     const now = new Date();
     this._currentTime = now.toLocaleTimeString("en-US", {
       hour: "numeric",
@@ -150,13 +194,18 @@ export class AppHeader extends LitElement {
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     this._tomatoesRemaining = calculateTomatoesRemainingUntilDayEnd(
       nowMinutes,
-      this.dayStart,
-      this.dayEnd,
-      this.capacityInMinutes,
+      this.headerModel.dayStart,
+      this.headerModel.dayEnd,
+      this.headerModel.capacityInMinutes,
     );
   }
 
   private _scheduleNextUpdate(): void {
+    // Only schedule timer updates for day view
+    if (this.headerModel?.view !== "day") {
+      return;
+    }
+
     const now = new Date();
     const msUntilNextMinute =
       (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
@@ -172,6 +221,58 @@ export class AppHeader extends LitElement {
       window.clearInterval(this._timerId);
       this._timerId = null;
     }
+  }
+
+  /**
+   * Checks if the time display needs to be updated based on model changes
+   * Update when entering day view or timing settings changed
+   */
+  private _shouldUpdateTimeDisplay(
+    oldModel: HeaderModel | null,
+    newModel: HeaderModel | null,
+  ): boolean {
+    // If entering day view from non-day view
+    if (oldModel?.view !== "day" && newModel?.view === "day") {
+      return true;
+    }
+
+    // If already in day view and timing settings changed
+    if (oldModel?.view === "day" && newModel?.view === "day") {
+      return (
+        oldModel.dayStart !== newModel.dayStart ||
+        oldModel.dayEnd !== newModel.dayEnd ||
+        oldModel.capacityInMinutes !== newModel.capacityInMinutes
+      );
+    }
+
+    return false;
+  }
+
+  /**
+   * Checks if the timer needs to be rescheduled based on model changes
+   * Only reschedule when:
+   * - View changed from non-day to day, OR
+   * - View is day AND day timing settings changed
+   */
+  private _shouldRescheduleTimer(
+    oldModel: HeaderModel | null,
+    newModel: HeaderModel | null,
+  ): boolean {
+    // If entering day view from non-day view
+    if (oldModel?.view !== "day" && newModel?.view === "day") {
+      return true;
+    }
+
+    // If already in day view and timing settings changed
+    if (oldModel?.view === "day" && newModel?.view === "day") {
+      return (
+        oldModel.dayStart !== newModel.dayStart ||
+        oldModel.dayEnd !== newModel.dayEnd ||
+        oldModel.capacityInMinutes !== newModel.capacityInMinutes
+      );
+    }
+
+    return false;
   }
 
   private _formatDate(dateStr: string): string {
@@ -193,7 +294,19 @@ export class AppHeader extends LitElement {
     );
   }
 
-  override render() {
+  // ============================================
+  // View-specific render methods
+  // ============================================
+
+  private _renderDayInfo(model: { date: string }): unknown {
+    const dateDisplay = model.date
+      ? html`<div class="date-display">${this._formatDate(model.date)}</div>`
+      : null;
+
+    const timeDisplay = this._currentTime
+      ? html`<div class="time-display">${this._currentTime}</div>`
+      : null;
+
     // Format tomatoes remaining (whole numbers only, rounded down)
     const tomatoesDisplay =
       this._tomatoesRemaining !== null
@@ -208,6 +321,83 @@ export class AppHeader extends LitElement {
           </span>`
         : null;
 
+    return html`${dateDisplay}${timeDisplay}${remainingDisplay}`;
+  }
+
+  private _renderWeekInfo(model: {
+    weekStartDate: string;
+    weekEndDate: string;
+    planned: number;
+    capacity: number;
+  }): unknown {
+    const weekRange = formatWeekRangeFromDates(
+      model.weekStartDate,
+      model.weekEndDate,
+    );
+
+    return html`
+      <div class="week-range-display">${weekRange}</div>
+      <span class="week-stats-display">
+        <tomato-icon size="16"></tomato-icon>
+        ${model.planned} planned / ${model.capacity} capacity
+      </span>
+    `;
+  }
+
+  private _renderProjectsInfo(model: {
+    projectCount: number;
+    activeProjectCount: number;
+    totalFinished: number;
+    totalPlanned: number;
+  }): unknown {
+    const projectSummary = `${model.projectCount} projects, ${model.activeProjectCount} active`;
+
+    return html`
+      <div class="projects-stats-display">${projectSummary}</div>
+      <span class="projects-stats-display">
+        <tomato-icon size="16"></tomato-icon>
+        ${model.totalFinished} finished / ${model.totalPlanned} planned
+      </span>
+    `;
+  }
+
+  private _renderTracksInfo(model: {
+    trackCount: number;
+    selectedTrackTitle?: string;
+  }): unknown {
+    const selectedDisplay = model.selectedTrackTitle
+      ? `Selected: ${model.selectedTrackTitle}`
+      : "No track selected";
+
+    return html`
+      <div class="tracks-stats-display">${model.trackCount} tracks</div>
+      <div class="tracks-stats-display">${selectedDisplay}</div>
+    `;
+  }
+
+  private _renderViewInfo(): unknown {
+    if (!this.headerModel) {
+      return null;
+    }
+
+    switch (this.headerModel.view) {
+      case "day":
+        return this._renderDayInfo(this.headerModel);
+      case "week":
+        return this._renderWeekInfo(this.headerModel);
+      case "projects":
+        return this._renderProjectsInfo(this.headerModel);
+      case "tracks":
+        return this._renderTracksInfo(this.headerModel);
+      default:
+        return null;
+    }
+  }
+
+  override render() {
+    const showReset =
+      this.headerModel?.view === "day" && this.headerModel.showReset;
+
     return html`
       <header>
         <div class="logo-section">
@@ -216,18 +406,8 @@ export class AppHeader extends LitElement {
             <span class="subtitle">Pomodoro Task Manager</span>
           </div>
         </div>
-        <div class="header-info">
-          ${this.currentDate
-            ? html`<div class="date-display">
-                ${this._formatDate(this.currentDate)}
-              </div>`
-            : null}
-          ${this._currentTime
-            ? html`<div class="time-display">${this._currentTime}</div>`
-            : null}
-          ${remainingDisplay}
-        </div>
-        ${this.showReset
+        <div class="header-info">${this._renderViewInfo()}</div>
+        ${showReset
           ? html`
               <div class="actions">
                 <button class="reset-btn" @click=${this._handleReset}>

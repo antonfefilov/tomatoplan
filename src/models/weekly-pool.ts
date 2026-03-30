@@ -110,8 +110,20 @@ export function getWeeklyCapacityInMinutes(pool: WeeklyPool): number {
  * e.g., "Mar 25 - Mar 31, 2024"
  */
 export function formatWeekRange(pool: WeeklyPool): string {
-  const startDate = new Date(pool.weekStartDate);
-  const endDate = new Date(pool.weekEndDate);
+  return formatWeekRangeFromDates(pool.weekStartDate, pool.weekEndDate);
+}
+
+/**
+ * Formats week range from start and end date strings
+ * Reusable utility that doesn't require full WeeklyPool
+ */
+export function formatWeekRangeFromDates(
+  weekStartDate: string,
+  weekEndDate: string,
+): string {
+  if (!weekStartDate || !weekEndDate) return "";
+  const startDate = new Date(weekStartDate);
+  const endDate = new Date(weekEndDate);
 
   const startMonth = startDate.toLocaleDateString("en-US", { month: "short" });
   const startDay = startDate.getDate();

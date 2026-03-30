@@ -21,6 +21,7 @@ import {
 } from "../../models/project-analytics.js";
 import "../layout/app-shell.js";
 import "../layout/app-header.js";
+import type { HeaderModel } from "../layout/app-header.types.js";
 import "../pool/tomato-pool-panel.js";
 import "../pool/week-tomato-pool-panel.js";
 import "../task/task-list-panel.js";
@@ -139,6 +140,9 @@ export class TomatoPlannerApp extends LitElement {
   // ============================================
 
   @state()
+  private _weeklyTasks: readonly Task[] = [];
+
+  @state()
   private _projects: readonly Project[] = [];
 
   @state()
@@ -209,6 +213,7 @@ export class TomatoPlannerApp extends LitElement {
     this._weeklyUnsubscribe = weeklyStore.subscribe((state) => {
       this._projects = state.projects;
       this._tracks = state.tracks;
+      this._weeklyTasks = state.tasks;
 
       // Weekly capacity and dates
       this._weeklyCapacity = state.pool.weeklyCapacity;
@@ -570,6 +575,52 @@ export class TomatoPlannerApp extends LitElement {
     weeklyStore.decrementProjectEstimate(e.detail.projectId);
   }
 
+  // ============================================
+  // Header Model
+  // ============================================
+
+  /**
+   * Returns the appropriate HeaderModel based on the active view
+   */
+  private _getHeaderModel(): HeaderModel {
+    switch (this._activeView) {
+      case "day":
+        return {
+          view: "day",
+          date: this._currentDate,
+          dayStart: this._dayStart,
+          dayEnd: this._dayEnd,
+          capacityInMinutes: this._capacityInMinutes,
+          showReset: true,
+        };
+      case "week":
+        return {
+          view: "week",
+          weekStartDate: this._weekStartDate,
+          weekEndDate: this._weekEndDate,
+          planned: this._overallMetrics.totalPlanned,
+          capacity: this._weeklyCapacity,
+        };
+      case "projects":
+        return {
+          view: "projects",
+          projectCount: this._overallMetrics.projectCount,
+          activeProjectCount: this._overallMetrics.activeProjectCount,
+          totalFinished: this._overallMetrics.totalFinished,
+          totalPlanned: this._overallMetrics.totalPlanned,
+        };
+      case "tracks":
+        const selectedTrack = this._selectedTrackId
+          ? this._tracks.find((t) => t.id === this._selectedTrackId)
+          : undefined;
+        return {
+          view: "tracks",
+          trackCount: this._tracks.length,
+          selectedTrackTitle: selectedTrack?.title,
+        };
+    }
+  }
+
   override render() {
     const isEdit = !!this._editingTask;
     const deleteTask = this._deletingTaskId
@@ -623,12 +674,7 @@ export class TomatoPlannerApp extends LitElement {
 
         <app-header
           slot="header"
-          .currentDate=${this._currentDate}
-          .dayStart=${this._dayStart}
-          .dayEnd=${this._dayEnd}
-          .capacityInMinutes=${this._capacityInMinutes}
-          .dailyCapacity=${this._capacity}
-          .showReset=${true}
+          .headerModel=${this._getHeaderModel()}
           @reset-day=${this._handleResetDay}
         ></app-header>
 
@@ -699,7 +745,7 @@ export class TomatoPlannerApp extends LitElement {
                   .progressData=${this._projectProgressData}
                   .maxEstimate=${this._weeklyCapacity}
                   .mode=${"planning"}
-                  .tasks=${this._tasks}
+                  .tasks=${this._weeklyTasks}
                   .tracks=${this._tracks}
                   @save-project=${this._handleSaveProject}
                   @delete-project=${this._handleDeleteProject}
@@ -757,7 +803,7 @@ export class TomatoPlannerApp extends LitElement {
                     .progressData=${this._projectProgressData}
                     .maxEstimate=${this._weeklyCapacity}
                     .mode=${"analytics"}
-                    .tasks=${this._tasks}
+                    .tasks=${this._weeklyTasks}
                     .tracks=${this._tracks}
                     @save-project=${this._handleSaveProject}
                     @delete-project=${this._handleDeleteProject}
