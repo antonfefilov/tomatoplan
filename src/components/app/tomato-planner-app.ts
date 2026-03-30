@@ -699,6 +699,8 @@ export class TomatoPlannerApp extends LitElement {
                   .progressData=${this._projectProgressData}
                   .maxEstimate=${this._weeklyCapacity}
                   .mode=${"planning"}
+                  .tasks=${this._tasks}
+                  .tracks=${this._tracks}
                   @save-project=${this._handleSaveProject}
                   @delete-project=${this._handleDeleteProject}
                   @select-project=${this._handleSelectProject}
@@ -755,6 +757,8 @@ export class TomatoPlannerApp extends LitElement {
                     .progressData=${this._projectProgressData}
                     .maxEstimate=${this._weeklyCapacity}
                     .mode=${"analytics"}
+                    .tasks=${this._tasks}
+                    .tracks=${this._tracks}
                     @save-project=${this._handleSaveProject}
                     @delete-project=${this._handleDeleteProject}
                     @select-project=${this._handleSelectProject}

@@ -2,15 +2,19 @@
  * ProjectItem - Single project display component
  * Shows project title, progress bar, and task count
  * In planning mode, shows +/- controls for tomato estimate
+ * Clicking summary toggles details expansion; explicit "View in Day" button navigates
  */
 
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Project } from "../../models/project.js";
+import type { Task } from "../../models/task.js";
+import type { Track } from "../../models/track.js";
 import {
   getProjectProgressPercent,
   getProgressColor,
 } from "../../models/project-analytics.js";
+import "./project-details.js";
 
 @customElement("project-item")
 export class ProjectItem extends LitElement {
@@ -24,11 +28,10 @@ export class ProjectItem extends LitElement {
       border-radius: 12px;
       padding: 16px;
       border: 1px solid #e5e7eb;
-      cursor: pointer;
       transition: all 0.15s ease;
     }
 
-    .project-item:hover {
+    .project-item.expanded {
       border-color: #d1d5db;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
@@ -39,6 +42,20 @@ export class ProjectItem extends LitElement {
 
     .project-item.archived {
       opacity: 0.5;
+    }
+
+    /* Summary section - clickable toggle */
+    .project-summary {
+      cursor: pointer;
+    }
+
+    .project-summary:hover {
+      opacity: 0.9;
+    }
+
+    .project-summary:focus-visible {
+      outline: 2px solid #ef4444;
+      outline-offset: 2px;
     }
 
     .project-header {
@@ -242,6 +259,72 @@ export class ProjectItem extends LitElement {
       font-weight: 600;
       color: #374151;
     }
+
+    /* View in Day button */
+    .view-btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      border: 1px solid #d1d5db;
+      background: #f9fafb;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .view-btn:hover {
+      background: white;
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+
+    .view-btn:focus-visible {
+      outline: 2px solid #ef4444;
+      outline-offset: 2px;
+    }
+
+    .view-btn svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Expansion indicator */
+    .expand-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #9ca3af;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: #f3f4f6;
+    }
+
+    .expand-indicator svg {
+      width: 12px;
+      height: 12px;
+      transition: transform 0.2s ease;
+    }
+
+    .expand-indicator.expanded svg {
+      transform: rotate(180deg);
+    }
+
+    .expand-count {
+      font-weight: 500;
+    }
+
+    /* Header actions area */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
   `;
 
   @property({ type: Object })
@@ -259,6 +342,18 @@ export class ProjectItem extends LitElement {
   /** Display mode: planning shows +/- controls, analytics shows read-only progress */
   @property({ type: String })
   mode: "planning" | "analytics" = "analytics";
+
+  /** Whether this project's details are expanded */
+  @property({ type: Boolean })
+  expanded = false;
+
+  /** Tasks related to this project */
+  @property({ type: Array })
+  relatedTasks: readonly Task[] = [];
+
+  /** Tracks related to this project */
+  @property({ type: Array })
+  relatedTracks: readonly Track[] = [];
 
   private _getProgressPercent(): number {
     return getProjectProgressPercent(
@@ -304,7 +399,27 @@ export class ProjectItem extends LitElement {
     );
   }
 
-  private _handleClick() {
+  /**
+   * Toggle expansion of project details
+   * This is the new primary interaction for clicking the summary
+   */
+  private _handleToggleDetails(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("toggle-project-details", {
+        bubbles: true,
+        composed: true,
+        detail: { projectId: this.project.id },
+      }),
+    );
+  }
+
+  /**
+   * Navigate to Day view with this project selected
+   * This is the explicit action for viewing project tasks in Day view
+   */
+  private _handleViewInDay(e: Event) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("select-project", {
         bubbles: true,
@@ -312,6 +427,11 @@ export class ProjectItem extends LitElement {
         detail: { projectId: this.project.id },
       }),
     );
+  }
+
+  /** Get total count of related items (tasks + tracks) */
+  private _getRelationsCount(): number {
+    return this.relatedTasks.length + this.relatedTracks.length;
   }
 
   private _handleIncreaseEstimate(e: Event) {
@@ -338,123 +458,199 @@ export class ProjectItem extends LitElement {
 
   override render() {
     const statusClass = this.project.status;
+    const expandedClass = this.expanded ? "expanded" : "";
     const progressPercent = this._getProgressPercent();
     const progressColor = this._getProgressColor();
+    const relationsCount = this._getRelationsCount();
 
     return html`
-      <div
-        class="project-item ${statusClass}"
-        @click=${this._handleClick}
-        role="button"
-        tabindex="0"
-      >
-        <div class="project-header">
-          <div
-            class="project-color"
-            style="background-color: ${this.project.color ?? "#ef4444"}"
-          ></div>
-          <div class="project-info">
-            <h3 class="project-title">${this.project.title}</h3>
-            ${this.project.description
-              ? html`<p class="project-description">
-                  ${this.project.description}
-                </p>`
-              : null}
+      <div class="project-item ${statusClass} ${expandedClass}">
+        <!-- Summary section - clickable to toggle details -->
+        <div
+          class="project-summary"
+          @click=${this._handleToggleDetails}
+          role="button"
+          tabindex="0"
+          aria-expanded=${this.expanded}
+          aria-label="${this.project.title} - click to ${this.expanded
+            ? "collapse"
+            : "expand"} details"
+          @keydown=${(e: KeyboardEvent) => {
+            // Don't handle keydown if it's from a child element (e.g., +/- buttons)
+            if (e.target !== e.currentTarget) {
+              return;
+            }
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              this._handleToggleDetails(e);
+            }
+          }}
+        >
+          <div class="project-header">
+            <div
+              class="project-color"
+              style="background-color: ${this.project.color ?? "#ef4444"}"
+            ></div>
+            <div class="project-info">
+              <h3 class="project-title">${this.project.title}</h3>
+              ${this.project.description
+                ? html`<p class="project-description">
+                    ${this.project.description}
+                  </p>`
+                : null}
+            </div>
+            <div class="header-actions">
+              <!-- Expansion indicator -->
+              ${relationsCount > 0
+                ? html`
+                    <span
+                      class="expand-indicator ${this.expanded
+                        ? "expanded"
+                        : ""}"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M19 9l-7 7-7-7"></path>
+                      </svg>
+                      <span class="expand-count">${relationsCount}</span>
+                    </span>
+                  `
+                : null}
+              <span class="status-badge ${this.project.status}">
+                ${this.project.status}
+              </span>
+            </div>
           </div>
-          <span class="status-badge ${this.project.status}">
-            ${this.project.status}
-          </span>
+
+          <div class="project-meta">
+            <span class="task-count">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M9 11l3 3L22 4"></path>
+                <path
+                  d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                ></path>
+              </svg>
+              ${this.taskCount} task${this.taskCount !== 1 ? "s" : ""}
+            </span>
+            <span>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M12 6v6l4 2"></path>
+              </svg>
+              ${this.finishedTomatoes}/${this.estimatedTomatoes} tomatoes
+            </span>
+          </div>
+
+          ${this.mode === "planning"
+            ? html`
+                <div class="planning-controls">
+                  <span class="estimate-label">Planned Tomatoes</span>
+                  <div class="estimate-control">
+                    <button
+                      class="estimate-btn"
+                      @click=${this._handleDecreaseEstimate}
+                      ?disabled=${this.project.tomatoEstimate <= 0 ||
+                      this.project.status !== "active"}
+                      aria-label="Decrease planned tomatoes"
+                    >
+                      −
+                    </button>
+                    <span class="estimate-value"
+                      >${this.project.tomatoEstimate}</span
+                    >
+                    <button
+                      class="estimate-btn"
+                      @click=${this._handleIncreaseEstimate}
+                      ?disabled=${this.project.status !== "active"}
+                      aria-label="Increase planned tomatoes"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              `
+            : html`
+                <div class="progress-section">
+                  <div class="progress-header">
+                    <span class="progress-label">Progress</span>
+                    <span class="progress-value"
+                      >${Math.round(progressPercent)}%</span
+                    >
+                  </div>
+                  <div class="progress-bar">
+                    <div
+                      class="progress-fill"
+                      style="width: ${progressPercent}%; background-color: ${progressColor}"
+                    ></div>
+                  </div>
+                </div>
+              `}
         </div>
 
-        <div class="project-meta">
-          <span class="task-count">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <path d="M9 11l3 3L22 4"></path>
-              <path
-                d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
-              ></path>
-            </svg>
-            ${this.taskCount} task${this.taskCount !== 1 ? "s" : ""}
-          </span>
-          <span>
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M12 6v6l4 2"></path>
-            </svg>
-            ${this.finishedTomatoes}/${this.estimatedTomatoes} tomatoes
-          </span>
-        </div>
-
-        ${this.mode === "planning"
+        <!-- Expanded details section -->
+        ${this.expanded
           ? html`
-              <div class="planning-controls">
-                <span class="estimate-label">Planned Tomatoes</span>
-                <div class="estimate-control">
-                  <button
-                    class="estimate-btn"
-                    @click=${this._handleDecreaseEstimate}
-                    ?disabled=${this.project.tomatoEstimate <= 0 ||
-                    this.project.status !== "active"}
-                    aria-label="Decrease planned tomatoes"
-                  >
-                    −
-                  </button>
-                  <span class="estimate-value"
-                    >${this.project.tomatoEstimate}</span
-                  >
-                  <button
-                    class="estimate-btn"
-                    @click=${this._handleIncreaseEstimate}
-                    ?disabled=${this.project.status !== "active"}
-                    aria-label="Increase planned tomatoes"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+              <project-details
+                .tasks=${this.relatedTasks}
+                .tracks=${this.relatedTracks}
+                .mode=${this.mode}
+              ></project-details>
             `
-          : html`
-              <div class="progress-section">
-                <div class="progress-header">
-                  <span class="progress-label">Progress</span>
-                  <span class="progress-value"
-                    >${Math.round(progressPercent)}%</span
-                  >
-                </div>
-                <div class="progress-bar">
-                  <div
-                    class="progress-fill"
-                    style="width: ${progressPercent}%; background-color: ${progressColor}"
-                  ></div>
-                </div>
-              </div>
-            `}
-        ${this.mode === "analytics" && this.project.status === "active"
+          : null}
+
+        <!-- Action buttons section (separate from toggle) -->
+        ${this.project.status === "active"
           ? html`
               <div class="project-actions">
-                <button class="action-btn" @click=${this._handleEdit}>
-                  Edit
+                ${this.mode === "analytics"
+                  ? html`
+                      <button class="action-btn" @click=${this._handleEdit}>
+                        Edit
+                      </button>
+                      <button class="action-btn" @click=${this._handleAddTask}>
+                        Add Task
+                      </button>
+                    `
+                  : null}
+                <button class="view-btn" @click=${this._handleViewInDay}>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path>
+                  </svg>
+                  View in Day
                 </button>
-                <button class="action-btn" @click=${this._handleAddTask}>
-                  Add Task
-                </button>
-                <button class="action-btn danger" @click=${this._handleDelete}>
-                  Delete
-                </button>
+                ${this.mode === "analytics"
+                  ? html`
+                      <button
+                        class="action-btn danger"
+                        @click=${this._handleDelete}
+                      >
+                        Delete
+                      </button>
+                    `
+                  : null}
               </div>
             `
           : null}

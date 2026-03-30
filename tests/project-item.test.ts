@@ -364,14 +364,32 @@ describe("ProjectItem", () => {
   // ============================================
 
   describe("event dispatching", () => {
-    it("should dispatch select-project event on click", async () => {
+    it("should dispatch toggle-project-details event on summary click", async () => {
+      const spy = vi.fn();
+      element.addEventListener("toggle-project-details", spy);
+
+      const projectSummary = element.shadowRoot!.querySelector(
+        ".project-summary",
+      ) as HTMLElement;
+      projectSummary.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.projectId).toBe("proj-1");
+    });
+
+    it("should dispatch select-project event when View in Day button is clicked", async () => {
+      element.project = { ...mockProject, status: "active" };
+      await element.updateComplete;
+
       const spy = vi.fn();
       element.addEventListener("select-project", spy);
 
-      const projectItem = element.shadowRoot!.querySelector(
-        ".project-item",
-      ) as HTMLElement;
-      projectItem.click();
+      const viewBtn = element.shadowRoot!.querySelector(
+        ".view-btn",
+      ) as HTMLButtonElement;
+      viewBtn.click();
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalled();
@@ -554,14 +572,31 @@ describe("ProjectItem", () => {
   // ============================================
 
   describe("accessibility", () => {
-    it("should have role='button' on project item", () => {
-      const projectItem = element.shadowRoot!.querySelector(".project-item");
-      expect(projectItem!.getAttribute("role")).toBe("button");
+    it("should have role='button' on project summary", () => {
+      const projectSummary =
+        element.shadowRoot!.querySelector(".project-summary");
+      expect(projectSummary!.getAttribute("role")).toBe("button");
     });
 
-    it("should have tabindex='0' on project item for keyboard navigation", () => {
-      const projectItem = element.shadowRoot!.querySelector(".project-item");
-      expect(projectItem!.getAttribute("tabindex")).toBe("0");
+    it("should have tabindex='0' on project summary for keyboard navigation", () => {
+      const projectSummary =
+        element.shadowRoot!.querySelector(".project-summary");
+      expect(projectSummary!.getAttribute("tabindex")).toBe("0");
+    });
+
+    it("should have aria-expanded attribute on project summary", () => {
+      const projectSummary =
+        element.shadowRoot!.querySelector(".project-summary");
+      expect(projectSummary!.getAttribute("aria-expanded")).toBe("false");
+    });
+
+    it("should update aria-expanded when expanded", async () => {
+      element.expanded = true;
+      await element.updateComplete;
+
+      const projectSummary =
+        element.shadowRoot!.querySelector(".project-summary");
+      expect(projectSummary!.getAttribute("aria-expanded")).toBe("true");
     });
 
     it("should have aria-label on estimate buttons in planning mode", async () => {
@@ -584,25 +619,44 @@ describe("ProjectItem", () => {
   // ============================================
 
   describe("keyboard interaction", () => {
-    it("should have tabindex for keyboard navigation", () => {
-      const projectItem = element.shadowRoot!.querySelector(".project-item");
-      expect(projectItem!.getAttribute("tabindex")).toBe("0");
+    it("should have tabindex for keyboard navigation on summary", () => {
+      const projectSummary =
+        element.shadowRoot!.querySelector(".project-summary");
+      expect(projectSummary!.getAttribute("tabindex")).toBe("0");
     });
 
-    it("should dispatch select-project event on Enter key", async () => {
+    it("should dispatch toggle-project-details event on Enter key", async () => {
       const spy = vi.fn();
-      element.addEventListener("select-project", spy);
+      element.addEventListener("toggle-project-details", spy);
 
-      const projectItem = element.shadowRoot!.querySelector(
-        ".project-item",
+      const projectSummary = element.shadowRoot!.querySelector(
+        ".project-summary",
       ) as HTMLElement;
-      projectItem.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+      projectSummary.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+      );
       await element.updateComplete;
 
-      // The click handler is what dispatches select-project
-      // Key navigation would need additional implementation
-      // Documenting current behavior: keyboard events don't trigger select-project
-      expect(spy).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalled();
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.projectId).toBe("proj-1");
+    });
+
+    it("should dispatch toggle-project-details event on Space key", async () => {
+      const spy = vi.fn();
+      element.addEventListener("toggle-project-details", spy);
+
+      const projectSummary = element.shadowRoot!.querySelector(
+        ".project-summary",
+      ) as HTMLElement;
+      projectSummary.dispatchEvent(
+        new KeyboardEvent("keydown", { key: " ", bubbles: true }),
+      );
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalled();
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.projectId).toBe("proj-1");
     });
   });
 

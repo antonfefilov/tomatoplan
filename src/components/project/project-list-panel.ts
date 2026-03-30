@@ -7,6 +7,12 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type { Project } from "../../models/project.js";
+import type { Task } from "../../models/task.js";
+import type { Track } from "../../models/track.js";
+import {
+  getProjectRelationsMap,
+  type ProjectRelationsMap,
+} from "../../models/project-relations.js";
 import "./project-list.js";
 import "./project-editor-dialog.js";
 
@@ -103,11 +109,23 @@ export class ProjectListPanel extends LitElement {
   @property({ type: String })
   mode: "planning" | "analytics" = "analytics";
 
+  /** All tasks in the system (for computing project relations) */
+  @property({ type: Array })
+  tasks: readonly Task[] = [];
+
+  /** All tracks in the system (for computing project relations) */
+  @property({ type: Array })
+  tracks: readonly Track[] = [];
+
   @state()
   private _showProjectDialog = false;
 
   @state()
   private _editingProject: Project | undefined = undefined;
+
+  /** ID of the currently expanded project (single expansion at a time) */
+  @state()
+  private _expandedProjectId: string | undefined = undefined;
 
   private _handleOpenProjectDialog() {
     this._editingProject = undefined;
@@ -207,8 +225,32 @@ export class ProjectListPanel extends LitElement {
     );
   }
 
+  /**
+   * Handles toggle of project details expansion
+   * Only one project can be expanded at a time
+   */
+  private _handleToggleProjectDetails(e: CustomEvent<{ projectId: string }>) {
+    const { projectId } = e.detail;
+
+    // If clicking on already expanded project, collapse it
+    // Otherwise, expand the clicked project (closing any other)
+    if (this._expandedProjectId === projectId) {
+      this._expandedProjectId = undefined;
+    } else {
+      this._expandedProjectId = projectId;
+    }
+  }
+
+  /**
+   * Computes the project relations map from tasks and tracks
+   */
+  private _computeProjectRelations(): ProjectRelationsMap {
+    return getProjectRelationsMap(this.tasks, this.tracks, this.projects);
+  }
+
   override render() {
     const isEdit = !!this._editingProject;
+    const projectRelations = this._computeProjectRelations();
 
     return html`
       <div class="panel-container">
@@ -224,9 +266,12 @@ export class ProjectListPanel extends LitElement {
             .taskCounts=${this.taskCounts}
             .progressData=${this.progressData}
             .mode=${this.mode}
+            .expandedProjectId=${this._expandedProjectId}
+            .projectRelations=${projectRelations}
             @edit-project=${this._handleEditProject}
             @delete-project=${this._handleDeleteProject}
             @select-project=${this._handleSelectProject}
+            @toggle-project-details=${this._handleToggleProjectDetails}
             @increase-project-plan=${this._handleIncreaseProjectPlan}
             @decrease-project-plan=${this._handleDecreaseProjectPlan}
             @add-project-task=${this._handleAddProjectTask}

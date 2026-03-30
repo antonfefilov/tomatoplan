@@ -6,6 +6,7 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { Project } from "../../models/project.js";
+import type { ProjectRelationsMap } from "../../models/project-relations.js";
 import "./project-item.js";
 
 @customElement("project-list")
@@ -61,6 +62,14 @@ export class ProjectList extends LitElement {
   /** Display mode: planning shows +/- controls, analytics shows read-only progress */
   @property({ type: String })
   mode: "planning" | "analytics" = "analytics";
+
+  /** ID of the currently expanded project */
+  @property({ type: String })
+  expandedProjectId: string | undefined = undefined;
+
+  /** Map of projectId -> related tasks and tracks */
+  @property({ type: Object })
+  projectRelations: ProjectRelationsMap = {};
 
   private _handleEditProject(e: CustomEvent<{ projectId: string }>) {
     this.dispatchEvent(
@@ -124,6 +133,16 @@ export class ProjectList extends LitElement {
     );
   }
 
+  private _handleToggleProjectDetails(e: CustomEvent<{ projectId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("toggle-project-details", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     if (this.projects.length === 0) {
       return html`
@@ -158,9 +177,13 @@ export class ProjectList extends LitElement {
               .estimatedTomatoes=${this.progressData[project.id]?.estimated ??
               0}
               .mode=${this.mode}
+              .expanded=${this.expandedProjectId === project.id}
+              .relatedTasks=${this.projectRelations[project.id]?.tasks ?? []}
+              .relatedTracks=${this.projectRelations[project.id]?.tracks ?? []}
               @edit-project=${this._handleEditProject}
               @delete-project=${this._handleDeleteProject}
               @select-project=${this._handleSelectProject}
+              @toggle-project-details=${this._handleToggleProjectDetails}
               @increase-project-plan=${this._handleIncreaseProjectPlan}
               @decrease-project-plan=${this._handleDecreaseProjectPlan}
               @add-project-task=${this._handleAddProjectTask}
