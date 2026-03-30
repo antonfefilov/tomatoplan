@@ -293,6 +293,17 @@ export class ProjectItem extends LitElement {
     );
   }
 
+  private _handleAddTask(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("add-project-task", {
+        bubbles: true,
+        composed: true,
+        detail: { projectId: this.project.id },
+      }),
+    );
+  }
+
   private _handleClick() {
     this.dispatchEvent(
       new CustomEvent("select-project", {
@@ -432,11 +443,14 @@ export class ProjectItem extends LitElement {
                 </div>
               </div>
             `}
-        ${this.project.status === "active"
+        ${this.mode === "analytics" && this.project.status === "active"
           ? html`
               <div class="project-actions">
                 <button class="action-btn" @click=${this._handleEdit}>
                   Edit
+                </button>
+                <button class="action-btn" @click=${this._handleAddTask}>
+                  Add Task
                 </button>
                 <button class="action-btn danger" @click=${this._handleDelete}>
                   Delete

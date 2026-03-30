@@ -195,6 +195,16 @@ export class ProjectListPanel extends LitElement {
     );
   }
 
+  private _handleAddProjectTask(e: CustomEvent<{ projectId: string }>) {
+    this.dispatchEvent(
+      new CustomEvent("add-project-task", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const isEdit = !!this._editingProject;
 
@@ -217,6 +227,7 @@ export class ProjectListPanel extends LitElement {
             @select-project=${this._handleSelectProject}
             @increase-project-plan=${this._handleIncreaseProjectPlan}
             @decrease-project-plan=${this._handleDecreaseProjectPlan}
+            @add-project-task=${this._handleAddProjectTask}
           ></project-list>
         </div>
 

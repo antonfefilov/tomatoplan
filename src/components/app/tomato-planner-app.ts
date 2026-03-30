@@ -180,6 +180,9 @@ export class TomatoPlannerApp extends LitElement {
     weeklyCapacity: 0,
   };
 
+  @state()
+  private _defaultProjectIdForNewTask: string | undefined = undefined;
+
   private _unsubscribe: (() => void) | null = null;
   private _timerUnsubscribe: (() => void) | null = null;
   private _weeklyUnsubscribe: (() => void) | null = null;
@@ -314,6 +317,7 @@ export class TomatoPlannerApp extends LitElement {
   private _closeTaskDialog() {
     this._showTaskDialog = false;
     this._editingTask = undefined;
+    this._defaultProjectIdForNewTask = undefined;
   }
 
   private _handleDeleteTask(e: CustomEvent<{ taskId: string }>) {
@@ -363,6 +367,12 @@ export class TomatoPlannerApp extends LitElement {
     e: CustomEvent<{ taskId: string; toIndex: number }>,
   ) {
     plannerStore.reorderTask(e.detail.taskId, e.detail.toIndex);
+  }
+
+  private _handleAddProjectTask(e: CustomEvent<{ projectId: string }>) {
+    this._defaultProjectIdForNewTask = e.detail.projectId;
+    this._editingTask = undefined;
+    this._showTaskDialog = true;
   }
 
   // ============================================
@@ -748,6 +758,7 @@ export class TomatoPlannerApp extends LitElement {
                     @save-project=${this._handleSaveProject}
                     @delete-project=${this._handleDeleteProject}
                     @select-project=${this._handleSelectProject}
+                    @add-project-task=${this._handleAddProjectTask}
                   ></project-list-panel>
                 `}
       </app-shell>
@@ -758,6 +769,7 @@ export class TomatoPlannerApp extends LitElement {
         .task=${this._editingTask}
         .projects=${this._projects}
         .isEdit=${isEdit}
+        .defaultProjectId=${this._defaultProjectIdForNewTask}
         @save=${this._handleSaveTask}
         @cancel=${this._closeTaskDialog}
       ></task-editor-dialog>
