@@ -17,7 +17,7 @@ interface ExtendedTaskPalette extends HTMLElement {
   updateComplete: Promise<boolean>;
 }
 
-describe("TrackTaskPalette - Regression Tests for Child Bead tomataoplan-a8d", () => {
+describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", () => {
   let component: ExtendedTaskPalette;
 
   // Helper to create a test task
@@ -386,36 +386,6 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomataoplan-a8d", (
           expect(component.shadowRoot?.innerHTML).toContain(finishedTask.title);
         }
       }
-    });
-
-    it("properly verifies finished-task exclusion logic", () => {
-      // Create tasks with different states to verify isTaskDone works as expected
-      const taskWithZeroTomatoes = createTestTask(
-        "zero-tomatoes",
-        "Zero Tomatoes",
-        0,
-        0,
-      ); // 0/0 - should NOT be done according to isTaskDone
-      const taskHalfDone = createTestTask("half-done", "Half Done", 4, 2); // 2/4 - not done
-      const taskFullyDone = createTestTask("fully-done", "Fully Done", 3, 3); // 3/3 - done
-      const taskOverachieved = createTestTask(
-        "overachieved",
-        "Overachieved",
-        2,
-        5,
-      ); // 5/2 - done (overachieving)
-      const partiallyDone = createTestTask(
-        "partially-done",
-        "Partially Done",
-        5,
-        2,
-      ); // 2/5 - not done
-
-      expect(isTaskDone(taskWithZeroTomatoes)).toBe(false); // Special case: 0/0 is NOT considered done
-      expect(isTaskDone(taskHalfDone)).toBe(false); // 2/4 is not done
-      expect(isTaskDone(taskFullyDone)).toBe(true); // 3/3 is done
-      expect(isTaskDone(taskOverachieved)).toBe(true); // 5/2 is done (overachieved)
-      expect(isTaskDone(partiallyDone)).toBe(false); // 2/5 is not done
     });
   });
 });

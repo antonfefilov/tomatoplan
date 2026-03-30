@@ -273,7 +273,7 @@ export class TrackTaskPalette extends LitElement {
     // Separate tasks into "in track" and "available"
     const tasksInTrack = this.trackTasks;
     const tasksNotInTrack = this.availableTasks.filter(
-      (t) => !this.track?.taskIds.includes(t.id),
+      (t) => !this.track?.taskIds.includes(t.id) && !isTaskDone(t),
     );
 
     return html`
@@ -316,7 +316,7 @@ export class TrackTaskPalette extends LitElement {
                     No tasks available. Create tasks in the Day view first.
                   </div>
                 `
-              : null}
+              : html` <div class="empty-text">No tasks available to add</div> `}
         </div>
       </div>
     `;
