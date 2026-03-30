@@ -93,6 +93,7 @@ export class ProjectList extends LitElement {
   }
 
   private _handleIncreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("increase-project-plan", {
         bubbles: true,
@@ -103,6 +104,7 @@ export class ProjectList extends LitElement {
   }
 
   private _handleDecreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
+    e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("decrease-project-plan", {
         bubbles: true,
