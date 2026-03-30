@@ -22,6 +22,7 @@ describe("TimerStore", () => {
 
   afterEach(() => {
     timerStore.resetTimer();
+    timerStore.destroy();
     vi.useRealTimers();
   });
 
@@ -568,6 +569,163 @@ describe("TimerStore", () => {
       timerStore.pauseTimer();
 
       expect(timerStore.hasActiveTimer).toBe(true);
+    });
+  });
+
+  describe("visibility-change synchronization", () => {
+    let originalVisibilityState: string;
+
+    beforeEach(() => {
+      originalVisibilityState = document.visibilityState;
+    });
+
+    afterEach(() => {
+      // Restore original visibility state after each test
+      Object.defineProperty(document, "visibilityState", {
+        value: originalVisibilityState,
+        writable: true,
+      });
+    });
+
+    it("should resync timer when tab becomes visible", () => {
+      const { taskId } = plannerStore.addTask("Test Task");
+      timerStore.startTimer(taskId!);
+
+      // Initially should have 25*60 = 1500 seconds
+      expect(timerStore.remainingSeconds).toBe(25 * 60);
+
+      // Advance real timer to simulate 5 seconds passing
+      vi.advanceTimersByTime(5000);
+
+      // Verify timer is ticking while visible (should be 1495 seconds remaining)
+      expect(timerStore.remainingSeconds).toBe(25 * 60 - 5);
+
+      // Mock visibility change to hidden
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        writable: true,
+      });
+
+      // Advance more time while "hidden"
+      vi.advanceTimersByTime(5000);
+
+      // Timer should continue ticking while using fake timers - so it would appear to change
+      // But after visibilitychange and resync, it should correct itself
+
+      // Mock visibility change to visible and trigger the event
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      // Since 10 seconds passed since start but we only want it to account actual elapsed time
+      // and adjust based on visibility, the remaining should have dropped by 10 seconds
+      expect(timerStore.remainingSeconds).toBe(25 * 60 - 10);
+    });
+
+    it("should complete timer immediately when tab becomes visible after finishing while hidden", () => {
+      const { taskId } = plannerStore.addTask("Test Task");
+      timerStore.startTimer(taskId!);
+
+      // Start timer with a short duration (let's make it 3 seconds)
+      plannerStore.setCapacityInMinutes(1); // 60 seconds
+      timerStore.resetTimer(); // Reset before starting again
+      timerStore.startTimer(taskId!);
+
+      // Mock visibility to hidden so when timer completes, user doesn't notice
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        writable: true,
+      });
+
+      // Wait for 70 seconds (more than the 60-second timer), timer should finish while hidden
+      vi.advanceTimersByTime(70000);
+
+      // At this point timer should be technically complete, so before showing, we'd resync
+      // Mock visibility change back to visible and dispatch event
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      // Timer should now be completed and idle
+      expect(timerStore.status).toBe("idle");
+
+      // Verify task has been marked as finished (tomato count incremented)
+      const task = plannerStore.getTaskById(taskId!);
+      expect(task!.finishedTomatoCount).toBe(1);
+    });
+
+    it("should not change paused timer while tab is hidden", () => {
+      const { taskId } = plannerStore.addTask("Test Task");
+      timerStore.startTimer(taskId!);
+
+      // Start timer and then pause
+      vi.advanceTimersByTime(10000); // 10 seconds elapsed, 1490 seconds remaining
+      expect(timerStore.remainingSeconds).toBe(25 * 60 - 10);
+
+      timerStore.pauseTimer();
+      expect(timerStore.status).toBe("paused");
+
+      const pausedRemaining = timerStore.remainingSeconds;
+
+      // Mock visibility to hidden
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        writable: true,
+      });
+
+      // Advance time while tab is hidden
+      vi.advanceTimersByTime(15000); // An additional 15 seconds pass
+
+      // Mock visibility to visible and dispatch event
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      // Timer should remain in the same paused state and same remaining time
+      expect(timerStore.status).toBe("paused");
+      expect(timerStore.remainingSeconds).toBe(pausedRemaining); // Should still be 1490 seconds remaining
+    });
+
+    it("should not cause double completion on visibility change after timer completion", () => {
+      const { taskId } = plannerStore.addTask("Test Task");
+      timerStore.startTimer(taskId!);
+
+      // Set capacity to 1 minute = 60 seconds for testing completion
+      plannerStore.setCapacityInMinutes(1);
+      timerStore.resetTimer();
+      timerStore.startTimer(taskId!);
+
+      // Let the timer complete naturally (wait for 60+ seconds)
+      vi.advanceTimersByTime(65000);
+
+      // Verify the timer has completed and tomato count incremented to 1
+      expect(timerStore.status).toBe("idle");
+      const taskBefore = plannerStore.getTaskById(taskId!);
+      expect(taskBefore!.finishedTomatoCount).toBe(1);
+
+      // Now trigger a visibility change (tab was hidden during completion then restored)
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        writable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      // Tab becomes visible again
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      // Ensure no double completion happened - tomato count should still be 1, not 2
+      const taskAfter = plannerStore.getTaskById(taskId!);
+      expect(taskAfter!.finishedTomatoCount).toBe(1); // Should still be 1, not 2
     });
   });
 });

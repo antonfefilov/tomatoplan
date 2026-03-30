@@ -30,13 +30,20 @@ class TimerStore {
   private state: TimerState;
   private subscribers: Set<TimerSubscriber> = new Set();
   private tickInterval: ReturnType<typeof setInterval> | null = null;
+  private visibilityChangeHandler: () => void;
 
   constructor() {
     this.state = this.loadState();
+    // Sync timer before starting to ensure accurate time after page reload
+    this.resyncTimer();
     // Resume ticking if timer was running
     if (this.state.status === "running") {
       this.startTick();
     }
+
+    // Add visibility change listener to sync timer when tab becomes visible
+    this.visibilityChangeHandler = this.handleVisibilityChange.bind(this);
+    document.addEventListener("visibilitychange", this.visibilityChangeHandler);
   }
 
   // ============================================
@@ -161,6 +168,31 @@ class TimerStore {
     }
   }
 
+  /**
+   * Handler for visibility change events to sync timer when tab becomes visible
+   */
+  private handleVisibilityChange(): void {
+    if (document.visibilityState === "visible") {
+      this.resyncTimer();
+    }
+  }
+
+  /**
+   * Cleans up resources and event listeners
+   */
+  public destroy(): void {
+    // Remove visibility change listener
+    document.removeEventListener(
+      "visibilitychange",
+      this.visibilityChangeHandler,
+    );
+
+    // Stop ticking if running
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = null;
+    }
+  }
   // ============================================
   // SUBSCRIPTION
   // ============================================
@@ -307,6 +339,35 @@ class TimerStore {
       this.handleTimerComplete();
     } else {
       this.setState(newState);
+    }
+  }
+
+  /**
+   * Recalculates timer state from wall-clock time without page reload
+   * Used to sync running timer with actual elapsed time
+   */
+  private resyncTimer(): void {
+    // Exit early if timer is not running or has no startedAt timestamp
+    if (this.state.status !== "running" || !this.state.startedAt) {
+      return;
+    }
+
+    // Calculate elapsed seconds using the helper function
+    const elapsed = getElapsedSeconds(this.state.startedAt);
+    const actualRemaining = this.state.totalSeconds - elapsed;
+
+    if (actualRemaining <= 0) {
+      // Timer should be completed - handle completion
+      this.handleTimerComplete();
+    } else {
+      // Update state only if needed (avoid unnecessary updates)
+      if (this.state.remainingSeconds !== Math.floor(actualRemaining)) {
+        const newState = {
+          ...this.state,
+          remainingSeconds: Math.max(0, Math.floor(actualRemaining)), // Ensure non-negative integer value
+        };
+        this.setState(newState);
+      }
     }
   }
 
