@@ -133,16 +133,6 @@ export class ProjectList extends LitElement {
     );
   }
 
-  private _handleToggleProjectDetails(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("toggle-project-details", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
   override render() {
     if (this.projects.length === 0) {
       return html`
@@ -183,7 +173,6 @@ export class ProjectList extends LitElement {
               @edit-project=${this._handleEditProject}
               @delete-project=${this._handleDeleteProject}
               @select-project=${this._handleSelectProject}
-              @toggle-project-details=${this._handleToggleProjectDetails}
               @increase-project-plan=${this._handleIncreaseProjectPlan}
               @decrease-project-plan=${this._handleDecreaseProjectPlan}
               @add-project-task=${this._handleAddProjectTask}
