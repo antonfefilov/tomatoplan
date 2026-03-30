@@ -642,6 +642,32 @@ class PlannerStore {
   }
 
   /**
+   * Sets the track ID for a task
+   * Pass undefined to unassign from track
+   */
+  setTaskTrack(
+    taskId: string,
+    trackId: string | undefined,
+  ): { success: boolean; error?: string } {
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    this.setState({
+      ...this.state,
+      tasks: this.state.tasks.map((t) =>
+        t.id === taskId
+          ? { ...t, trackId, updatedAt: new Date().toISOString() }
+          : t,
+      ),
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Unassigns all tasks from a given project
    * Used when a project is deleted to ensure tasks don't reference a non-existent project
    */

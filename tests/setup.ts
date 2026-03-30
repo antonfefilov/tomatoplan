@@ -5,6 +5,33 @@
 
 import { beforeEach, afterEach, vi } from "vitest";
 
+// ResizeObserver polyfill for jsdom
+// jsdom doesn't implement ResizeObserver, so we create a minimal implementation
+class ResizeObserverPolyfill {
+  // @ts-expect-error - _callback stored for API completeness but not invoked in tests
+  private _callback: ResizeObserverCallback;
+  private _targets: Set<Element> = new Set();
+
+  constructor(callback: ResizeObserverCallback) {
+    this._callback = callback;
+  }
+
+  observe(target: Element): void {
+    this._targets.add(target);
+  }
+
+  unobserve(target: Element): void {
+    this._targets.delete(target);
+  }
+
+  disconnect(): void {
+    this._targets.clear();
+  }
+}
+
+// Assign to global
+(globalThis as any).ResizeObserver = ResizeObserverPolyfill;
+
 // DragEvent polyfill for jsdom
 // jsdom doesn't implement DragEvent, so we create a minimal implementation
 // Extends MouseEvent-like coordinates for drag position calculations

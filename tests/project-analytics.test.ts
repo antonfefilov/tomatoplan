@@ -154,7 +154,8 @@ describe("getOverallProjectMetrics", () => {
       },
       projects: mockProjects,
       tasks: mockTasks,
-      version: 1,
+      tracks: [],
+      version: 2,
     };
 
     const metrics = getOverallProjectMetrics(state);
@@ -181,7 +182,8 @@ describe("getOverallProjectMetrics", () => {
       },
       projects: [],
       tasks: [],
-      version: 1,
+      tracks: [],
+      version: 2,
     };
 
     const metrics = getOverallProjectMetrics(state);

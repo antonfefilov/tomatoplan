@@ -11,6 +11,7 @@ import { timerStore } from "../../state/timer-store.js";
 import { removeProject } from "../../state/project-coordinator.js";
 import type { Task } from "../../models/task.js";
 import type { Project, ProjectColor } from "../../models/project.js";
+import type { Track } from "../../models/track.js";
 import type { TimerStatus } from "../../models/timer-state.js";
 import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
 import {
@@ -26,6 +27,8 @@ import "../task/task-list-panel.js";
 import "../task/task-editor-dialog.js";
 import "../project/project-list-panel.js";
 import "../project/projects-analytics-panel.js";
+import "../track/track-list-panel.js";
+import "../track/track-builder-panel.js";
 import "../shared/confirm-dialog.js";
 
 @customElement("tomato-planner-app")
@@ -129,7 +132,7 @@ export class TomatoPlannerApp extends LitElement {
   // ============================================
 
   @state()
-  private _activeView: "day" | "week" | "projects" = "day";
+  private _activeView: "day" | "week" | "projects" | "tracks" = "day";
 
   // ============================================
   // Weekly Planning State
@@ -137,6 +140,12 @@ export class TomatoPlannerApp extends LitElement {
 
   @state()
   private _projects: readonly Project[] = [];
+
+  @state()
+  private _tracks: readonly Track[] = [];
+
+  @state()
+  private _selectedTrackId: string | undefined = undefined;
 
   @state()
   private _weeklyCapacity = 0;
@@ -171,6 +180,9 @@ export class TomatoPlannerApp extends LitElement {
     weeklyCapacity: 0,
   };
 
+  @state()
+  private _defaultProjectIdForNewTask: string | undefined = undefined;
+
   private _unsubscribe: (() => void) | null = null;
   private _timerUnsubscribe: (() => void) | null = null;
   private _weeklyUnsubscribe: (() => void) | null = null;
@@ -196,6 +208,7 @@ export class TomatoPlannerApp extends LitElement {
 
     this._weeklyUnsubscribe = weeklyStore.subscribe((state) => {
       this._projects = state.projects;
+      this._tracks = state.tracks;
 
       // Weekly capacity and dates
       this._weeklyCapacity = state.pool.weeklyCapacity;
@@ -304,6 +317,7 @@ export class TomatoPlannerApp extends LitElement {
   private _closeTaskDialog() {
     this._showTaskDialog = false;
     this._editingTask = undefined;
+    this._defaultProjectIdForNewTask = undefined;
   }
 
   private _handleDeleteTask(e: CustomEvent<{ taskId: string }>) {
@@ -353,6 +367,12 @@ export class TomatoPlannerApp extends LitElement {
     e: CustomEvent<{ taskId: string; toIndex: number }>,
   ) {
     plannerStore.reorderTask(e.detail.taskId, e.detail.toIndex);
+  }
+
+  private _handleAddProjectTask(e: CustomEvent<{ projectId: string }>) {
+    this._defaultProjectIdForNewTask = e.detail.projectId;
+    this._editingTask = undefined;
+    this._showTaskDialog = true;
   }
 
   // ============================================
@@ -411,6 +431,93 @@ export class TomatoPlannerApp extends LitElement {
     this._activeView = "projects";
     // Auto-expand panel when switching to Projects view
     this._panelCollapsed = false;
+  }
+
+  private _handleSwitchToTracksView() {
+    this._activeView = "tracks";
+    // Auto-expand panel when switching to Tracks view
+    this._panelCollapsed = false;
+  }
+
+  // ============================================
+  // Track Actions
+  // ============================================
+
+  private _getAvailableTasksForTracks(): readonly Task[] {
+    const trackedTaskIds = new Set(
+      this._tracks.flatMap((track) => track.taskIds),
+    );
+
+    return this._tasks.filter((task) => !trackedTaskIds.has(task.id));
+  }
+
+  private _handleSaveTrack(
+    e: CustomEvent<{
+      trackId?: string;
+      title: string;
+      description?: string;
+      projectId?: string;
+    }>,
+  ) {
+    const { trackId, title, description, projectId } = e.detail;
+
+    if (trackId) {
+      weeklyStore.updateTrack(trackId, { title, description, projectId });
+    } else {
+      weeklyStore.addTrack(title, description, projectId);
+    }
+  }
+
+  private _handleDeleteTrack(e: CustomEvent<{ trackId: string }>) {
+    weeklyStore.removeTrack(e.detail.trackId);
+    // Deselect track if it was selected
+    if (this._selectedTrackId === e.detail.trackId) {
+      this._selectedTrackId = undefined;
+    }
+  }
+
+  private _handleSelectTrack(e: CustomEvent<{ trackId: string }>) {
+    this._selectedTrackId = e.detail.trackId;
+  }
+
+  private _handleAddTaskToTrack(
+    e: CustomEvent<{ trackId: string; taskId: string }>,
+  ) {
+    weeklyStore.addTaskToTrack(e.detail.trackId, e.detail.taskId);
+  }
+
+  private _handleRemoveTaskFromTrack(
+    e: CustomEvent<{ trackId: string; taskId: string }>,
+  ) {
+    weeklyStore.removeTaskFromTrack(e.detail.trackId, e.detail.taskId);
+  }
+
+  private _handleAddTrackEdge(
+    e: CustomEvent<{
+      trackId: string;
+      sourceTaskId: string;
+      targetTaskId: string;
+    }>,
+  ) {
+    weeklyStore.addTrackEdge(
+      e.detail.trackId,
+      e.detail.sourceTaskId,
+      e.detail.targetTaskId,
+    );
+  }
+
+  private _handleRemoveTrackEdge(
+    e: CustomEvent<{
+      trackId: string;
+      sourceTaskId: string;
+      targetTaskId: string;
+    }>,
+  ) {
+    weeklyStore.removeTrackEdge(
+      e.detail.trackId,
+      e.detail.sourceTaskId,
+      e.detail.targetTaskId,
+    );
   }
 
   // ============================================
@@ -503,6 +610,15 @@ export class TomatoPlannerApp extends LitElement {
           >
             Projects
           </button>
+          <button
+            class="tab-btn ${this._activeView === "tracks" ? "active" : ""}"
+            role="tab"
+            aria-selected=${this._activeView === "tracks"}
+            aria-controls="tracks-view"
+            @click=${this._handleSwitchToTracksView}
+          >
+            Tracks
+          </button>
         </div>
 
         <app-header
@@ -590,34 +706,61 @@ export class TomatoPlannerApp extends LitElement {
                   @decrease-project-plan=${this._handleDecreaseProjectPlan}
                 ></project-list-panel>
               `
-            : html`
-                <div id="projects-view" role="tabpanel" slot="pool-panel">
-                  <projects-analytics-panel
-                    .weeklyCapacity=${this._weeklyCapacity}
-                    .totalPlanned=${this._overallMetrics.totalPlanned}
-                    .totalFinished=${this._overallMetrics.totalFinished}
-                    .projectCount=${this._overallMetrics.projectCount}
-                    .activeProjectCount=${this._overallMetrics
-                      .activeProjectCount}
-                    .completedProjectCount=${this._overallMetrics
-                      .completedProjectCount}
-                    .archivedProjectCount=${this._overallMetrics
-                      .archivedProjectCount}
-                    .capacityInMinutes=${this._capacityInMinutesWeekly}
-                  ></projects-analytics-panel>
-                </div>
-                <project-list-panel
-                  slot="task-panel"
-                  .projects=${this._projects}
-                  .taskCounts=${this._projectTaskCounts}
-                  .progressData=${this._projectProgressData}
-                  .maxEstimate=${this._weeklyCapacity}
-                  .mode=${"analytics"}
-                  @save-project=${this._handleSaveProject}
-                  @delete-project=${this._handleDeleteProject}
-                  @select-project=${this._handleSelectProject}
-                ></project-list-panel>
-              `}
+            : this._activeView === "tracks"
+              ? html`
+                  <track-list-panel
+                    slot="pool-panel"
+                    .tracks=${this._tracks}
+                    .tasks=${this._tasks}
+                    .projects=${this._projects}
+                    .selectedTrackId=${this._selectedTrackId}
+                    @save-track=${this._handleSaveTrack}
+                    @delete-track=${this._handleDeleteTrack}
+                    @select-track=${this._handleSelectTrack}
+                  ></track-list-panel>
+                  <track-builder-panel
+                    slot="task-panel"
+                    .track=${this._tracks.find(
+                      (t) => t.id === this._selectedTrackId,
+                    )}
+                    .tasks=${this._tasks}
+                    .availableTasks=${this._getAvailableTasksForTracks()}
+                    .projects=${this._projects}
+                    @add-task-to-track=${this._handleAddTaskToTrack}
+                    @remove-task-from-track=${this._handleRemoveTaskFromTrack}
+                    @add-track-edge=${this._handleAddTrackEdge}
+                    @remove-track-edge=${this._handleRemoveTrackEdge}
+                  ></track-builder-panel>
+                `
+              : html`
+                  <div id="projects-view" role="tabpanel" slot="pool-panel">
+                    <projects-analytics-panel
+                      .weeklyCapacity=${this._weeklyCapacity}
+                      .totalPlanned=${this._overallMetrics.totalPlanned}
+                      .totalFinished=${this._overallMetrics.totalFinished}
+                      .projectCount=${this._overallMetrics.projectCount}
+                      .activeProjectCount=${this._overallMetrics
+                        .activeProjectCount}
+                      .completedProjectCount=${this._overallMetrics
+                        .completedProjectCount}
+                      .archivedProjectCount=${this._overallMetrics
+                        .archivedProjectCount}
+                      .capacityInMinutes=${this._capacityInMinutesWeekly}
+                    ></projects-analytics-panel>
+                  </div>
+                  <project-list-panel
+                    slot="task-panel"
+                    .projects=${this._projects}
+                    .taskCounts=${this._projectTaskCounts}
+                    .progressData=${this._projectProgressData}
+                    .maxEstimate=${this._weeklyCapacity}
+                    .mode=${"analytics"}
+                    @save-project=${this._handleSaveProject}
+                    @delete-project=${this._handleDeleteProject}
+                    @select-project=${this._handleSelectProject}
+                    @add-project-task=${this._handleAddProjectTask}
+                  ></project-list-panel>
+                `}
       </app-shell>
 
       <!-- Task Editor Dialog -->
@@ -626,6 +769,7 @@ export class TomatoPlannerApp extends LitElement {
         .task=${this._editingTask}
         .projects=${this._projects}
         .isEdit=${isEdit}
+        .defaultProjectId=${this._defaultProjectIdForNewTask}
         @save=${this._handleSaveTask}
         @cancel=${this._closeTaskDialog}
       ></task-editor-dialog>

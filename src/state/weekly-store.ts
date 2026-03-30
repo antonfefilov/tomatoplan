@@ -5,6 +5,7 @@
 
 import type { Task } from "../models/task.js";
 import type { Project, ProjectColor } from "../models/project.js";
+import type { Track } from "../models/track.js";
 import {
   createProject,
   updateProject as updateProjectModel,
@@ -13,6 +14,15 @@ import {
   getCurrentWeekId,
   getNextProjectColor,
 } from "../models/project.js";
+import {
+  createTrack,
+  updateTrack as updateTrackModel,
+  addTaskToTrack as addTaskToTrackModel,
+  removeTaskFromTrack as removeTaskFromTrackModel,
+  addEdgeToTrack as addEdgeToTrackModel,
+  removeEdgeFromTrack as removeEdgeFromTrackModel,
+} from "../models/track.js";
+import { wouldCreateCycle } from "../utils/track-graph.js";
 import type { WeeklyState } from "../models/weekly-state.js";
 import {
   createInitialWeeklyState,
@@ -47,6 +57,7 @@ interface ActionResult {
   success: boolean;
   error?: string;
   projectId?: string;
+  trackId?: string;
 }
 
 /**
@@ -94,6 +105,7 @@ class WeeklyStore {
       ...this.state,
       projects: [...this.state.projects],
       tasks: [...this.state.tasks],
+      tracks: [...this.state.tracks],
     };
   }
 
@@ -512,6 +524,13 @@ class WeeklyStore {
   /**
    * Syncs tasks from the daily planner store
    * This is called after any task mutation in the planner store
+   *
+   * IMPORTANT: This method preserves and reconciles track membership by:
+   * 1. Preserving existing trackId values from current weekly state tasks
+   * 2. Building track membership map from merged tasks
+   * 3. Reconciling track.taskIds to match actual task.trackId assignments
+   * 4. Cleaning up track.edges for tasks no longer in the track
+   * 5. Validating trackId references exist (clearing invalid ones)
    */
   syncTasks(tasks: readonly Task[]): void {
     // Filter tasks to only include those created this week
@@ -525,9 +544,115 @@ class WeeklyStore {
       return true;
     });
 
+    // Build map of existing tasks with their trackIds
+    const existingTaskMap = new Map(this.state.tasks.map((t) => [t.id, t]));
+
+    // Get valid track IDs for validation
+    const validTrackIds = new Set(this.state.tracks.map((t) => t.id));
+
+    // Merge incoming tasks, preserving trackId from existing state
+    // But if incoming has trackId, use that (allows planner to change membership)
+    const mergedTasks: Task[] = weekTasks.map((task) => {
+      const existing = existingTaskMap.get(task.id);
+      // Use incoming trackId if present, otherwise preserve existing
+      const trackId = task.trackId ?? existing?.trackId;
+
+      // Validate trackId exists, clear if invalid
+      if (trackId && !validTrackIds.has(trackId)) {
+        return { ...task, trackId: undefined };
+      }
+
+      return trackId ? { ...task, trackId } : task;
+    });
+
+    // Build track membership map from merged tasks
+    const trackMembership = new Map<string, Set<string>>(); // trackId -> Set of taskIds
+    for (const task of mergedTasks) {
+      if (task.trackId) {
+        if (!trackMembership.has(task.trackId)) {
+          trackMembership.set(task.trackId, new Set());
+        }
+        trackMembership.get(task.trackId)!.add(task.id);
+      }
+    }
+
+    // Find removed task IDs
+    const newTaskIds = new Set(mergedTasks.map((t) => t.id));
+    const removedTaskIdSet = new Set(
+      this.state.tasks.map((t) => t.id).filter((id) => !newTaskIds.has(id)),
+    );
+
+    // Reconcile tracks: update taskIds and edges to match actual task.trackId assignments
+    const reconciledTracks = this.state.tracks.map((track) => {
+      // Get the correct task IDs for this track from membership map
+      const correctTaskIds = trackMembership.get(track.id);
+
+      if (!correctTaskIds || correctTaskIds.size === 0) {
+        // No tasks reference this track, clear all taskIds and edges
+        if (track.taskIds.length > 0 || track.edges.length > 0) {
+          return {
+            ...track,
+            taskIds: [],
+            edges: [],
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return track;
+      }
+
+      // Filter taskIds to only include tasks that actually belong
+      const cleanedTaskIds = track.taskIds.filter(
+        (id) => correctTaskIds.has(id) && !removedTaskIdSet.has(id),
+      );
+
+      // Add any missing taskIds that should be in this track
+      for (const taskId of correctTaskIds) {
+        if (!cleanedTaskIds.includes(taskId)) {
+          cleanedTaskIds.push(taskId);
+        }
+      }
+
+      // Clean up edges - only keep edges between tasks still in the track
+      const cleanedEdges = track.edges.filter(
+        (e) =>
+          correctTaskIds.has(e.sourceTaskId) &&
+          correctTaskIds.has(e.targetTaskId) &&
+          !removedTaskIdSet.has(e.sourceTaskId) &&
+          !removedTaskIdSet.has(e.targetTaskId),
+      );
+
+      // Only update if changed
+      const taskIdsChanged =
+        JSON.stringify(track.taskIds) !== JSON.stringify(cleanedTaskIds);
+      const edgesChanged =
+        JSON.stringify(track.edges) !== JSON.stringify(cleanedEdges);
+
+      if (taskIdsChanged || edgesChanged) {
+        return {
+          ...track,
+          taskIds: cleanedTaskIds,
+          edges: cleanedEdges,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      return track;
+    });
+
+    // Check if anything changed
+    const tasksChanged =
+      JSON.stringify(this.state.tasks) !== JSON.stringify(mergedTasks);
+    const tracksChanged =
+      JSON.stringify(this.state.tracks) !== JSON.stringify(reconciledTracks);
+
+    if (!tasksChanged && !tracksChanged) {
+      return; // Nothing changed, skip update
+    }
+
     this.setState({
       ...this.state,
-      tasks: weekTasks,
+      tasks: mergedTasks,
+      tracks: reconciledTracks,
     });
   }
 
@@ -575,10 +700,261 @@ class WeeklyStore {
    * Removes a task from the weekly state
    */
   removeTask(taskId: string): void {
+    // Also remove task from any tracks it belongs to
+    const updatedTracks = this.state.tracks.map((track) =>
+      removeTaskFromTrackModel(track, taskId),
+    );
+
     this.setState({
       ...this.state,
       tasks: this.state.tasks.filter((t) => t.id !== taskId),
+      tracks: updatedTracks,
     });
+  }
+
+  // ============================================
+  // TRACK ACTIONS
+  // ============================================
+
+  /**
+   * Adds a new track
+   */
+  addTrack(
+    title: string,
+    description?: string,
+    projectId?: string,
+  ): ActionResult {
+    const validation = validateTaskTitle(title);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    const trackId = generateId();
+    const newTrack = createTrack(trackId, title.trim(), {
+      description: description?.trim(),
+      projectId,
+    });
+
+    this.setState({
+      ...this.state,
+      tracks: [...this.state.tracks, newTrack],
+    });
+
+    return { success: true, trackId };
+  }
+
+  /**
+   * Updates an existing track
+   */
+  updateTrack(
+    trackId: string,
+    updates: Partial<Pick<Track, "title" | "description" | "projectId">>,
+  ): ActionResult {
+    const track = this.state.tracks.find((t) => t.id === trackId);
+
+    if (!track) {
+      return { success: false, error: "Track not found" };
+    }
+
+    if (updates.title !== undefined) {
+      const validation = validateTaskTitle(updates.title);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+    }
+
+    const updatedTrack = updateTrackModel(track, updates);
+
+    this.setState({
+      ...this.state,
+      tracks: this.state.tracks.map((t) =>
+        t.id === trackId ? updatedTrack : t,
+      ),
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Removes a track
+   * Clears trackId from all tasks that belong to this track
+   */
+  removeTrack(trackId: string): ActionResult {
+    const track = this.state.tracks.find((t) => t.id === trackId);
+
+    if (!track) {
+      return { success: false, error: "Track not found" };
+    }
+
+    // Clear trackId from tasks that belong to this track
+    const updatedTasks = this.state.tasks.map((task) =>
+      task.trackId === trackId
+        ? { ...task, trackId: undefined, updatedAt: new Date().toISOString() }
+        : task,
+    );
+
+    this.setState({
+      ...this.state,
+      tracks: this.state.tracks.filter((t) => t.id !== trackId),
+      tasks: updatedTasks,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Adds a task to a track
+   * Updates both the track's taskIds and the task's trackId
+   */
+  addTaskToTrack(trackId: string, taskId: string): ActionResult {
+    const track = this.state.tracks.find((t) => t.id === trackId);
+    const task = this.state.tasks.find((t) => t.id === taskId);
+
+    if (!track) {
+      return { success: false, error: "Track not found" };
+    }
+
+    if (!task) {
+      return { success: false, error: "Task not found" };
+    }
+
+    // Check if task is already in a different track
+    if (task.trackId && task.trackId !== trackId) {
+      return {
+        success: false,
+        error: "Task is already assigned to another track",
+      };
+    }
+
+    // Update track's taskIds
+    const updatedTrack = addTaskToTrackModel(track, taskId);
+
+    // Update task's trackId
+    const updatedTasks = this.state.tasks.map((t) =>
+      t.id === taskId
+        ? { ...t, trackId: trackId, updatedAt: new Date().toISOString() }
+        : t,
+    );
+
+    this.setState({
+      ...this.state,
+      tracks: this.state.tracks.map((t) =>
+        t.id === trackId ? updatedTrack : t,
+      ),
+      tasks: updatedTasks,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Removes a task from a track
+   * Updates both the track (removes task and edges) and clears task's trackId
+   */
+  removeTaskFromTrack(trackId: string, taskId: string): ActionResult {
+    const track = this.state.tracks.find((t) => t.id === trackId);
+
+    if (!track) {
+      return { success: false, error: "Track not found" };
+    }
+
+    if (!track.taskIds.includes(taskId)) {
+      return { success: true }; // Task not in track, nothing to do
+    }
+
+    // Update track (removes task and all edges involving this task)
+    const updatedTrack = removeTaskFromTrackModel(track, taskId);
+
+    // Clear task's trackId
+    const updatedTasks = this.state.tasks.map((t) =>
+      t.id === taskId
+        ? { ...t, trackId: undefined, updatedAt: new Date().toISOString() }
+        : t,
+    );
+
+    this.setState({
+      ...this.state,
+      tracks: this.state.tracks.map((t) =>
+        t.id === trackId ? updatedTrack : t,
+      ),
+      tasks: updatedTasks,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Adds an edge (dependency) between two tasks in a track
+   * Validates that both tasks are in the track and that the edge wouldn't create a cycle
+   */
+  addTrackEdge(
+    trackId: string,
+    sourceTaskId: string,
+    targetTaskId: string,
+  ): ActionResult {
+    const track = this.state.tracks.find((t) => t.id === trackId);
+
+    if (!track) {
+      return { success: false, error: "Track not found" };
+    }
+
+    // Verify both tasks are in the track
+    if (!track.taskIds.includes(sourceTaskId)) {
+      return { success: false, error: "Source task is not in this track" };
+    }
+
+    if (!track.taskIds.includes(targetTaskId)) {
+      return { success: false, error: "Target task is not in this track" };
+    }
+
+    // Check for cycle
+    if (wouldCreateCycle(track, sourceTaskId, targetTaskId)) {
+      return {
+        success: false,
+        error: "Adding this edge would create a cycle",
+      };
+    }
+
+    const updatedTrack = addEdgeToTrackModel(track, sourceTaskId, targetTaskId);
+
+    this.setState({
+      ...this.state,
+      tracks: this.state.tracks.map((t) =>
+        t.id === trackId ? updatedTrack : t,
+      ),
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Removes an edge (dependency) from a track
+   */
+  removeTrackEdge(
+    trackId: string,
+    sourceTaskId: string,
+    targetTaskId: string,
+  ): ActionResult {
+    const track = this.state.tracks.find((t) => t.id === trackId);
+
+    if (!track) {
+      return { success: false, error: "Track not found" };
+    }
+
+    const updatedTrack = removeEdgeFromTrackModel(
+      track,
+      sourceTaskId,
+      targetTaskId,
+    );
+
+    this.setState({
+      ...this.state,
+      tracks: this.state.tracks.map((t) =>
+        t.id === trackId ? updatedTrack : t,
+      ),
+    });
+
+    return { success: true };
   }
 
   // ============================================
@@ -727,6 +1103,56 @@ class WeeklyStore {
    */
   get weekEndDate(): string {
     return this.state.pool.weekEndDate;
+  }
+
+  // ============================================
+  // TRACK SELECTORS
+  // ============================================
+
+  /**
+   * Gets all tracks
+   */
+  get tracks(): readonly Track[] {
+    return this.state.tracks;
+  }
+
+  /**
+   * Gets the number of tracks
+   */
+  get trackCount(): number {
+    return this.state.tracks.length;
+  }
+
+  /**
+   * Gets a track by ID
+   */
+  getTrackById(id: string): Track | undefined {
+    return this.state.tracks.find((t) => t.id === id);
+  }
+
+  /**
+   * Gets tracks for a specific project
+   */
+  getTracksForProject(projectId: string): readonly Track[] {
+    return this.state.tracks.filter((t) => t.projectId === projectId);
+  }
+
+  /**
+   * Gets tasks for a specific track
+   */
+  getTasksForTrack(trackId: string): readonly Task[] {
+    const track = this.getTrackById(trackId);
+    if (!track) {
+      return [];
+    }
+    return this.state.tasks.filter((t) => track.taskIds.includes(t.id));
+  }
+
+  /**
+   * Gets tasks that don't belong to any track
+   */
+  getUntrackedTasks(): readonly Task[] {
+    return this.state.tasks.filter((t) => !t.trackId);
   }
 }
 

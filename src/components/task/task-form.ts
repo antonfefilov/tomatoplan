@@ -167,6 +167,9 @@ export class TaskForm extends LitElement {
   @property({ type: String })
   submitLabel = "Create Task";
 
+  @property({ type: String })
+  defaultProjectId?: string;
+
   @state()
   private _title = "";
 
@@ -200,10 +203,16 @@ export class TaskForm extends LitElement {
         // Reset for new task mode
         this._title = "";
         this._description = "";
-        this._projectId = undefined;
+        // Only set the default project ID when we're creating a new task
+        this._projectId = this.defaultProjectId;
       }
       // Clear any previous validation errors when task changes
       this._titleError = "";
+    }
+
+    // Handle defaultProjectId changes for new tasks
+    if (!this.task && changedProperties.has("defaultProjectId")) {
+      this._projectId = this.defaultProjectId;
     }
   }
 

@@ -110,6 +110,9 @@ export class TaskEditorDialog extends LitElement {
   @property({ type: Boolean })
   isEdit = false;
 
+  @property({ type: String })
+  defaultProjectId?: string;
+
   @state()
   private _focusedElement: HTMLElement | null = null;
 
@@ -203,6 +206,7 @@ export class TaskEditorDialog extends LitElement {
               .task=${this.task}
               .projects=${this.projects}
               .submitLabel=${this._getSubmitLabel()}
+              .defaultProjectId=${this.defaultProjectId}
               @submit=${this._handleSubmit}
               @cancel=${this._handleCancel}
             ></task-form>

@@ -559,6 +559,6 @@ describe("formatMinutesToHoursMinutes", () => {
 
 describe("WEEKLY_STATE_VERSION", () => {
   it("should be defined", () => {
-    expect(WEEKLY_STATE_VERSION).toBe(1);
+    expect(WEEKLY_STATE_VERSION).toBe(2);
   });
 });
