@@ -10,6 +10,7 @@ import { isTaskDone } from "../../models/task.js";
 import type { TimerStatus } from "../../models/timer-state.js";
 import { formatTimerDisplay } from "../../models/timer-state.js";
 import { formatTimeEstimate } from "../../utils/time.js";
+import type { Project } from "../../models/project.js";
 import "../tomato/tomato-icon.js";
 import "../shared/dropdown-menu.js";
 
@@ -387,6 +388,27 @@ export class TaskItem extends LitElement {
       cursor: not-allowed;
     }
 
+    /* Project badge styling */
+    .project-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .project-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
     /* Done task styling */
     .task-card.done {
       background: #f9fafb;
@@ -442,6 +464,12 @@ export class TaskItem extends LitElement {
 
   @property({ type: Number })
   timerRemainingSeconds = 0;
+
+  @property({ type: Array })
+  projects?: readonly Project[];
+
+  @property({ type: Boolean })
+  showProject = false;
 
   private _handleEdit() {
     this.dispatchEvent(
@@ -564,6 +592,30 @@ export class TaskItem extends LitElement {
     return text.slice(0, maxLength) + "...";
   }
 
+  /**
+   * Gets the project for a given project ID
+   */
+  private _getProject(projectId?: string): Project | undefined {
+    if (!projectId || !this.projects) return undefined;
+    return this.projects.find((p) => p.id === projectId);
+  }
+
+  /**
+   * Gets the project title for display
+   */
+  private _getProjectTitle(projectId?: string): string {
+    const project = this._getProject(projectId);
+    return project?.title ?? "Unknown";
+  }
+
+  /**
+   * Gets the project color for styling
+   */
+  private _getProjectColor(projectId?: string): string {
+    const project = this._getProject(projectId);
+    return project?.color ?? "#6b7280";
+  }
+
   override render() {
     const {
       task,
@@ -637,6 +689,25 @@ export class TaskItem extends LitElement {
             >
           </div>
           <h3 class="task-title">${task.title}</h3>
+          ${this.showProject && task.projectId
+            ? html`
+                <div
+                  class="project-badge"
+                  style="background-color: ${this._getProjectColor(
+                    task.projectId,
+                  )}20; color: ${this._getProjectColor(task.projectId)}"
+                  title="${this._getProjectTitle(task.projectId)}"
+                >
+                  <span
+                    class="project-dot"
+                    style="background-color: ${this._getProjectColor(
+                      task.projectId,
+                    )}"
+                  ></span>
+                  <span>${this._getProjectTitle(task.projectId)}</span>
+                </div>
+              `
+            : null}
           <dropdown-menu label="Task options">
             <button class="menu-item" @click=${this._handleEdit}>
               <svg

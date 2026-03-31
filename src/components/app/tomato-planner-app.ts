@@ -10,6 +10,7 @@ import { weeklyStore } from "../../state/weekly-store.js";
 import { timerStore } from "../../state/timer-store.js";
 import { removeProject } from "../../state/project-coordinator.js";
 import type { Task } from "../../models/task.js";
+import { isTaskDone } from "../../models/task.js";
 import type { Project, ProjectColor } from "../../models/project.js";
 import type { Track } from "../../models/track.js";
 import type { TimerStatus } from "../../models/timer-state.js";
@@ -26,6 +27,9 @@ import "../pool/tomato-pool-panel.js";
 import "../pool/week-tomato-pool-panel.js";
 import "../task/task-list-panel.js";
 import "../task/task-editor-dialog.js";
+import "../task/tasks-pool-panel.js";
+import "../task/tasks-view-panel.js";
+import type { TasksFilter } from "../task/tasks-pool-panel.js";
 import "../project/project-list-panel.js";
 import "../project/projects-analytics-panel.js";
 import "../track/track-list-panel.js";
@@ -133,7 +137,17 @@ export class TomatoPlannerApp extends LitElement {
   // ============================================
 
   @state()
-  private _activeView: "day" | "week" | "projects" | "tracks" = "day";
+  private _activeView: "day" | "week" | "projects" | "tasks" | "tracks" = "day";
+
+  // ============================================
+  // Tasks View Filter State
+  // ============================================
+
+  @state()
+  private _tasksStatusFilter: TasksFilter = "all";
+
+  @state()
+  private _tasksProjectFilter: string = "all";
 
   // ============================================
   // Weekly Planning State
@@ -285,7 +299,9 @@ export class TomatoPlannerApp extends LitElement {
   }
 
   private _handleEditTask(e: CustomEvent<{ taskId: string }>) {
-    const task = plannerStore.getTaskById(e.detail.taskId);
+    const task =
+      plannerStore.getTaskById(e.detail.taskId) ??
+      weeklyStore.getTaskById(e.detail.taskId);
     if (task) {
       this._editingTask = task;
       this._showTaskDialog = true;
@@ -303,12 +319,19 @@ export class TomatoPlannerApp extends LitElement {
     const { taskId, title, description, projectId } = e.detail;
 
     if (taskId) {
-      // Edit existing task
-      plannerStore.updateTask(taskId, { title, description });
-      // Update project assignment
-      plannerStore.setTaskProject(taskId, projectId);
+      // Try updating in plannerStore first
+      const plannerTask = plannerStore.getTaskById(taskId);
+      if (plannerTask) {
+        plannerStore.updateTask(taskId, { title, description });
+        plannerStore.setTaskProject(taskId, projectId);
+      }
+      // Also try weeklyStore
+      const weeklyTask = weeklyStore.getTaskById(taskId);
+      if (weeklyTask) {
+        weeklyStore.updateTask(taskId, { title, description, projectId });
+      }
     } else {
-      // Create new task
+      // Create new task - add to plannerStore only
       const result = plannerStore.addTask(title, description);
       // Set project assignment if a project was selected
       if (result.success && result.taskId && projectId) {
@@ -334,7 +357,13 @@ export class TomatoPlannerApp extends LitElement {
     if (this._deletingTaskId) {
       // Clear timer if it's running for this task
       timerStore.clearTimerForTask(this._deletingTaskId);
-      plannerStore.removeTask(this._deletingTaskId);
+      // Check which store has the task and remove from there
+      const plannerTask = plannerStore.getTaskById(this._deletingTaskId);
+      if (plannerTask) {
+        plannerStore.removeTask(this._deletingTaskId);
+      } else {
+        weeklyStore.removeTask(this._deletingTaskId);
+      }
     }
     this._closeDeleteDialog();
   }
@@ -442,6 +471,42 @@ export class TomatoPlannerApp extends LitElement {
     this._activeView = "tracks";
     // Auto-expand panel when switching to Tracks view
     this._panelCollapsed = false;
+  }
+
+  private _handleSwitchToTasksView() {
+    this._activeView = "tasks";
+    // Auto-expand panel when switching to Tasks view
+    this._panelCollapsed = false;
+  }
+
+  // ============================================
+  // Tasks View Filter Actions
+  // ============================================
+
+  private _handleTasksStatusFilterChange(
+    e: CustomEvent<{ filter: TasksFilter }>,
+  ) {
+    this._tasksStatusFilter = e.detail.filter;
+  }
+
+  private _handleTasksProjectFilterChange(
+    e: CustomEvent<{ projectId: string }>,
+  ) {
+    this._tasksProjectFilter = e.detail.projectId;
+  }
+
+  /**
+   * Combines tasks from both daily and weekly stores
+   */
+  private _getAllTasks(): Task[] {
+    // Combine tasks from both stores
+    // Daily tasks are from plannerStore, weekly tasks are from weeklyStore
+    const allTasks = [...this._tasks, ...this._weeklyTasks];
+    // Remove duplicates by ID (tasks might be in both stores)
+    const uniqueTasks = allTasks.filter(
+      (task, index, self) => index === self.findIndex((t) => t.id === task.id),
+    );
+    return uniqueTasks;
   }
 
   // ============================================
@@ -583,6 +648,8 @@ export class TomatoPlannerApp extends LitElement {
    * Returns the appropriate HeaderModel based on the active view
    */
   private _getHeaderModel(): HeaderModel {
+    const allTasks = this._getAllTasks();
+
     switch (this._activeView) {
       case "day":
         return {
@@ -609,6 +676,15 @@ export class TomatoPlannerApp extends LitElement {
           totalFinished: this._overallMetrics.totalFinished,
           totalPlanned: this._overallMetrics.totalPlanned,
         };
+      case "tasks":
+        const doneTasks = allTasks.filter((task) => isTaskDone(task));
+        const activeTasks = allTasks.filter((task) => !isTaskDone(task));
+        return {
+          view: "tasks",
+          taskCount: allTasks.length,
+          activeTaskCount: activeTasks.length,
+          doneTaskCount: doneTasks.length,
+        };
       case "tracks":
         const selectedTrack = this._selectedTrackId
           ? this._tracks.find((t) => t.id === this._selectedTrackId)
@@ -623,8 +699,9 @@ export class TomatoPlannerApp extends LitElement {
 
   override render() {
     const isEdit = !!this._editingTask;
+    const allTasks = this._getAllTasks();
     const deleteTask = this._deletingTaskId
-      ? this._tasks.find((t) => t.id === this._deletingTaskId)
+      ? allTasks.find((t) => t.id === this._deletingTaskId)
       : undefined;
 
     // Calculate remaining capacity for week view
@@ -660,6 +737,15 @@ export class TomatoPlannerApp extends LitElement {
             @click=${this._handleSwitchToProjectsView}
           >
             Projects
+          </button>
+          <button
+            class="tab-btn ${this._activeView === "tasks" ? "active" : ""}"
+            role="tab"
+            aria-selected=${this._activeView === "tasks"}
+            aria-controls="tasks-view"
+            @click=${this._handleSwitchToTasksView}
+          >
+            Tasks
           </button>
           <button
             class="tab-btn ${this._activeView === "tracks" ? "active" : ""}"
@@ -754,63 +840,106 @@ export class TomatoPlannerApp extends LitElement {
                   @decrease-project-plan=${this._handleDecreaseProjectPlan}
                 ></project-list-panel>
               `
-            : this._activeView === "tracks"
+            : this._activeView === "tasks"
               ? html`
-                  <track-list-panel
-                    slot="pool-panel"
-                    .tracks=${this._tracks}
-                    .tasks=${this._tasks}
-                    .projects=${this._projects}
-                    .selectedTrackId=${this._selectedTrackId}
-                    @save-track=${this._handleSaveTrack}
-                    @delete-track=${this._handleDeleteTrack}
-                    @select-track=${this._handleSelectTrack}
-                  ></track-list-panel>
-                  <track-builder-panel
-                    slot="task-panel"
-                    .track=${this._tracks.find(
-                      (t) => t.id === this._selectedTrackId,
-                    )}
-                    .tasks=${this._tasks}
-                    .availableTasks=${this._getAvailableTasksForTracks()}
-                    .projects=${this._projects}
-                    @add-task-to-track=${this._handleAddTaskToTrack}
-                    @remove-task-from-track=${this._handleRemoveTaskFromTrack}
-                    @add-track-edge=${this._handleAddTrackEdge}
-                    @remove-track-edge=${this._handleRemoveTrackEdge}
-                  ></track-builder-panel>
-                `
-              : html`
-                  <div id="projects-view" role="tabpanel" slot="pool-panel">
-                    <projects-analytics-panel
-                      .weeklyCapacity=${this._weeklyCapacity}
-                      .totalPlanned=${this._overallMetrics.totalPlanned}
-                      .totalFinished=${this._overallMetrics.totalFinished}
-                      .projectCount=${this._overallMetrics.projectCount}
-                      .activeProjectCount=${this._overallMetrics
-                        .activeProjectCount}
-                      .completedProjectCount=${this._overallMetrics
-                        .completedProjectCount}
-                      .archivedProjectCount=${this._overallMetrics
-                        .archivedProjectCount}
-                      .capacityInMinutes=${this._capacityInMinutesWeekly}
-                    ></projects-analytics-panel>
+                  <div id="tasks-view" role="tabpanel" slot="pool-panel">
+                    <tasks-pool-panel
+                      .tasks=${this._getAllTasks()}
+                      .projects=${this._projects}
+                      .statusFilter=${this._tasksStatusFilter}
+                      .projectFilter=${this._tasksProjectFilter}
+                      .collapsed=${this._panelCollapsed}
+                      @toggle-collapse=${this._handleTogglePanelCollapse}
+                      @status-filter-change=${this
+                        ._handleTasksStatusFilterChange}
+                      @project-filter-change=${this
+                        ._handleTasksProjectFilterChange}
+                    ></tasks-pool-panel>
                   </div>
-                  <project-list-panel
+                  <tasks-view-panel
                     slot="task-panel"
+                    .tasks=${this._getAllTasks()}
                     .projects=${this._projects}
-                    .taskCounts=${this._projectTaskCounts}
-                    .progressData=${this._projectProgressData}
-                    .maxEstimate=${this._weeklyCapacity}
-                    .mode=${"analytics"}
-                    .tasks=${this._weeklyTasks}
-                    .tracks=${this._tracks}
-                    @save-project=${this._handleSaveProject}
-                    @delete-project=${this._handleDeleteProject}
-                    @select-project=${this._handleSelectProject}
-                    @add-project-task=${this._handleAddProjectTask}
-                  ></project-list-panel>
-                `}
+                    .statusFilter=${this._tasksStatusFilter}
+                    .projectFilter=${this._tasksProjectFilter}
+                    .remaining=${this._remaining}
+                    .capacityInMinutes=${this._capacityInMinutes}
+                    .disabled=${false}
+                    .timerActiveTaskId=${this._timerActiveTaskId}
+                    .timerStatus=${this._timerStatus}
+                    .timerRemainingSeconds=${this._timerRemainingSeconds}
+                    @open-task-dialog=${this._handleOpenTaskDialog}
+                    @edit-task=${this._handleEditTask}
+                    @delete-task=${this._handleDeleteTask}
+                    @add-tomato=${this._handleAddTomato}
+                    @remove-tomato=${this._handleRemoveTomato}
+                    @mark-tomato-finished=${this._handleMarkTomatoFinished}
+                    @mark-tomato-unfinished=${this._handleMarkTomatoUnfinished}
+                    @reorder-task=${this._handleReorderTask}
+                    @start-timer=${this._handleStartTimer}
+                    @pause-timer=${this._handlePauseTimer}
+                    @resume-timer=${this._handleResumeTimer}
+                    @reset-timer=${this._handleResetTimer}
+                    @mark-done=${this._handleMarkDone}
+                  ></tasks-view-panel>
+                `
+              : this._activeView === "tracks"
+                ? html`
+                    <track-list-panel
+                      slot="pool-panel"
+                      .tracks=${this._tracks}
+                      .tasks=${this._tasks}
+                      .projects=${this._projects}
+                      .selectedTrackId=${this._selectedTrackId}
+                      @save-track=${this._handleSaveTrack}
+                      @delete-track=${this._handleDeleteTrack}
+                      @select-track=${this._handleSelectTrack}
+                    ></track-list-panel>
+                    <track-builder-panel
+                      slot="task-panel"
+                      .track=${this._tracks.find(
+                        (t) => t.id === this._selectedTrackId,
+                      )}
+                      .tasks=${this._tasks}
+                      .availableTasks=${this._getAvailableTasksForTracks()}
+                      .projects=${this._projects}
+                      @add-task-to-track=${this._handleAddTaskToTrack}
+                      @remove-task-from-track=${this._handleRemoveTaskFromTrack}
+                      @add-track-edge=${this._handleAddTrackEdge}
+                      @remove-track-edge=${this._handleRemoveTrackEdge}
+                    ></track-builder-panel>
+                  `
+                : html`
+                    <div id="projects-view" role="tabpanel" slot="pool-panel">
+                      <projects-analytics-panel
+                        .weeklyCapacity=${this._weeklyCapacity}
+                        .totalPlanned=${this._overallMetrics.totalPlanned}
+                        .totalFinished=${this._overallMetrics.totalFinished}
+                        .projectCount=${this._overallMetrics.projectCount}
+                        .activeProjectCount=${this._overallMetrics
+                          .activeProjectCount}
+                        .completedProjectCount=${this._overallMetrics
+                          .completedProjectCount}
+                        .archivedProjectCount=${this._overallMetrics
+                          .archivedProjectCount}
+                        .capacityInMinutes=${this._capacityInMinutesWeekly}
+                      ></projects-analytics-panel>
+                    </div>
+                    <project-list-panel
+                      slot="task-panel"
+                      .projects=${this._projects}
+                      .taskCounts=${this._projectTaskCounts}
+                      .progressData=${this._projectProgressData}
+                      .maxEstimate=${this._weeklyCapacity}
+                      .mode=${"analytics"}
+                      .tasks=${this._weeklyTasks}
+                      .tracks=${this._tracks}
+                      @save-project=${this._handleSaveProject}
+                      @delete-project=${this._handleDeleteProject}
+                      @select-project=${this._handleSelectProject}
+                      @add-project-task=${this._handleAddProjectTask}
+                    ></project-list-panel>
+                  `}
       </app-shell>
 
       <!-- Task Editor Dialog -->

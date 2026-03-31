@@ -8,6 +8,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import type { Task } from "../../models/task.js";
 import { isTaskDone } from "../../models/task.js";
 import type { TimerStatus } from "../../models/timer-state.js";
+import type { Project } from "../../models/project.js";
 import "./task-item.js";
 import "../shared/empty-state.js";
 
@@ -97,6 +98,12 @@ export class TaskList extends LitElement {
 
   @property({ type: Number })
   timerRemainingSeconds = 0;
+
+  @property({ type: Array })
+  projects?: readonly Project[];
+
+  @property({ type: Boolean })
+  showProject = false;
 
   @state()
   private _draggedTaskId: string | null = null;
@@ -374,6 +381,8 @@ export class TaskList extends LitElement {
           .timerActiveTaskId=${this.timerActiveTaskId}
           .timerStatus=${this.timerStatus}
           .timerRemainingSeconds=${this.timerRemainingSeconds}
+          .projects=${this.projects}
+          .showProject=${this.showProject}
           @edit-task=${this._handleEditTask}
           @delete-task=${this._handleDeleteTask}
           @mark-tomato-finished=${this._handleMarkTomatoFinished}

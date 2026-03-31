@@ -319,7 +319,7 @@ describe("TomatoPlannerApp Views", () => {
 
     it("should have correct aria attributes on tabs", async () => {
       const tabs = element.shadowRoot!.querySelectorAll(".tab-btn");
-      expect(tabs.length).toBe(4);
+      expect(tabs.length).toBe(5); // Day, Week, Projects, Tasks, Tracks
 
       tabs.forEach((tab) => {
         expect(tab.hasAttribute("role")).toBe(true);

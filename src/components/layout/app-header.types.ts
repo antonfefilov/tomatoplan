@@ -46,10 +46,21 @@ export interface TracksHeaderModel {
 }
 
 /**
+ * Header model for Tasks view
+ */
+export interface TasksHeaderModel {
+  view: "tasks";
+  taskCount: number;
+  activeTaskCount: number;
+  doneTaskCount: number;
+}
+
+/**
  * Discriminated union of all header models
  */
 export type HeaderModel =
   | DayHeaderModel
   | WeekHeaderModel
   | ProjectsHeaderModel
-  | TracksHeaderModel;
+  | TracksHeaderModel
+  | TasksHeaderModel;

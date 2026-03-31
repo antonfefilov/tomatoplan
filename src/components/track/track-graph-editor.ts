@@ -55,6 +55,12 @@ export interface TrackEdgeRemoveRequestEventDetail {
 
 @customElement("track-graph-editor")
 export class TrackGraphEditor extends LitElement {
+  // Use Light DOM for Cytoscape compatibility - allows tests and external code
+  // to query elements directly without Shadow DOM traversal
+  override createRenderRoot() {
+    return this;
+  }
+
   static override styles = css`
     .track-graph-container {
       width: 100%;
@@ -167,6 +173,118 @@ export class TrackGraphEditor extends LitElement {
       background: #fef2f2;
     }
 
+    .empty-state {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 40px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+  `;
+
+  /** CSS styles for Light DOM rendering */
+  private static _lightDomStyles = `
+    .track-graph-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+    }
+    .graph-controls {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .control-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      color: #6b7280;
+    }
+    .control-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+      color: #111827;
+    }
+    .control-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+    .cytoscape-container {
+      width: 100%;
+      height: 100%;
+    }
+    .instructions-overlay {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: rgba(249, 250, 251, 0.95);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 12px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 5;
+    }
+    .instruction-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .instruction-key {
+      background: #e5e7eb;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+      color: #374151;
+    }
+    .pending-edge-indicator {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #991b1b;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+    .cancel-btn {
+      padding: 6px 12px;
+      background: white;
+      border: 1px solid #fecaca;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #991b1b;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .cancel-btn:hover {
+      background: #fef2f2;
+    }
     .empty-state {
       display: flex;
       align-items: center;
@@ -669,8 +787,14 @@ export class TrackGraphEditor extends LitElement {
   }
 
   override render() {
+    // For Light DOM, inject styles manually via a style element
+    const styleEl = html`<style>
+      ${TrackGraphEditor._lightDomStyles}
+    </style>`;
+
     if (!this.track || this.tasks.length === 0) {
       return html`
+        ${styleEl}
         <div class="track-graph-container">
           <div class="empty-state">
             <div>
@@ -686,6 +810,7 @@ export class TrackGraphEditor extends LitElement {
     }
 
     return html`
+      ${styleEl}
       <div class="track-graph-container">
         <div class="graph-controls">
           <button

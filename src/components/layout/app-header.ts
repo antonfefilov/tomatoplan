@@ -66,6 +66,7 @@ export class AppHeader extends LitElement {
     .week-range-display,
     .week-stats-display,
     .projects-stats-display,
+    .tasks-stats-display,
     .tracks-stats-display {
       font-size: 14px;
       color: #6b7280;
@@ -375,6 +376,19 @@ export class AppHeader extends LitElement {
     `;
   }
 
+  private _renderTasksInfo(model: {
+    taskCount: number;
+    activeTaskCount: number;
+    doneTaskCount: number;
+  }): unknown {
+    return html`
+      <div class="tasks-stats-display">${model.taskCount} tasks</div>
+      <div class="tasks-stats-display">
+        ${model.activeTaskCount} active, ${model.doneTaskCount} done
+      </div>
+    `;
+  }
+
   private _renderViewInfo(): unknown {
     if (!this.headerModel) {
       return null;
@@ -387,6 +401,8 @@ export class AppHeader extends LitElement {
         return this._renderWeekInfo(this.headerModel);
       case "projects":
         return this._renderProjectsInfo(this.headerModel);
+      case "tasks":
+        return this._renderTasksInfo(this.headerModel);
       case "tracks":
         return this._renderTracksInfo(this.headerModel);
       default:
