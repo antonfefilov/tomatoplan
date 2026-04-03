@@ -25,6 +25,13 @@ export interface Task {
   /** Optional reference to a track (workflow) */
   trackId?: string;
 
+  /**
+   * Optional day assignment for canonical task-day association.
+   * Format: YYYY-MM-DD (ISO date string without time component).
+   * When set, indicates the task is assigned to this specific day.
+   */
+  dayDate?: string;
+
   /** When the task was created */
   readonly createdAt: string; // ISO 8601 date string
 

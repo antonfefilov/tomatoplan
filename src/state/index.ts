@@ -19,3 +19,23 @@ export type { TimerSubscriber, TimerUnsubscribe } from "./timer-store.js";
 
 // Export coordinated project actions
 export { removeProject } from "./project-coordinator.js";
+
+// Taskpool store exports
+export { taskpoolStore, TaskpoolStore } from "./taskpool-store.js";
+export type {
+  Subscriber as TaskpoolSubscriber,
+  Unsubscribe as TaskpoolUnsubscribe,
+  ActionResult as TaskpoolActionResult,
+  AddTaskOptions,
+} from "./taskpool-store.js";
+
+// Taskpool persistence exports
+export {
+  saveTaskpoolState,
+  loadTaskpoolState,
+  createInitialTaskpoolState,
+  clearTaskpoolState,
+  hasPersistedTaskpoolState,
+  exportTaskpoolState,
+  importTaskpoolState,
+} from "./taskpool-persistence.js";

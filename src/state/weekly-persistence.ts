@@ -4,7 +4,6 @@
  */
 
 import type { WeeklyState } from "../models/weekly-state.js";
-import type { Task } from "../models/task.js";
 import type { Project } from "../models/project.js";
 import type { Track } from "../models/track.js";
 import { PROJECT_COLORS } from "../models/project.js";
@@ -42,7 +41,7 @@ interface PersistedWeeklyState {
     createdAt: string;
     updatedAt: string;
   }[];
-  tasks: readonly Task[];
+  // tasks is not persisted - always derived from taskpoolStore on load
   tracks?: readonly Track[]; // Optional for backward compatibility (v1)
   version: number;
 }
@@ -64,7 +63,7 @@ function isValidPersistedWeeklyState(
     obj["weeklyCapacity"] > 0 &&
     typeof obj["weekId"] === "string" &&
     Array.isArray(obj["projects"]) &&
-    Array.isArray(obj["tasks"]) &&
+    // tasks is no longer persisted - derived from taskpoolStore on load
     typeof obj["version"] === "number"
   );
 }
@@ -80,7 +79,7 @@ function toPersistedState(state: WeeklyState): PersistedWeeklyState {
     weekStartDate: state.pool.weekStartDate,
     weekEndDate: state.pool.weekEndDate,
     projects: state.projects,
-    tasks: state.tasks,
+    // tasks is not persisted - always derived from taskpoolStore on load
     tracks: state.tracks,
     version: state.version,
   };
@@ -110,7 +109,7 @@ function fromPersistedState(persisted: PersistedWeeklyState): WeeklyState {
       weekEndDate: persisted.weekEndDate,
     },
     projects,
-    tasks: persisted.tasks,
+    // tasks is not persisted - derived from taskpoolStore on load
     tracks,
     version: WEEKLY_STATE_VERSION,
   };

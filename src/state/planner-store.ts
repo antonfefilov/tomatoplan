@@ -1,31 +1,22 @@
 /**
  * Custom reactive store for Tomato Plan state management
  * Provides reactive state updates compatible with Lit components
+ *
+ * This store is now a thin layer over taskpoolStore for task management.
+ * It maintains pool/capacity/date settings and derives today's tasks from taskpoolStore.
  */
 
 import type { Task } from "../models/task.js";
-import {
-  markTomatoAsFinished,
-  markTomatoAsUnfinished,
-  updateTaskFinishedCount,
-  markTaskDone as markTaskDoneModel,
-} from "../models/task.js";
 import type { PlannerState } from "../models/planner-state.js";
 import {
   createInitialPlannerState,
-  getTotalAssignedTomatoes,
-  getRemainingTomatoes,
-  isAtCapacity,
-  isOverCapacity,
   recalculatePoolCapacity,
 } from "../models/planner-state.js";
 import { isStale } from "../models/tomato-pool.js";
-import { generateId } from "../utils/id.js";
 import {
   validateDailyCapacity,
   validateTaskTitle,
   canAssignTomato,
-  canUnassignTomato,
   validateTomatoCount,
   validateTimeString,
   validateTimeRange,
@@ -37,7 +28,8 @@ import {
   DEFAULT_DAY_END,
 } from "../constants/defaults.js";
 import { loadState, saveState, clearState } from "./persistence.js";
-import { weeklyStore } from "./weekly-store.js";
+import { taskpoolStore } from "./taskpool-store.js";
+import { getTodayString } from "../models/tomato-pool.js";
 
 /** Type for subscriber callback functions */
 type Subscriber = (state: PlannerState) => void;
@@ -52,6 +44,9 @@ type Unsubscribe = () => void;
  * - Components subscribe to state changes
  * - Actions modify state and notify subscribers
  * - Selectors provide computed values
+ *
+ * This store maintains pool/capacity/date settings and delegates
+ * all task operations to taskpoolStore.
  */
 class PlannerStore {
   private state: PlannerState;
@@ -83,7 +78,6 @@ class PlannerStore {
           dayStart,
           dayEnd,
         },
-        tasks: persistedState.tasks,
       };
     } else {
       // Create fresh state for a new day
@@ -100,6 +94,12 @@ class PlannerStore {
         savedDayEnd,
       );
     }
+
+    // Subscribe to taskpoolStore to sync task changes
+    // Keep reference alive for potential cleanup (though singleton lives for app lifetime)
+    taskpoolStore.subscribe(() => {
+      this.notify();
+    });
   }
 
   // ============================================
@@ -110,7 +110,7 @@ class PlannerStore {
    * Gets the current state (returns a shallow copy to prevent direct mutation)
    */
   getState(): PlannerState {
-    return { ...this.state, tasks: [...this.state.tasks] };
+    return { ...this.state };
   }
 
   // ============================================
@@ -145,13 +145,18 @@ class PlannerStore {
 
   /**
    * Updates state and persists to storage
-   * Also syncs tasks to weekly store
    */
   private setState(newState: PlannerState): void {
     this.state = newState;
     saveState(newState);
-    weeklyStore.syncTasks(newState.tasks);
     this.notify();
+  }
+
+  /**
+   * Gets today's tasks from taskpoolStore
+   */
+  private getTodayTasks(): Task[] {
+    return taskpoolStore.getTasksForDay(this.state.pool.date);
   }
 
   // ============================================
@@ -260,7 +265,7 @@ class PlannerStore {
   }
 
   /**
-   * Adds a new task
+   * Adds a new task and assigns it to today
    */
   addTask(
     title: string,
@@ -271,25 +276,12 @@ class PlannerStore {
       return { success: false, error: validation.error };
     }
 
-    const taskId = generateId();
-    const now = new Date().toISOString();
-
-    const newTask: Task = {
-      id: taskId,
-      title: title.trim(),
-      description: description?.trim(),
-      tomatoCount: 0,
-      finishedTomatoCount: 0,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    this.setState({
-      ...this.state,
-      tasks: [...this.state.tasks, newTask],
+    // Create task in taskpoolStore, assigned to today
+    const result = taskpoolStore.addTask(title, description, {
+      dayDate: this.state.pool.date,
     });
 
-    return { success: true, taskId };
+    return result;
   }
 
   /**
@@ -299,57 +291,26 @@ class PlannerStore {
     taskId: string,
     updates: Partial<Pick<Task, "title" | "description">>,
   ): { success: boolean; error?: string } {
-    const taskIndex = this.state.tasks.findIndex((t) => t.id === taskId);
-
-    if (taskIndex === -1) {
+    // Verify task exists in today's tasks
+    const task = this.getTaskById(taskId);
+    if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    if (updates.title !== undefined) {
-      const validation = validateTaskTitle(updates.title);
-      if (!validation.valid) {
-        return { success: false, error: validation.error };
-      }
-    }
-
-    const updatedTasks = [...this.state.tasks];
-    const existingTask = updatedTasks[taskIndex]!;
-
-    updatedTasks[taskIndex] = {
-      ...existingTask,
-      ...updates,
-      title: updates.title?.trim() ?? existingTask.title,
-      description:
-        "description" in updates
-          ? (updates.description ?? "").trim() || undefined
-          : existingTask.description,
-      updatedAt: new Date().toISOString(),
-    };
-
-    this.setState({
-      ...this.state,
-      tasks: updatedTasks,
-    });
-
-    return { success: true };
+    return taskpoolStore.updateTask(taskId, updates);
   }
 
   /**
    * Removes a task
    */
   removeTask(taskId: string): { success: boolean; error?: string } {
-    const taskIndex = this.state.tasks.findIndex((t) => t.id === taskId);
-
-    if (taskIndex === -1) {
+    // Verify task exists in today's tasks
+    const task = this.getTaskById(taskId);
+    if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.filter((t) => t.id !== taskId),
-    });
-
-    return { success: true };
+    return taskpoolStore.removeTask(taskId);
   }
 
   /**
@@ -360,7 +321,7 @@ class PlannerStore {
     taskId: string,
     toIndex: number,
   ): { success: boolean; error?: string } {
-    const fromIndex = this.state.tasks.findIndex((t) => t.id === taskId);
+    const fromIndex = this.tasks.findIndex((t) => t.id === taskId);
 
     if (fromIndex === -1) {
       return { success: false, error: "Task not found" };
@@ -379,7 +340,7 @@ class PlannerStore {
     }
 
     // Validate toIndex is within bounds
-    if (toIndex < 0 || toIndex >= this.state.tasks.length) {
+    if (toIndex < 0 || toIndex >= this.tasks.length) {
       return { success: false, error: "Invalid target index: out of bounds" };
     }
 
@@ -388,82 +349,43 @@ class PlannerStore {
       return { success: true };
     }
 
-    // Immutably reorder the tasks array
-    const tasks = [...this.state.tasks];
-    const [movedTask] = tasks.splice(fromIndex, 1);
-    tasks.splice(toIndex, 0, movedTask!);
-
-    // Update state without changing updatedAt on tasks
-    this.setState({
-      ...this.state,
-      tasks,
-    });
-
-    return { success: true };
+    return taskpoolStore.reorderTask(taskId, toIndex);
   }
 
   /**
    * Assigns one tomato to a task
    */
   assignTomato(taskId: string): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    const validation = canAssignTomato(this.state, task.tomatoCount);
+    // Check capacity before delegating to taskpool
+    const validation = canAssignTomato(
+      this.tasks,
+      this.state.pool.dailyCapacity,
+      task.tomatoCount,
+    );
     if (!validation.valid) {
       return { success: false, error: validation.error };
     }
 
-    const newCount = task.tomatoCount + 1;
-    const countValidation = validateTomatoCount(newCount);
-    if (!countValidation.valid) {
-      return { success: false, error: countValidation.error };
-    }
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, tomatoCount: newCount, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    return taskpoolStore.assignTomato(taskId);
   }
 
   /**
    * Removes one tomato from a task
    */
   unassignTomato(taskId: string): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    const validation = canUnassignTomato(task.tomatoCount);
-    if (!validation.valid) {
-      return { success: false, error: validation.error };
-    }
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              tomatoCount: task.tomatoCount - 1,
-              updatedAt: new Date().toISOString(),
-            }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    return taskpoolStore.unassignTomato(taskId);
   }
 
   /**
@@ -473,7 +395,7 @@ class PlannerStore {
     taskId: string,
     count: number,
   ): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
@@ -485,7 +407,7 @@ class PlannerStore {
     }
 
     // Check if we have enough capacity
-    const totalAssigned = getTotalAssignedTomatoes(this.state);
+    const totalAssigned = this.assignedTomatoes;
     const available =
       this.state.pool.dailyCapacity - totalAssigned + task.tomatoCount;
 
@@ -496,16 +418,7 @@ class PlannerStore {
       };
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, tomatoCount: count, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    return taskpoolStore.setTomatoCount(taskId, count);
   }
 
   /**
@@ -513,48 +426,26 @@ class PlannerStore {
    * Only increments finishedTomatoCount; the planned tomatoCount stays unchanged.
    */
   markTomatoAsFinished(taskId: string): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    const updatedTask = markTomatoAsFinished(task);
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
-    });
-
-    return { success: true };
+    return taskpoolStore.markTomatoAsFinished(taskId);
   }
 
   /**
    * Marks one tomato as unfinished for the given task
    */
   markTomatoAsUnfinished(taskId: string): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    // Check if there are finished tomatoes to unmark
-    if (task.finishedTomatoCount <= 0) {
-      return {
-        success: false,
-        error: "No finished tomatoes to unmark.",
-      };
-    }
-
-    const updatedTask = markTomatoAsUnfinished(task);
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
-    });
-
-    return { success: true };
+    return taskpoolStore.markTomatoAsUnfinished(taskId);
   }
 
   /**
@@ -565,28 +456,13 @@ class PlannerStore {
     taskId: string,
     count: number,
   ): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    // Validate count is a non-negative number
-    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
-      return {
-        success: false,
-        error: "Finished tomato count must be a non-negative integer.",
-      };
-    }
-
-    const updatedTask = updateTaskFinishedCount(task, count);
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
-    });
-
-    return { success: true };
+    return taskpoolStore.setFinishedTomatoCount(taskId, count);
   }
 
   /**
@@ -594,25 +470,13 @@ class PlannerStore {
    * This is a one-way convenience action - if finished already >= planned, no change.
    */
   markTaskDone(taskId: string): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    const updatedTask = markTaskDoneModel(task);
-
-    // If no change needed, still return success
-    if (updatedTask === task) {
-      return { success: true };
-    }
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) => (t.id === taskId ? updatedTask : t)),
-    });
-
-    return { success: true };
+    return taskpoolStore.markTaskDone(taskId);
   }
 
   /**
@@ -623,22 +487,16 @@ class PlannerStore {
     taskId: string,
     projectId: string | undefined,
   ): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, projectId, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    if (projectId === undefined) {
+      return taskpoolStore.unassignTaskFromProject(taskId);
+    }
+    return taskpoolStore.setTaskProject(taskId, projectId);
   }
 
   /**
@@ -649,22 +507,16 @@ class PlannerStore {
     taskId: string,
     trackId: string | undefined,
   ): { success: boolean; error?: string } {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = this.getTaskById(taskId);
 
     if (!task) {
       return { success: false, error: "Task not found" };
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, trackId, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    if (trackId === undefined) {
+      return taskpoolStore.unassignTaskFromTrack(taskId);
+    }
+    return taskpoolStore.setTaskTrack(taskId, trackId);
   }
 
   /**
@@ -672,36 +524,46 @@ class PlannerStore {
    * Used when a project is deleted to ensure tasks don't reference a non-existent project
    */
   unassignTasksFromProject(projectId: string): void {
-    const tasksToUpdate = this.state.tasks.filter(
-      (t) => t.projectId === projectId,
-    );
-
-    if (tasksToUpdate.length === 0) {
-      return; // No tasks to update
+    // Find today's tasks assigned to this project and unassign them
+    const todayTasks = this.tasks.filter((t) => t.projectId === projectId);
+    for (const task of todayTasks) {
+      taskpoolStore.unassignTaskFromProject(task.id);
     }
-
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.projectId === projectId
-          ? { ...t, projectId: undefined, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
   }
 
   /**
-   * Resets the day - clears all tasks and refreshes the pool
+   * Resets the day - unassigns all tasks from today and refreshes the pool
+   * Tasks are NOT deleted - they stay in taskpoolStore, just unassigned from today
    * Preserves dayStart, dayEnd, and capacityInMinutes from the current state
    */
   resetDay(): void {
+    // Get all tasks assigned to current day
+    const todayTasks = taskpoolStore.getTasksForDay(this.state.pool.date);
+
+    // Unassign them from today (they stay in taskpoolStore)
+    for (const task of todayTasks) {
+      taskpoolStore.unassignTaskFromDay(task.id);
+    }
+
+    // Create new pool with same settings but new date
     const newState = createInitialPlannerState(
       this.state.pool.dailyCapacity,
       this.state.pool.capacityInMinutes,
       this.state.pool.dayStart,
       this.state.pool.dayEnd,
     );
-    this.setState(newState);
+
+    // Update pool date to today
+    this.state = {
+      ...this.state,
+      pool: {
+        ...newState.pool,
+        date: getTodayString(),
+      },
+    };
+
+    saveState(this.state);
+    this.notify();
   }
 
   /**
@@ -709,6 +571,7 @@ class PlannerStore {
    */
   clearAllData(): void {
     clearState();
+    taskpoolStore.clearAllData();
     this.state = createInitialPlannerState(DEFAULT_DAILY_CAPACITY);
     this.notify();
   }
@@ -721,28 +584,28 @@ class PlannerStore {
    * Gets the total number of tomatoes assigned across all tasks
    */
   get assignedTomatoes(): number {
-    return getTotalAssignedTomatoes(this.state);
+    return this.tasks.reduce((sum, task) => sum + task.tomatoCount, 0);
   }
 
   /**
    * Gets the number of tomatoes remaining for assignment
    */
   get remainingTomatoes(): number {
-    return getRemainingTomatoes(this.state);
+    return this.state.pool.dailyCapacity - this.assignedTomatoes;
   }
 
   /**
    * Checks if all tomatoes have been assigned
    */
   get isAtCapacity(): boolean {
-    return isAtCapacity(this.state);
+    return this.remainingTomatoes <= 0;
   }
 
   /**
    * Checks if tomatoes have been over-assigned
    */
   get isOverCapacity(): boolean {
-    return isOverCapacity(this.state);
+    return this.remainingTomatoes < 0;
   }
 
   /**
@@ -781,45 +644,45 @@ class PlannerStore {
   }
 
   /**
-   * Gets all tasks
+   * Gets all tasks for today (derived from taskpoolStore)
    */
   get tasks(): readonly Task[] {
-    return this.state.tasks;
+    return this.getTodayTasks();
   }
 
   /**
-   * Gets a task by ID
+   * Gets a task by ID from today's tasks
    */
   getTaskById(id: string): Task | undefined {
-    return this.state.tasks.find((t) => t.id === id);
+    return this.tasks.find((t) => t.id === id);
   }
 
   /**
    * Gets tasks sorted by tomato count (descending)
    */
   getTasksSortedByTomatoes(): readonly Task[] {
-    return [...this.state.tasks].sort((a, b) => b.tomatoCount - a.tomatoCount);
+    return [...this.tasks].sort((a, b) => b.tomatoCount - a.tomatoCount);
   }
 
   /**
    * Gets tasks that have at least one tomato assigned
    */
   getTasksWithTomatoes(): readonly Task[] {
-    return this.state.tasks.filter((t) => t.tomatoCount > 0);
+    return this.tasks.filter((t) => t.tomatoCount > 0);
   }
 
   /**
    * Gets the number of tasks
    */
   get taskCount(): number {
-    return this.state.tasks.length;
+    return this.tasks.length;
   }
 
   /**
    * Gets the total number of finished tomatoes across all tasks
    */
   getFinishedTomatoes(): number {
-    return this.state.tasks.reduce(
+    return this.tasks.reduce(
       (total, task) => total + task.finishedTomatoCount,
       0,
     );
@@ -829,7 +692,7 @@ class PlannerStore {
    * Gets tasks that have at least one finished tomato
    */
   getTasksWithFinishedTomatoes(): readonly Task[] {
-    return this.state.tasks.filter((t) => t.finishedTomatoCount > 0);
+    return this.tasks.filter((t) => t.finishedTomatoCount > 0);
   }
 }
 

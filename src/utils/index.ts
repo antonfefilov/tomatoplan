@@ -14,4 +14,6 @@ export {
   canSetTomatoCount,
   validateTaskTitle,
   combineValidations,
+  getTotalAssignedTomatoes,
+  getRemainingTomatoes,
 } from "./validation.js";

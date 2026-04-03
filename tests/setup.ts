@@ -4,6 +4,7 @@
  */
 
 import { beforeEach, afterEach, vi } from "vitest";
+import { taskpoolStore } from "../src/state/taskpool-store.js";
 
 // ResizeObserver polyfill for jsdom
 // jsdom doesn't implement ResizeObserver, so we create a minimal implementation
@@ -106,6 +107,10 @@ class DataTransferPolyfill {
 beforeEach(() => {
   // Clear localStorage before each test
   localStorage.clear();
+
+  // Clear taskpoolStore to ensure test isolation
+  // taskpoolStore is a singleton that persists in memory
+  taskpoolStore.clearAllData();
 
   // Reset document body
   document.body.innerHTML = "";

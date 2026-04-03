@@ -179,3 +179,52 @@ export function importState(jsonString: string): {
 export function hasPersistedState(): boolean {
   return localStorage.getItem(STORAGE_KEYS.PLANNER_STATE) !== null;
 }
+
+/**
+ * Loads the planner state for migration purposes.
+ * Returns the tasks and savedDate if legacy planner tasks exist.
+ * This is used during taskpool initialization to check for and migrate
+ * legacy planner tasks to the taskpool.
+ */
+export function loadPlannerStateForMigration(): {
+  tasks: readonly import("../models/task.js").Task[];
+  savedDate: string;
+} | null {
+  try {
+    const serialized = localStorage.getItem(STORAGE_KEYS.PLANNER_STATE);
+
+    if (!serialized) {
+      return null;
+    }
+
+    const parsed: unknown = JSON.parse(serialized);
+
+    // Check if the parsed data has the required fields for migration
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      typeof (parsed as Record<string, unknown>)["savedDate"] !== "string"
+    ) {
+      return null;
+    }
+
+    const data = parsed as Record<string, unknown>;
+
+    // Check for tasks array
+    if (
+      !data["tasks"] ||
+      !Array.isArray(data["tasks"]) ||
+      data["tasks"].length === 0
+    ) {
+      return null;
+    }
+
+    return {
+      tasks: data["tasks"] as readonly import("../models/task.js").Task[],
+      savedDate: data["savedDate"] as string,
+    };
+  } catch (error) {
+    console.error("Failed to load planner state for migration:", error);
+    return null;
+  }
+}

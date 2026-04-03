@@ -15,6 +15,7 @@ import {
   getElapsedSeconds,
 } from "../models/timer-state.js";
 import { STORAGE_KEYS } from "../constants/storage-keys.js";
+import { taskpoolStore } from "./taskpool-store.js";
 import { plannerStore } from "./planner-store.js";
 
 /** Type for subscriber callback functions */
@@ -136,7 +137,7 @@ class TimerStore {
     localStorage.setItem(completionKey, new Date().toISOString());
 
     // Mark the tomato as finished
-    const result = plannerStore.markTomatoAsFinished(taskId);
+    const result = taskpoolStore.markTomatoAsFinished(taskId);
     if (!result.success) {
       console.error("Failed to mark tomato as finished:", result.error);
     }
@@ -389,7 +390,7 @@ class TimerStore {
 
     // Increment finished tomato count for the task
     if (taskId) {
-      const result = plannerStore.markTomatoAsFinished(taskId);
+      const result = taskpoolStore.markTomatoAsFinished(taskId);
       if (!result.success) {
         console.error("Failed to mark tomato as finished:", result.error);
       }

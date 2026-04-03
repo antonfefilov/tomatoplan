@@ -3,7 +3,7 @@
  * Ensures proper cleanup when projects are deleted
  */
 
-import { plannerStore } from "./planner-store.js";
+import { taskpoolStore } from "./taskpool-store.js";
 import { weeklyStore } from "./weekly-store.js";
 
 /** Result type for coordinator actions */
@@ -26,9 +26,9 @@ export function removeProject(projectId: string): CoordinatorResult {
     return { success: false, error: "Project not found" };
   }
 
-  // First, unassign tasks from the project in planner store
-  // This updates the source of truth for daily tasks
-  plannerStore.unassignTasksFromProject(projectId);
+  // First, unassign tasks from the project in taskpool store
+  // This updates the source of truth for all tasks
+  taskpoolStore.unassignTasksFromProject(projectId);
 
   // Then, remove the project from weekly store
   // The weekly store's removeProject now just removes the project

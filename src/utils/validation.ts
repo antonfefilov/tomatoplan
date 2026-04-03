@@ -2,11 +2,7 @@
  * Validation helpers for tomato assignment
  */
 
-import type { PlannerState } from "../models/planner-state.js";
-import {
-  getTotalAssignedTomatoes,
-  getRemainingTomatoes,
-} from "../models/planner-state.js";
+import type { Task } from "../models/task.js";
 import {
   MIN_DAILY_CAPACITY,
   MAX_DAILY_CAPACITY,
@@ -22,6 +18,23 @@ export interface ValidationResult {
 
   /** Error message if validation failed */
   error?: string;
+}
+
+/**
+ * Computes total assigned tomatoes from a task list
+ */
+export function getTotalAssignedTomatoes(tasks: readonly Task[]): number {
+  return tasks.reduce((sum, task) => sum + task.tomatoCount, 0);
+}
+
+/**
+ * Computes remaining tomatoes from a task list and daily capacity
+ */
+export function getRemainingTomatoes(
+  tasks: readonly Task[],
+  dailyCapacity: number,
+): number {
+  return dailyCapacity - getTotalAssignedTomatoes(tasks);
 }
 
 /**
@@ -86,10 +99,11 @@ export function validateCapacityInMinutes(minutes: number): ValidationResult {
  * Validates that a tomato assignment is possible
  */
 export function canAssignTomato(
-  state: PlannerState,
+  tasks: readonly Task[],
+  dailyCapacity: number,
   _currentCount: number,
 ): ValidationResult {
-  const remaining = getRemainingTomatoes(state);
+  const remaining = getRemainingTomatoes(tasks, dailyCapacity);
 
   if (remaining <= 0) {
     return {
@@ -143,15 +157,15 @@ export function validateTomatoCount(count: number): ValidationResult {
  * Validates that setting a specific tomato count is possible
  */
 export function canSetTomatoCount(
-  state: PlannerState,
+  tasks: readonly Task[],
+  dailyCapacity: number,
   taskId: string,
   newCount: number,
 ): ValidationResult {
-  const currentTask = state.tasks.find((t) => t.id === taskId);
+  const currentTask = tasks.find((t) => t.id === taskId);
   const currentCount = currentTask?.tomatoCount ?? 0;
-  const totalAssigned = getTotalAssignedTomatoes(state);
-  const availableForReassignment =
-    state.pool.dailyCapacity - totalAssigned + currentCount;
+  const totalAssigned = getTotalAssignedTomatoes(tasks);
+  const availableForReassignment = dailyCapacity - totalAssigned + currentCount;
 
   if (newCount > availableForReassignment) {
     const remaining = availableForReassignment - currentCount;

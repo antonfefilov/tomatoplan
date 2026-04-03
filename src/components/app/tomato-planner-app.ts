@@ -8,6 +8,7 @@ import { customElement, state } from "lit/decorators.js";
 import { plannerStore } from "../../state/planner-store.js";
 import { weeklyStore } from "../../state/weekly-store.js";
 import { timerStore } from "../../state/timer-store.js";
+import { taskpoolStore } from "../../state/taskpool-store.js";
 import { removeProject } from "../../state/project-coordinator.js";
 import type { Task } from "../../models/task.js";
 import { isTaskDone } from "../../models/task.js";
@@ -211,7 +212,7 @@ export class TomatoPlannerApp extends LitElement {
       this._capacity = state.pool.dailyCapacity;
       this._assigned = plannerStore.assignedTomatoes;
       this._remaining = plannerStore.remainingTomatoes;
-      this._tasks = state.tasks;
+      this._tasks = plannerStore.tasks;
       this._currentDate = state.pool.date;
       this._capacityInMinutes = state.pool.capacityInMinutes;
       this._dayStart = state.pool.dayStart;
@@ -227,7 +228,8 @@ export class TomatoPlannerApp extends LitElement {
     this._weeklyUnsubscribe = weeklyStore.subscribe((state) => {
       this._projects = state.projects;
       this._tracks = state.tracks;
-      this._weeklyTasks = state.tasks;
+      // Tasks are derived from taskpoolStore (the canonical task store)
+      this._weeklyTasks = weeklyStore.tasks;
 
       // Weekly capacity and dates
       this._weeklyCapacity = state.pool.weeklyCapacity;
@@ -236,12 +238,13 @@ export class TomatoPlannerApp extends LitElement {
       this._capacityInMinutesWeekly = state.pool.capacityInMinutes;
 
       // Compute analytics using extracted functions
+      // Tasks come from weeklyStore.tasks which is derived from taskpoolStore
       this._projectTaskCounts = getProjectTaskCounts(
-        state.tasks,
+        weeklyStore.tasks,
         state.projects,
       );
       this._projectProgressData = getProjectProgressMap(
-        state.tasks,
+        weeklyStore.tasks,
         state.projects,
       );
       this._overallMetrics = getOverallProjectMetrics(state);
@@ -331,11 +334,19 @@ export class TomatoPlannerApp extends LitElement {
         weeklyStore.updateTask(taskId, { title, description, projectId });
       }
     } else {
-      // Create new task - add to plannerStore only
-      const result = plannerStore.addTask(title, description);
-      // Set project assignment if a project was selected
-      if (result.success && result.taskId && projectId) {
-        plannerStore.setTaskProject(result.taskId, projectId);
+      // Create new task
+      // Use taskpoolStore directly for creation to control day assignment
+      // When creating from Day view, assign to today; otherwise create unscheduled
+      const result =
+        this._activeView === "day"
+          ? plannerStore.addTask(title, description) // Assigns to today
+          : taskpoolStore.addTask(title, description); // Creates without dayDate
+
+      if (result.success && result.taskId) {
+        // Set project assignment if a project was selected
+        if (projectId) {
+          taskpoolStore.setTaskProject(result.taskId, projectId);
+        }
       }
     }
 

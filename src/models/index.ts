@@ -3,7 +3,18 @@
  */
 
 export type { Task } from "./task.js";
-export { createTask, updateTaskTomatoCount, updateTask } from "./task.js";
+export {
+  createTask,
+  updateTaskTomatoCount,
+  updateTask,
+  markTomatoAsFinished,
+  markTomatoAsUnfinished,
+  updateTaskFinishedCount,
+  assignTaskToProject,
+  unassignTaskFromProject,
+  markTaskDone,
+  isTaskDone,
+} from "./task.js";
 
 export type { Track, TrackEdge } from "./track.js";
 export {
@@ -33,10 +44,7 @@ export {
   STATE_VERSION,
   createInitialPlannerState,
   resetPlannerStateForNewDay,
-  getTotalAssignedTomatoes,
-  getRemainingTomatoes,
-  isAtCapacity,
-  isOverCapacity,
+  recalculatePoolCapacity,
 } from "./planner-state.js";
 
 export type { PersistedPlannerState, LoadResult } from "./storage.js";
@@ -58,3 +66,24 @@ export {
   formatTimerDisplay,
   getElapsedSeconds,
 } from "./timer-state.js";
+
+export type {
+  DayDateString,
+  LegacyTask,
+  TaskpoolState,
+  PersistedTaskpoolState,
+} from "./taskpool-state.js";
+export {
+  isValidDayDate,
+  isLegacyTask,
+  migrateLegacyTask,
+  migrateTasks,
+  TASKPOOL_STATE_VERSION,
+  createEmptyTaskpoolState,
+  serializeTaskpoolState,
+  deserializeTaskpoolState,
+  isValidPersistedTaskpoolState,
+  assignTaskToDay,
+  unassignTaskFromDay,
+  getTasksForDay,
+} from "./taskpool-state.js";

@@ -21,11 +21,15 @@ export interface WeeklyState {
   /** List of projects for the week */
   projects: readonly Project[];
 
-  /** Tasks with projectId references (mirrored from plannerStore) */
-  tasks: readonly Task[];
-
   /** Tracks (workflows with task dependencies) */
   tracks: readonly Track[];
+
+  /**
+   * Tasks with projectId references (derived from taskpoolStore).
+   * This field is computed on demand and not persisted.
+   * @deprecated Use weeklyStore.tasks or taskpoolStore methods instead.
+   */
+  tasks?: readonly Task[];
 
   /** Version for potential migrations */
   readonly version: number;
@@ -44,8 +48,8 @@ export function createInitialWeeklyState(
   return {
     pool: createDefaultWeeklyPool(dailyCapacity, capacityInMinutes),
     projects: [],
-    tasks: [],
     tracks: [],
+    tasks: [],
     version: WEEKLY_STATE_VERSION,
   };
 }
@@ -66,6 +70,8 @@ export function resetWeeklyStateForNewWeek(
       newCapacityInMinutes ?? state.pool.capacityInMinutes,
     ),
     projects: [],
+    // tasks is not persisted - derived from taskpoolStore on load
+    // Include empty array for backwards compatibility with code that reads state.tasks
     tasks: [],
     tracks: [],
   };
@@ -132,7 +138,7 @@ export function getProjectTasks(
   state: WeeklyState,
   projectId: string,
 ): readonly Task[] {
-  return state.tasks.filter((t) => t.projectId === projectId);
+  return (state.tasks || []).filter((t) => t.projectId === projectId);
 }
 
 /**
@@ -160,7 +166,7 @@ export function getProjectProgress(
  * Calculates total finished tomatoes across all projects
  */
 export function getTotalProjectFinishedTomatoes(state: WeeklyState): number {
-  return state.tasks
+  return (state.tasks || [])
     .filter((t) => t.projectId)
     .reduce((sum, t) => sum + t.finishedTomatoCount, 0);
 }
@@ -169,7 +175,7 @@ export function getTotalProjectFinishedTomatoes(state: WeeklyState): number {
  * Gets tasks without a project
  */
 export function getUnassignedTasks(state: WeeklyState): readonly Task[] {
-  return state.tasks.filter((t) => !t.projectId);
+  return (state.tasks || []).filter((t) => !t.projectId);
 }
 
 /**
@@ -240,12 +246,12 @@ export function getTrackTasks(
   if (!track) {
     return [];
   }
-  return state.tasks.filter((t) => track.taskIds.includes(t.id));
+  return (state.tasks || []).filter((t) => track.taskIds.includes(t.id));
 }
 
 /**
  * Gets tasks without a track
  */
 export function getUntrackedTasks(state: WeeklyState): readonly Task[] {
-  return state.tasks.filter((t) => !t.trackId);
+  return (state.tasks || []).filter((t) => !t.trackId);
 }

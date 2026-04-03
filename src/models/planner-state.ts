@@ -1,9 +1,9 @@
 /**
  * PlannerState model for the Tomato Plan
- * Combines the tomato pool and tasks into a single state object
+ * Contains only the tomato pool configuration and settings.
+ * Tasks are now derived from taskpoolStore based on the pool date.
  */
 
-import type { Task } from "./task.js";
 import type { TomatoPool } from "./tomato-pool.js";
 import {
   DEFAULT_DAILY_CAPACITY,
@@ -17,9 +17,6 @@ import { calculateDailyCapacityFromSchedule } from "../utils/time.js";
 export interface PlannerState {
   /** The tomato pool for the current session */
   pool: TomatoPool;
-
-  /** List of tasks for the day */
-  tasks: readonly Task[];
 
   /** Version for potential migrations */
   readonly version: number;
@@ -45,14 +42,13 @@ export function createInitialPlannerState(
       dayStart,
       dayEnd,
     ),
-    tasks: [],
     version: STATE_VERSION,
   };
 }
 
 /**
  * Resets the state for a new day
- * Creates a fresh pool with the same capacity but clears tasks
+ * Creates a fresh pool with the same capacity settings
  */
 export function resetPlannerStateForNewDay(
   state: PlannerState,
@@ -70,7 +66,6 @@ export function resetPlannerStateForNewDay(
       newDayStart ?? state.pool.dayStart,
       newDayEnd ?? state.pool.dayEnd,
     ),
-    tasks: [],
   };
 }
 
@@ -92,45 +87,10 @@ export function recalculatePoolCapacity(pool: TomatoPool): TomatoPool {
 }
 
 /**
- * Computed value: Total tomatoes assigned across all tasks
- */
-export function getTotalAssignedTomatoes(state: PlannerState): number {
-  return state.tasks.reduce((sum, task) => sum + task.tomatoCount, 0);
-}
-
-/**
- * Computed value: Remaining tomatoes available for assignment
- */
-export function getRemainingTomatoes(state: PlannerState): number {
-  return state.pool.dailyCapacity - getTotalAssignedTomatoes(state);
-}
-
-/**
- * Computed value: Whether all tomatoes have been assigned
- */
-export function isAtCapacity(state: PlannerState): boolean {
-  return getRemainingTomatoes(state) <= 0;
-}
-
-/**
- * Computed value: Whether any tomatoes have been over-assigned
- */
-export function isOverCapacity(state: PlannerState): boolean {
-  return getRemainingTomatoes(state) < 0;
-}
-
-/**
  * Computed value: Total daily capacity in minutes
  */
 export function getDailyCapacityInMinutes(state: PlannerState): number {
   return state.pool.dailyCapacity * state.pool.capacityInMinutes;
-}
-
-/**
- * Computed value: Total minutes assigned across all tasks
- */
-export function getTotalAssignedMinutes(state: PlannerState): number {
-  return getTotalAssignedTomatoes(state) * state.pool.capacityInMinutes;
 }
 
 /**

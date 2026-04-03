@@ -15,6 +15,9 @@ export const STORAGE_KEYS = {
 
   /** Weekly planner state key */
   WEEKLY_PLANNER_STATE: "tomato-planner-weekly-state",
+
+  /** Taskpool state key (canonical task-day assignments) */
+  TASKPOOL_STATE: "tomato-planner-taskpool-state",
 } as const;
 
 /** Type for storage key values */
