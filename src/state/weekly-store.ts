@@ -1,6 +1,9 @@
 /**
  * Custom reactive store for Weekly State management
  * Provides reactive state updates compatible with Lit components
+ *
+ * This store derives tasks from taskpoolStore (the canonical task store).
+ * Projects and tracks are owned by weeklyStore.
  */
 
 import type { Task } from "../models/task.js";
@@ -27,8 +30,6 @@ import type { WeeklyState } from "../models/weekly-state.js";
 import {
   createInitialWeeklyState,
   resetWeeklyStateForNewWeek,
-  getProjectProgress,
-  getProjectTasks,
   getWeeklyRemaining,
   isStateCurrentWeek,
   getTotalProjectEstimates,
@@ -45,6 +46,7 @@ import {
   loadWeeklyState,
   clearWeeklyState,
 } from "./weekly-persistence.js";
+import { taskpoolStore } from "./taskpool-store.js";
 
 /** Type for subscriber callback functions */
 type Subscriber = (state: WeeklyState) => void;
@@ -91,6 +93,12 @@ class WeeklyStore {
         savedCapacityInMinutes,
       );
     }
+
+    // Subscribe to taskpoolStore to notify subscribers of task changes
+    // Tasks are derived from taskpoolStore on demand, not stored in state
+    taskpoolStore.subscribe(() => {
+      this.notify();
+    });
   }
 
   // ============================================
@@ -99,14 +107,38 @@ class WeeklyStore {
 
   /**
    * Gets the current state (returns a shallow copy to prevent direct mutation)
+   * Tasks are derived from taskpoolStore on demand
    */
   getState(): WeeklyState {
     return {
       ...this.state,
       projects: [...this.state.projects],
-      tasks: [...this.state.tasks],
       tracks: [...this.state.tracks],
+      // Tasks are derived from taskpoolStore, not stored in state
+      tasks: this.getWeeklyTasks(),
     };
+  }
+
+  /**
+   * Gets weekly tasks derived from taskpoolStore.
+   * Filters tasks to only include those relevant to current week's projects.
+   */
+  private getWeeklyTasks(): Task[] {
+    const currentWeekId = getCurrentWeekId();
+    const allTasks = taskpoolStore.getAllTasks();
+
+    // Filter tasks to only include those:
+    // 1. Without a project (unassigned tasks created this week)
+    // 2. With a project from current week
+    return allTasks.filter((task) => {
+      if (task.projectId) {
+        const project = this.state.projects.find(
+          (p) => p.id === task.projectId,
+        );
+        return project && project.weekId === currentWeekId;
+      }
+      return true;
+    });
   }
 
   // ============================================
@@ -324,10 +356,8 @@ class WeeklyStore {
    * NOTE: For proper project deletion that unassigns planner tasks,
    * use the removeProject function from project-coordinator.ts instead.
    *
-   * This method includes defensive task cleanup for edge cases where
-   * tasks exist in weekly store but not in planner store (e.g., historical data).
-   * When called via the coordinator, tasks are already unassigned from planner store
-   * and synced here, making this cleanup redundant but harmless.
+   * This method includes defensive task cleanup via taskpoolStore for edge cases
+   * where tasks need to be unassigned from the project.
    */
   removeProject(projectId: string): ActionResult {
     const projectIndex = this.state.projects.findIndex(
@@ -338,18 +368,12 @@ class WeeklyStore {
       return { success: false, error: "Project not found" };
     }
 
-    // Defensive cleanup: unassign tasks from this project
-    // This handles edge cases where tasks exist here but not in planner store
-    const updatedTasks = this.state.tasks.map((t) =>
-      t.projectId === projectId
-        ? { ...t, projectId: undefined, updatedAt: new Date().toISOString() }
-        : t,
-    );
+    // Unassign tasks from this project via taskpoolStore
+    taskpoolStore.unassignTasksFromProject(projectId);
 
     this.setState({
       ...this.state,
       projects: this.state.projects.filter((p) => p.id !== projectId),
-      tasks: updatedTasks,
     });
 
     return { success: true };
@@ -460,15 +484,15 @@ class WeeklyStore {
   // ============================================
 
   /**
-   * Assigns a task to a project
-   * The task must exist in the weekly store's task list
+   * Assigns a task to a project via taskpoolStore.
+   * The task must exist in taskpoolStore.
    */
   assignTaskToProject(taskId: string, projectId: string): ActionResult {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = taskpoolStore.getTaskById(taskId);
     const project = this.state.projects.find((p) => p.id === projectId);
 
     if (!task) {
-      return { success: false, error: "Task not found in weekly state" };
+      return { success: false, error: "Task not found in taskpoolStore" };
     }
 
     if (!project) {
@@ -479,42 +503,26 @@ class WeeklyStore {
       return { success: false, error: "Cannot assign to inactive project" };
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, projectId, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    // Delegate to taskpoolStore for the actual update
+    return taskpoolStore.setTaskProject(taskId, projectId);
   }
 
   /**
-   * Removes a task from its project
+   * Removes a task from its project via taskpoolStore.
    */
   unassignTaskFromProject(taskId: string): ActionResult {
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = taskpoolStore.getTaskById(taskId);
 
     if (!task) {
-      return { success: false, error: "Task not found in weekly state" };
+      return { success: false, error: "Task not found in taskpoolStore" };
     }
 
     if (!task.projectId) {
       return { success: true }; // Already unassigned
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, projectId: undefined, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
-
-    return { success: true };
+    // Delegate to taskpoolStore for the actual update
+    return taskpoolStore.unassignTaskFromProject(taskId);
   }
 
   // ============================================
@@ -522,192 +530,84 @@ class WeeklyStore {
   // ============================================
 
   /**
-   * Syncs tasks from the daily planner store
-   * This is called after any task mutation in the planner store
+   * Syncs tasks from the daily planner store.
    *
-   * IMPORTANT: This method preserves and reconciles track membership by:
-   * 1. Preserving existing trackId values from current weekly state tasks
-   * 2. Building track membership map from merged tasks
-   * 3. Reconciling track.taskIds to match actual task.trackId assignments
-   * 4. Cleaning up track.edges for tasks no longer in the track
-   * 5. Validating trackId references exist (clearing invalid ones)
+   * DEPRECATED: This method imports tasks into taskpoolStore for backwards
+   * compatibility with tests. New code should use taskpoolStore directly.
    */
   syncTasks(tasks: readonly Task[]): void {
-    // Filter tasks to only include those created this week
-    const currentWeekId = getCurrentWeekId();
-    const weekTasks = tasks.filter((t) => {
-      // Include tasks that have a project in current week
-      if (t.projectId) {
-        const project = this.state.projects.find((p) => p.id === t.projectId);
-        return project && project.weekId === currentWeekId;
-      }
-      return true;
-    });
-
-    // Build map of existing tasks with their trackIds
-    const existingTaskMap = new Map(this.state.tasks.map((t) => [t.id, t]));
-
-    // Get valid track IDs for validation
-    const validTrackIds = new Set(this.state.tracks.map((t) => t.id));
-
-    // Merge incoming tasks, preserving trackId from existing state
-    // But if incoming has trackId, use that (allows planner to change membership)
-    const mergedTasks: Task[] = weekTasks.map((task) => {
-      const existing = existingTaskMap.get(task.id);
-      // Use incoming trackId if present, otherwise preserve existing
-      const trackId = task.trackId ?? existing?.trackId;
-
-      // Validate trackId exists, clear if invalid
-      if (trackId && !validTrackIds.has(trackId)) {
-        return { ...task, trackId: undefined };
-      }
-
-      return trackId ? { ...task, trackId } : task;
-    });
-
-    // Build track membership map from merged tasks
-    const trackMembership = new Map<string, Set<string>>(); // trackId -> Set of taskIds
-    for (const task of mergedTasks) {
-      if (task.trackId) {
-        if (!trackMembership.has(task.trackId)) {
-          trackMembership.set(task.trackId, new Set());
-        }
-        trackMembership.get(task.trackId)!.add(task.id);
-      }
-    }
-
-    // Find removed task IDs
-    const newTaskIds = new Set(mergedTasks.map((t) => t.id));
-    const removedTaskIdSet = new Set(
-      this.state.tasks.map((t) => t.id).filter((id) => !newTaskIds.has(id)),
-    );
-
-    // Reconcile tracks: update taskIds and edges to match actual task.trackId assignments
-    const reconciledTracks = this.state.tracks.map((track) => {
-      // Get the correct task IDs for this track from membership map
-      const correctTaskIds = trackMembership.get(track.id);
-
-      if (!correctTaskIds || correctTaskIds.size === 0) {
-        // No tasks reference this track, clear all taskIds and edges
-        if (track.taskIds.length > 0 || track.edges.length > 0) {
-          return {
-            ...track,
-            taskIds: [],
-            edges: [],
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return track;
-      }
-
-      // Filter taskIds to only include tasks that actually belong
-      const cleanedTaskIds = track.taskIds.filter(
-        (id) => correctTaskIds.has(id) && !removedTaskIdSet.has(id),
-      );
-
-      // Add any missing taskIds that should be in this track
-      for (const taskId of correctTaskIds) {
-        if (!cleanedTaskIds.includes(taskId)) {
-          cleanedTaskIds.push(taskId);
-        }
-      }
-
-      // Clean up edges - only keep edges between tasks still in the track
-      const cleanedEdges = track.edges.filter(
-        (e) =>
-          correctTaskIds.has(e.sourceTaskId) &&
-          correctTaskIds.has(e.targetTaskId) &&
-          !removedTaskIdSet.has(e.sourceTaskId) &&
-          !removedTaskIdSet.has(e.targetTaskId),
-      );
-
-      // Only update if changed
-      const taskIdsChanged =
-        JSON.stringify(track.taskIds) !== JSON.stringify(cleanedTaskIds);
-      const edgesChanged =
-        JSON.stringify(track.edges) !== JSON.stringify(cleanedEdges);
-
-      if (taskIdsChanged || edgesChanged) {
-        return {
-          ...track,
-          taskIds: cleanedTaskIds,
-          edges: cleanedEdges,
-          updatedAt: new Date().toISOString(),
-        };
-      }
-
-      return track;
-    });
-
-    // Check if anything changed
-    const tasksChanged =
-      JSON.stringify(this.state.tasks) !== JSON.stringify(mergedTasks);
-    const tracksChanged =
-      JSON.stringify(this.state.tracks) !== JSON.stringify(reconciledTracks);
-
-    if (!tasksChanged && !tracksChanged) {
-      return; // Nothing changed, skip update
-    }
-
-    this.setState({
-      ...this.state,
-      tasks: mergedTasks,
-      tracks: reconciledTracks,
-    });
+    // Import tasks into taskpoolStore (the canonical task store)
+    taskpoolStore.importTasks(tasks);
   }
 
   /**
-   * Updates a single task in the weekly state
-   * Used when a task is updated in the planner store
+   * Updates a single task in the weekly state.
+   *
+   * DEPRECATED: Task updates should go through taskpoolStore directly.
+   * This method exists for backwards compatibility but just re-derives from taskpoolStore.
    */
   updateTask(taskId: string, updates: Partial<Task>): ActionResult {
-    const taskIndex = this.state.tasks.findIndex((t) => t.id === taskId);
-
-    if (taskIndex === -1) {
-      // Task doesn't exist in weekly state, add it
-      const newTask: Task = {
-        id: taskId,
-        title: updates.title ?? "",
-        description: updates.description,
-        tomatoCount: updates.tomatoCount ?? 0,
-        finishedTomatoCount: updates.finishedTomatoCount ?? 0,
-        projectId: updates.projectId,
-        createdAt: updates.createdAt ?? new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      this.setState({
-        ...this.state,
-        tasks: [...this.state.tasks, newTask],
-      });
-
-      return { success: true };
+    // Delegate to taskpoolStore for the actual update
+    const task = taskpoolStore.getTaskById(taskId);
+    if (!task) {
+      return { success: false, error: "Task not found" };
     }
 
-    this.setState({
-      ...this.state,
-      tasks: this.state.tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, ...updates, updatedAt: new Date().toISOString() }
-          : t,
-      ),
-    });
+    if (updates.title !== undefined) {
+      const result = taskpoolStore.updateTask(taskId, { title: updates.title });
+      if (!result.success) {
+        return result; // Propagate failure
+      }
+    }
+    if (updates.description !== undefined) {
+      const result = taskpoolStore.updateTask(taskId, {
+        description: updates.description,
+      });
+      if (!result.success) {
+        return result; // Propagate failure
+      }
+    }
+    if (updates.tomatoCount !== undefined) {
+      const result = taskpoolStore.setTomatoCount(taskId, updates.tomatoCount);
+      if (!result.success) {
+        return result; // Propagate failure
+      }
+    }
 
+    // Re-derivation happens via subscription notification
     return { success: true };
   }
 
   /**
-   * Removes a task from the weekly state
+   * Removes a task from the weekly state.
+   *
+   * DEPRECATED: Task removal should go through taskpoolStore directly.
+   * This method exists for backwards compatibility.
    */
   removeTask(taskId: string): void {
-    // Also remove task from any tracks it belongs to
-    const updatedTracks = this.state.tracks.map((track) =>
-      removeTaskFromTrackModel(track, taskId),
-    );
+    // Delegate to taskpoolStore for the actual removal
+    taskpoolStore.removeTask(taskId);
+    // Also remove from any tracks (via taskpoolStore unassign)
+    taskpoolStore.unassignTaskFromTrack(taskId);
+    // Clean up track references to this task
+    this.cleanupTaskFromTracks(taskId);
+  }
+
+  /**
+   * Removes a task ID from all track taskIds arrays and cleans up edges.
+   * Called when a task is deleted to prevent stale references.
+   */
+  cleanupTaskFromTracks(taskId: string): void {
+    const updatedTracks = this.state.tracks.map((track) => ({
+      ...track,
+      taskIds: track.taskIds.filter((id) => id !== taskId),
+      edges: track.edges.filter(
+        (edge) => edge.sourceTaskId !== taskId && edge.targetTaskId !== taskId,
+      ),
+    }));
 
     this.setState({
       ...this.state,
-      tasks: this.state.tasks.filter((t) => t.id !== taskId),
       tracks: updatedTracks,
     });
   }
@@ -777,7 +677,7 @@ class WeeklyStore {
 
   /**
    * Removes a track
-   * Clears trackId from all tasks that belong to this track
+   * Clears trackId from all tasks that belong to this track via taskpoolStore
    */
   removeTrack(trackId: string): ActionResult {
     const track = this.state.tracks.find((t) => t.id === trackId);
@@ -786,17 +686,14 @@ class WeeklyStore {
       return { success: false, error: "Track not found" };
     }
 
-    // Clear trackId from tasks that belong to this track
-    const updatedTasks = this.state.tasks.map((task) =>
-      task.trackId === trackId
-        ? { ...task, trackId: undefined, updatedAt: new Date().toISOString() }
-        : task,
-    );
+    // Clear trackId from tasks that belong to this track via taskpoolStore
+    for (const taskId of track.taskIds) {
+      taskpoolStore.unassignTaskFromTrack(taskId);
+    }
 
     this.setState({
       ...this.state,
       tracks: this.state.tracks.filter((t) => t.id !== trackId),
-      tasks: updatedTasks,
     });
 
     return { success: true };
@@ -804,11 +701,11 @@ class WeeklyStore {
 
   /**
    * Adds a task to a track
-   * Updates both the track's taskIds and the task's trackId
+   * Updates the track's taskIds and the task's trackId via taskpoolStore
    */
   addTaskToTrack(trackId: string, taskId: string): ActionResult {
     const track = this.state.tracks.find((t) => t.id === trackId);
-    const task = this.state.tasks.find((t) => t.id === taskId);
+    const task = taskpoolStore.getTaskById(taskId);
 
     if (!track) {
       return { success: false, error: "Track not found" };
@@ -826,22 +723,17 @@ class WeeklyStore {
       };
     }
 
+    // Update task's trackId via taskpoolStore
+    taskpoolStore.setTaskTrack(taskId, trackId);
+
     // Update track's taskIds
     const updatedTrack = addTaskToTrackModel(track, taskId);
-
-    // Update task's trackId
-    const updatedTasks = this.state.tasks.map((t) =>
-      t.id === taskId
-        ? { ...t, trackId: trackId, updatedAt: new Date().toISOString() }
-        : t,
-    );
 
     this.setState({
       ...this.state,
       tracks: this.state.tracks.map((t) =>
         t.id === trackId ? updatedTrack : t,
       ),
-      tasks: updatedTasks,
     });
 
     return { success: true };
@@ -849,7 +741,7 @@ class WeeklyStore {
 
   /**
    * Removes a task from a track
-   * Updates both the track (removes task and edges) and clears task's trackId
+   * Updates the track (removes task and edges) and clears task's trackId via taskpoolStore
    */
   removeTaskFromTrack(trackId: string, taskId: string): ActionResult {
     const track = this.state.tracks.find((t) => t.id === trackId);
@@ -862,22 +754,17 @@ class WeeklyStore {
       return { success: true }; // Task not in track, nothing to do
     }
 
+    // Clear task's trackId via taskpoolStore
+    taskpoolStore.unassignTaskFromTrack(taskId);
+
     // Update track (removes task and all edges involving this task)
     const updatedTrack = removeTaskFromTrackModel(track, taskId);
-
-    // Clear task's trackId
-    const updatedTasks = this.state.tasks.map((t) =>
-      t.id === taskId
-        ? { ...t, trackId: undefined, updatedAt: new Date().toISOString() }
-        : t,
-    );
 
     this.setState({
       ...this.state,
       tracks: this.state.tracks.map((t) =>
         t.id === trackId ? updatedTrack : t,
       ),
-      tasks: updatedTasks,
     });
 
     return { success: true };
@@ -1026,34 +913,47 @@ class WeeklyStore {
   }
 
   /**
-   * Gets all tasks
+   * Gets all tasks (derived from taskpoolStore)
    */
   get tasks(): readonly Task[] {
-    return this.state.tasks;
+    return this.getWeeklyTasks();
   }
 
   /**
-   * Gets a task by ID
+   * Gets a task by ID (derived from taskpoolStore)
    */
   getTaskById(id: string): Task | undefined {
-    return this.state.tasks.find((t) => t.id === id);
+    return taskpoolStore.getTaskById(id);
   }
 
   /**
    * Gets tasks for a specific project
+   * Tasks are derived from taskpoolStore (the canonical task store)
    */
   getTasksForProject(projectId: string): readonly Task[] {
-    return getProjectTasks(this.state, projectId);
+    return taskpoolStore.getTasksForProject(projectId);
   }
 
   /**
    * Gets project progress (finished and estimated tomatoes)
+   * Tasks are derived from taskpoolStore (the canonical task store)
    */
   getProjectProgressById(projectId: string): {
     finished: number;
     estimated: number;
   } {
-    return getProjectProgress(this.state, projectId);
+    const project = this.state.projects.find((p) => p.id === projectId);
+    if (!project) {
+      return { finished: 0, estimated: 0 };
+    }
+
+    const tasks = taskpoolStore.getTasksForProject(projectId);
+    const finished = tasks.reduce((sum, t) => sum + t.finishedTomatoCount, 0);
+
+    return {
+      finished,
+      estimated: project.tomatoEstimate,
+    };
   }
 
   /**
@@ -1139,20 +1039,18 @@ class WeeklyStore {
 
   /**
    * Gets tasks for a specific track
+   * Tasks are derived from taskpoolStore (the canonical task store)
    */
   getTasksForTrack(trackId: string): readonly Task[] {
-    const track = this.getTrackById(trackId);
-    if (!track) {
-      return [];
-    }
-    return this.state.tasks.filter((t) => track.taskIds.includes(t.id));
+    return taskpoolStore.getTasksForTrack(trackId);
   }
 
   /**
    * Gets tasks that don't belong to any track
+   * Tasks are derived from taskpoolStore (the canonical task store)
    */
   getUntrackedTasks(): readonly Task[] {
-    return this.state.tasks.filter((t) => !t.trackId);
+    return taskpoolStore.getAllTasks().filter((t) => !t.trackId);
   }
 }
 

@@ -1015,15 +1015,15 @@ describe("WeeklyStore", () => {
       expect(updated!.tomatoCount).toBe(5);
     });
 
-    it("should add new task if not exists", () => {
-      store.updateTask("new-task", {
+    it("should fail when task does not exist", () => {
+      const result = store.updateTask("non-existent-task", {
         title: "New Task",
         tomatoCount: 3,
-        createdAt: "2024-06-15T10:00:00.000Z",
       });
 
-      expect(store.tasks).toHaveLength(1);
-      expect(store.tasks[0]!.id).toBe("new-task");
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Task not found");
+      expect(store.tasks).toHaveLength(0);
     });
   });
 
