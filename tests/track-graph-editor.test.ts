@@ -821,34 +821,31 @@ describe("TrackGraphEditor", () => {
       }
     });
 
-    it("D. deferred rebuild uses latest structure after updates", async () => {
-      // This test verifies that when _pendingStructureRebuild is true and resize fires,
-      // the rebuild uses the LATEST structure (track/tasks) not stale ones.
-      //
-      // Note: Due to the way Lit's update cycle works, setting _pendingStructureRebuild = true
-      // before track update causes immediate rebuild (not deferred). The key assertion is that
-      // after track update with structural change AND subsequent resize, add() is called
-      // with the NEW structure.
+it("D. deferred rebuild uses latest structure after updates", async () => {
+      // This test validates the deferred-update flow:
+      // 1) rebuild deferred (simulate zero-size by forcing pending state)
+      // 2) structural updates while pending
+      // 3) resize retry uses LATEST structure
 
+      const cytoscapeModule = await import("cytoscape");
+      const mockCy = (
+        cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
+      )();
+      const mockLayout = mockCy.layout.mock.results[0]?.value;
+
+      // ===== Phase 1: Establish baseline =====
       element.track = mockTrack;
       element.tasks = mockTasks;
       await element.updateComplete;
       flushAnimationFrames();
       await element.updateComplete;
 
-      const cytoscapeModule = await import("cytoscape");
-      const mockCy = (
-        cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
-      )();
-
-      removeSpy.mockClear();
-      mockCy.add.mockClear();
-
-      // Set container to proper dimensions
       const container = element.querySelector(
         ".cytoscape-container",
       ) as HTMLElement;
       expect(container).toBeDefined();
+
+      // Ensure container has valid size for successful initial render
       Object.defineProperty(container, "clientWidth", {
         get: () => 800,
         configurable: true,
@@ -858,18 +855,48 @@ describe("TrackGraphEditor", () => {
         configurable: true,
       });
 
-      // Update track to NEW structure first (without _pendingStructureRebuild set)
-      // This triggers a normal rebuild with NEW structure
-      const updatedTrack = {
+      const pendingAfterInit = await isPendingStructureRebuild();
+      expect(pendingAfterInit).toBe(false);
+
+      // Clear spies after initialization
+      removeSpy.mockClear();
+      mockCy.add.mockClear();
+      if (mockLayout) mockLayout.run.mockClear();
+
+      // ===== Phase 2: Simulate deferral (like test A) =====
+      // Intercept _rebuildGraph to force deferral on first structural update
+      const elementCasted = element as unknown as {
+        _rebuildGraph: () => Promise<"rebuilt" | "deferred">;
+        _pendingStructureRebuild: boolean;
+      };
+
+      const originalRebuildGraph = elementCasted._rebuildGraph.bind(elementCasted);
+      let rebuildAttempts = 0;
+
+      elementCasted._rebuildGraph = async () => {
+        rebuildAttempts++;
+        // Force deferral on first rebuild attempt (simulating zero-size container)
+        if (rebuildAttempts === 1) {
+          console.warn("Cytoscape container has zero size, deferring rebuild");
+          elementCasted._pendingStructureRebuild = true;
+          return "deferred";
+        }
+        // Let subsequent rebuilds proceed normally
+        return await originalRebuildGraph();
+      };
+
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      // Apply FIRST structural update
+      const firstUpdateTrack = {
         ...mockTrack,
         taskIds: ["task-1", "task-2", "task-3"],
         edges: [
           { sourceTaskId: "task-1", targetTaskId: "task-2" },
           { sourceTaskId: "task-2", targetTaskId: "task-3" },
         ],
-        title: "Updated Track",
       };
-      const updatedTasks = [
+      const firstUpdateTasks = [
         ...mockTasks,
         {
           id: "task-3",
@@ -881,44 +908,119 @@ describe("TrackGraphEditor", () => {
         },
       ];
 
-      element.track = updatedTrack;
-      element.tasks = updatedTasks;
+      element.track = firstUpdateTrack;
+      element.tasks = firstUpdateTasks;
       await element.updateComplete;
       flushAnimationFrames();
       await element.updateComplete;
 
-      // Clear mocks after the update rebuild
+      // Assert: rebuild was attempted (first attempt forced to defer)
+      expect(rebuildAttempts).toBeGreaterThanOrEqual(1);
+
+      // Assert: pending state set to true
+      const pendingAfterFirst = await isPendingStructureRebuild();
+      expect(pendingAfterFirst).toBe(true);
+
+      // Assert: warning logged
+      expect(warnSpy).toHaveBeenCalledWith(
+        "Cytoscape container has zero size, deferring rebuild",
+      );
+
+      // Assert: no actual rebuild happened (deferred)
+      expect(removeSpy).not.toHaveBeenCalled();
+      expect(mockCy.add).not.toHaveBeenCalled();
+
+      warnSpy.mockRestore();
+
+      // ===== Phase 3: Update while pending =====
+      // Reset rebuild counter for phase 3
+      rebuildAttempts = 0;
+
+      // Apply SECOND structural update (latest structure with task-4)
+      const secondUpdateTrack = {
+        ...firstUpdateTrack,
+        taskIds: ["task-1", "task-2", "task-3", "task-4"],
+        edges: [
+          { sourceTaskId: "task-1", targetTaskId: "task-2" },
+          { sourceTaskId: "task-2", targetTaskId: "task-3" },
+          { sourceTaskId: "task-3", targetTaskId: "task-4" },
+        ],
+      };
+      const secondUpdateTasks = [
+        ...firstUpdateTasks,
+        {
+          id: "task-4",
+          title: "Task 4",
+          tomatoCount: 2,
+          finishedTomatoCount: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+
+      element.track = secondUpdateTrack;
+      element.tasks = secondUpdateTasks;
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      // Force pending back to true to simulate container still being zero-sized
+      elementCasted._pendingStructureRebuild = true;
+
+      const pendingAfterSecond = await isPendingStructureRebuild();
+      expect(pendingAfterSecond).toBe(true);
+
+      // ===== Phase 4: Trigger retry =====
+      // Reset counters and clear mocks for phase 4
+      rebuildAttempts = 0;
       removeSpy.mockClear();
       mockCy.add.mockClear();
+      if (mockLayout) mockLayout.run.mockClear();
 
-      // Now set _pendingStructureRebuild = true and trigger resize
-      // This simulates a deferred rebuild being retried
-      (
-        element as unknown as { _pendingStructureRebuild: boolean }
-      )._pendingStructureRebuild = true;
+      // Restore original rebuildGraph for resize retry
+      elementCasted._rebuildGraph = originalRebuildGraph;
 
-      // Trigger resize observer callback
+      // Trigger ResizeObserver
       expect(resizeObserverCallback).not.toBeNull();
       triggerResizeObserver(800, 600);
       await element.updateComplete;
       flushAnimationFrames();
       await element.updateComplete;
 
-      // Key assertion: add() should have been called with the NEW structure
-      // because resize with _pendingStructureRebuild=true triggers rebuild
-      // and the track property has the latest structure
+      // Assert: rebuild completed successfully
+      const pendingAfterRetry = await isPendingStructureRebuild();
+      expect(pendingAfterRetry).toBe(false);
+
+      // Assert: full rebuild occurred
+      expect(removeSpy).toHaveBeenCalled();
+      expect(mockCy.add).toHaveBeenCalled();
+      if (mockLayout) {
+        expect(mockLayout.run).toHaveBeenCalled();
+      }
+
+      // Assert: add() called with LATEST structure (task-4)
       const allAddCalls = mockCy.add.mock.calls;
       expect(allAddCalls.length).toBeGreaterThan(0);
 
       const lastAddCall = allAddCalls[allAddCalls.length - 1][0] as Array<{
-        data: { id: string };
+        data: { id: string; source?: string; target?: string };
       }>;
-      const addedIds = lastAddCall.map((el) => el.data.id);
 
-      // Should include the new task-3 element (proving latest structure was used)
-      expect(addedIds).toContain("task-3");
+      const addedNodeIds = lastAddCall
+        .filter((el) => !el.data.source && !el.data.target)
+        .map((el) => el.data.id);
+      expect(addedNodeIds).toContain("task-4");
+      expect(addedNodeIds).toContain("task-3");
+      expect(addedNodeIds).toContain("task-2");
+      expect(addedNodeIds).toContain("task-1");
+
+      const addedEdgeIds = lastAddCall
+        .filter((el) => el.data.source && el.data.target)
+        .map((el) => `${el.data.source}->${el.data.target}`);
+      expect(addedEdgeIds).toContain("task-3->task-4");
+      expect(addedEdgeIds).toContain("task-2->task-3");
+      expect(addedEdgeIds).toContain("task-1->task-2");
     });
-
     it("C. resize without pending rebuild only fits graph, does not rebuild", async () => {
       element.track = mockTrack;
       element.tasks = mockTasks;
