@@ -33,6 +33,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     assignedTomatoes: 3,
     remainingTomatoes: 7,
     capacityInMinutes: 25,
+    tasks: [],
   },
 }));
 
@@ -49,6 +50,7 @@ vi.mock("../src/state/weekly-store.js", () => ({
     incrementProjectEstimate: vi.fn(),
     decrementProjectEstimate: vi.fn(),
     syncTasks: vi.fn(),
+    tasks: [],
   },
 }));
 
@@ -117,6 +119,7 @@ const mockPlannerStore = plannerStore as unknown as {
   assignedTomatoes: number;
   remainingTomatoes: number;
   capacityInMinutes: number;
+  tasks: readonly Task[];
 };
 
 const mockWeeklyStore = weeklyStore as unknown as {
@@ -128,6 +131,7 @@ const mockWeeklyStore = weeklyStore as unknown as {
   incrementProjectEstimate: ReturnType<typeof vi.fn>;
   decrementProjectEstimate: ReturnType<typeof vi.fn>;
   syncTasks: ReturnType<typeof vi.fn>;
+  tasks: readonly Task[];
 };
 
 const mockTimerStore = timerStore as unknown as {
@@ -140,7 +144,7 @@ const mockTimerStore = timerStore as unknown as {
 };
 
 // Helper to create mock planner state
-function createMockPlannerState(tasks: Task[] = []): PlannerState {
+function createMockPlannerState(): PlannerState {
   return {
     pool: {
       dailyCapacity: 10,
@@ -149,7 +153,6 @@ function createMockPlannerState(tasks: Task[] = []): PlannerState {
       dayStart: "08:00",
       dayEnd: "18:25",
     },
-    tasks,
     version: 2,
   };
 }
@@ -252,6 +255,7 @@ describe("TomatoPlannerApp Views", () => {
     mockPlannerStore.capacityInMinutes = 25;
 
     // Set up weekly store mock
+    mockWeeklyStore.tasks = []; // Reset tasks to empty array
     mockWeeklyStore.subscribe.mockImplementation(
       (callback: (state: WeeklyState) => void) => {
         callback(createMockWeeklyState());
@@ -855,15 +859,18 @@ describe("TomatoPlannerApp Views", () => {
         createMockProject("project-beta", "Beta Project"),
       ];
 
-      // Set up plannerStore with its own tasks
+      // Set up plannerStore with its own tasks (tasks are now on the store, not in state)
+      mockPlannerStore.tasks = plannerTasks;
       mockPlannerStore.subscribe.mockImplementation(
         (callback: (state: PlannerState) => void) => {
-          callback(createMockPlannerState(plannerTasks));
+          callback(createMockPlannerState());
           return plannerUnsubscribe;
         },
       );
 
       // Set up weeklyStore with different tasks (that have projectIds)
+      // CRITICAL: Set the tasks property directly, as the component uses weeklyStore.tasks getter
+      mockWeeklyStore.tasks = weeklyTasksWithProjects;
       mockWeeklyStore.subscribe.mockImplementation(
         (callback: (state: WeeklyState) => void) => {
           callback(createMockWeeklyState(projects, weeklyTasksWithProjects));
@@ -924,14 +931,18 @@ describe("TomatoPlannerApp Views", () => {
 
       const projects = [createMockProject("project-gamma", "Gamma Project")];
 
-      // Set up stores with different tasks
+      // Set up stores with different tasks (tasks are now on the store, not in state)
+      mockPlannerStore.tasks = plannerTasks;
       mockPlannerStore.subscribe.mockImplementation(
         (callback: (state: PlannerState) => void) => {
-          callback(createMockPlannerState(plannerTasks));
+          callback(createMockPlannerState());
           return plannerUnsubscribe;
         },
       );
 
+      // Set up weeklyStore with different tasks
+      // CRITICAL: Set the tasks property directly, as the component uses weeklyStore.tasks getter
+      mockWeeklyStore.tasks = weeklyTasksWithProjects;
       mockWeeklyStore.subscribe.mockImplementation(
         (callback: (state: WeeklyState) => void) => {
           callback(createMockWeeklyState(projects, weeklyTasksWithProjects));

@@ -33,7 +33,7 @@ describe("TaskpoolStore", () => {
     });
 
     it("should have a valid active date on initialization", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
       expect(store.activeDate).toBe(today);
     });
   });
@@ -66,7 +66,7 @@ describe("TaskpoolStore", () => {
     });
 
     it("should add a task with options", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
       const result = store.addTask("Test Task", undefined, {
         projectId: "project-1",
         trackId: "track-1",
@@ -109,7 +109,8 @@ describe("TaskpoolStore", () => {
     });
 
     it("should add task to day assignments when dayDate is provided", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       const result = store.addTask("Test Task", undefined, {
         dayDate: today,
       });
@@ -192,7 +193,8 @@ describe("TaskpoolStore", () => {
     });
 
     it("should remove task from day assignments", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       const addResult = store.addTask("Test", undefined, { dayDate: today });
       if (!addResult.taskId) throw new Error("taskId should be defined");
       expect(store.getTasksForDay(today).length).toBe(1);
@@ -458,7 +460,8 @@ describe("TaskpoolStore", () => {
   describe("assignTaskToDay", () => {
     it("should assign task to a day", () => {
       const addResult = store.addTask("Test");
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       if (!addResult.taskId) throw new Error("taskId should be defined");
       const result = store.assignTaskToDay(addResult.taskId, today);
 
@@ -495,7 +498,8 @@ describe("TaskpoolStore", () => {
 
   describe("unassignTaskFromDay", () => {
     it("should remove day assignment", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       const addResult = store.addTask("Test", undefined, { dayDate: today });
       if (!addResult.taskId) throw new Error("taskId should be defined");
       const result = store.unassignTaskFromDay(addResult.taskId);
@@ -518,7 +522,8 @@ describe("TaskpoolStore", () => {
 
   describe("reorderTask", () => {
     it("should reorder task within day assignments", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       const task1 = store.addTask("Task 1", undefined, { dayDate: today });
       const task2 = store.addTask("Task 2", undefined, { dayDate: today });
       const task3 = store.addTask("Task 3", undefined, { dayDate: today });
@@ -551,7 +556,7 @@ describe("TaskpoolStore", () => {
     });
 
     it("should reject invalid index", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
       const addResult = store.addTask("Test", undefined, { dayDate: today });
       if (!addResult.taskId) throw new Error("taskId should be defined");
       const result = store.reorderTask(addResult.taskId, 99);
@@ -609,7 +614,7 @@ describe("TaskpoolStore", () => {
   describe("selectors", () => {
     beforeEach(() => {
       // Set up some test data
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
       const task1Result = store.addTask("Task 1", undefined, {
         dayDate: today,
         projectId: "project-1",
@@ -641,7 +646,8 @@ describe("TaskpoolStore", () => {
     });
 
     it("should return tasks for a specific day", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       const dayTasks = store.getTasksForDay(today);
       expect(dayTasks.length).toBe(1);
       expect(dayTasks[0]!.title).toBe("Task 1");
@@ -684,7 +690,8 @@ describe("TaskpoolStore", () => {
     });
 
     it("should return day tomato pool", () => {
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
+      if (!today) throw new Error("today should be defined");
       const pool = store.getDayTomatoPool(today);
       expect(pool.planned).toBe(3);
       expect(pool.finished).toBe(1);

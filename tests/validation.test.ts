@@ -15,8 +15,7 @@ import {
   validateTimeString,
   validateTimeRange,
 } from "../src/utils/validation.js";
-import type { PlannerState } from "../src/models/planner-state.js";
-import { createInitialPlannerState } from "../src/models/planner-state.js";
+import type { Task } from "../src/models/task.js";
 
 describe("validateDailyCapacity", () => {
   it("should return valid for capacity within bounds", () => {
@@ -97,26 +96,25 @@ describe("validateCapacityInMinutes", () => {
 
 describe("canAssignTomato", () => {
   it("should return valid when tomatoes are available", () => {
-    const state: PlannerState = createInitialPlannerState(10);
-    const result = canAssignTomato(state, 0);
+    const tasks: Task[] = [];
+    const dailyCapacity = 10;
+    const result = canAssignTomato(tasks, dailyCapacity, 0);
     expect(result.valid).toBe(true);
   });
 
   it("should return invalid when no tomatoes remaining", () => {
-    const state: PlannerState = {
-      ...createInitialPlannerState(1),
-      tasks: [
-        {
-          id: "task-1",
-          title: "Task",
-          tomatoCount: 1,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ],
-    };
-    const result = canAssignTomato(state, 0);
+    const tasks: Task[] = [
+      {
+        id: "task-1",
+        title: "Task",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+    ];
+    const dailyCapacity = 1;
+    const result = canAssignTomato(tasks, dailyCapacity, 0);
     expect(result.valid).toBe(false);
     expect(result.error).toContain("No tomatoes remaining");
   });
@@ -167,56 +165,53 @@ describe("validateTomatoCount", () => {
 
 describe("canSetTomatoCount", () => {
   it("should return valid when enough tomatoes available", () => {
-    const state: PlannerState = createInitialPlannerState(10);
-    const result = canSetTomatoCount(state, "task-1", 5);
+    const tasks: Task[] = [];
+    const dailyCapacity = 10;
+    const result = canSetTomatoCount(tasks, dailyCapacity, "task-1", 5);
     expect(result.valid).toBe(true);
   });
 
   it("should return invalid when not enough tomatoes available", () => {
-    const state: PlannerState = {
-      ...createInitialPlannerState(5),
-      tasks: [
-        {
-          id: "task-1",
-          title: "Task 1",
-          tomatoCount: 3,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-        {
-          id: "task-2",
-          title: "Task 2",
-          tomatoCount: 2,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ],
-    };
+    const tasks: Task[] = [
+      {
+        id: "task-1",
+        title: "Task 1",
+        tomatoCount: 3,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+      {
+        id: "task-2",
+        title: "Task 2",
+        tomatoCount: 2,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+    ];
+    const dailyCapacity = 5;
     // task-1 already has 3, total assigned is 5, capacity is 5
     // trying to set task-1 to 6 would exceed capacity
-    const result = canSetTomatoCount(state, "task-1", 6);
+    const result = canSetTomatoCount(tasks, dailyCapacity, "task-1", 6);
     expect(result.valid).toBe(false);
     expect(result.error).toContain("Not enough tomatoes");
   });
 
   it("should account for current task tomatoes when reassigning", () => {
-    const state: PlannerState = {
-      ...createInitialPlannerState(10),
-      tasks: [
-        {
-          id: "task-1",
-          title: "Task 1",
-          tomatoCount: 5,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ],
-    };
+    const tasks: Task[] = [
+      {
+        id: "task-1",
+        title: "Task 1",
+        tomatoCount: 5,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+      },
+    ];
+    const dailyCapacity = 10;
     // task-1 has 5, capacity is 10, can set up to 10 (not more)
-    const result = canSetTomatoCount(state, "task-1", 10);
+    const result = canSetTomatoCount(tasks, dailyCapacity, "task-1", 10);
     expect(result.valid).toBe(true);
   });
 });

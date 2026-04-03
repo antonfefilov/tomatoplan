@@ -20,12 +20,13 @@ import {
 
 /**
  * Saves the planner state to localStorage
+ * Note: Tasks are no longer persisted here - they're managed by taskpoolStore
  */
 export function saveState(state: PlannerState): void {
   const persistedState = createPersistedState(
     state.pool.dailyCapacity,
     state.pool.capacityInMinutes,
-    state.tasks,
+    [], // Tasks are persisted separately by taskpoolStore
     getTodayString(),
     state.pool.dayStart,
     state.pool.dayEnd,
@@ -57,6 +58,7 @@ export function loadState(): PlannerState | null {
   // Reconstruct PlannerState from PersistedPlannerState
   // Handle backward compatibility: capacityInMinutes defaults to 25 if not present
   // dayStart and dayEnd default to 08:00 and 18:25 if not present
+  // Note: tasks are no longer part of PlannerState - they're managed by taskpoolStore
   return {
     pool: {
       dailyCapacity: loadResult.state.dailyCapacity,
@@ -66,7 +68,6 @@ export function loadState(): PlannerState | null {
       dayEnd: loadResult.state.dayEnd ?? DEFAULT_DAY_END,
       date: loadResult.state.savedDate,
     },
-    tasks: loadResult.state.tasks,
     version: loadResult.state.version,
   };
 }
@@ -127,13 +128,14 @@ export function clearState(): void {
 
 /**
  * Exports the current state as a JSON string (for backup/download)
+ * Note: Tasks are no longer exported from PlannerState - they're managed by taskpoolStore
  */
 export function exportState(state: PlannerState): string {
   const exportData = {
     ...createPersistedState(
       state.pool.dailyCapacity,
       state.pool.capacityInMinutes,
-      state.tasks,
+      [], // Tasks are persisted separately by taskpoolStore
       getTodayString(),
       state.pool.dayStart,
       state.pool.dayEnd,

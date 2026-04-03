@@ -110,6 +110,8 @@ function fromPersistedState(persisted: PersistedWeeklyState): WeeklyState {
     },
     projects,
     // tasks is not persisted - derived from taskpoolStore on load
+    // Initialize with empty array, will be populated by weeklyStore
+    tasks: [],
     tracks,
     version: WEEKLY_STATE_VERSION,
   };

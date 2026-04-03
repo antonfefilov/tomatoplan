@@ -27,6 +27,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     setTaskProject: vi.fn(),
     assignedTomatoes: 3,
     remainingTomatoes: 7,
+    tasks: [],
   },
 }));
 
@@ -66,6 +67,7 @@ const mockStore = plannerStore as unknown as {
   setTaskProject: ReturnType<typeof vi.fn>;
   assignedTomatoes: number;
   remainingTomatoes: number;
+  tasks: readonly Task[];
 };
 
 const mockTasks: Task[] = [
@@ -87,7 +89,7 @@ describe("TomatoPlannerApp", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // Set up default mock state
+    // Set up default mock state (tasks are now on the store, not in state)
     const mockState: PlannerState = {
       pool: {
         dailyCapacity: 10,
@@ -96,8 +98,7 @@ describe("TomatoPlannerApp", () => {
         dayStart: "08:00",
         dayEnd: "18:25",
       },
-      tasks: [],
-      version: 1,
+      version: 2,
     };
 
     // Set up default mock behavior
@@ -114,6 +115,7 @@ describe("TomatoPlannerApp", () => {
     });
     mockStore.assignedTomatoes = 3;
     mockStore.remainingTomatoes = 7;
+    mockStore.tasks = [];
 
     element = document.createElement("tomato-planner-app") as TomatoPlannerApp;
     document.body.appendChild(element);
@@ -141,7 +143,8 @@ describe("TomatoPlannerApp", () => {
       const subscribeCall = mockStore.subscribe.mock.calls[0];
       const callback = subscribeCall![0] as (state: PlannerState) => void;
 
-      // Simulate state update
+      // Simulate state update (tasks are now on the store, not in state)
+      mockStore.tasks = mockTasks;
       const newState: PlannerState = {
         pool: {
           dailyCapacity: 15,
@@ -150,8 +153,7 @@ describe("TomatoPlannerApp", () => {
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        tasks: mockTasks,
-        version: 1,
+        version: 2,
       };
 
       callback(newState);
@@ -372,6 +374,7 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockStore.tasks = mockTasks;
 
       callback({
         pool: {
@@ -381,8 +384,7 @@ describe("TomatoPlannerApp", () => {
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        tasks: mockTasks,
-        version: 1,
+        version: 2,
       });
       await element.updateComplete;
 
@@ -413,6 +415,7 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockStore.tasks = mockTasks;
 
       callback({
         pool: {
@@ -422,8 +425,7 @@ describe("TomatoPlannerApp", () => {
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        tasks: mockTasks,
-        version: 1,
+        version: 2,
       });
       await element.updateComplete;
 
@@ -540,6 +542,7 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockStore.tasks = mockTasks;
 
       callback({
         pool: {
@@ -549,8 +552,7 @@ describe("TomatoPlannerApp", () => {
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        tasks: mockTasks,
-        version: 1,
+        version: 2,
       });
       await element.updateComplete;
 
@@ -585,6 +587,7 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockStore.tasks = mockTasks;
 
       callback({
         pool: {
@@ -594,8 +597,7 @@ describe("TomatoPlannerApp", () => {
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        tasks: mockTasks,
-        version: 1,
+        version: 2,
       });
       await element.updateComplete;
 

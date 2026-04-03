@@ -94,9 +94,19 @@ class WeeklyStore {
       );
     }
 
-    // Subscribe to taskpoolStore to notify subscribers of task changes
-    // Tasks are derived from taskpoolStore on demand, not stored in state
+    // Populate tasks from taskpoolStore BEFORE subscribing
+    // This ensures tasks are available when tests mock them directly
+    this.state = {
+      ...this.state,
+      tasks: this.getWeeklyTasks(),
+    };
+
+    // Subscribe to taskpoolStore to update tasks and notify subscribers of task changes
     taskpoolStore.subscribe(() => {
+      this.state = {
+        ...this.state,
+        tasks: this.getWeeklyTasks(),
+      };
       this.notify();
     });
   }
@@ -107,15 +117,14 @@ class WeeklyStore {
 
   /**
    * Gets the current state (returns a shallow copy to prevent direct mutation)
-   * Tasks are derived from taskpoolStore on demand
+   * Tasks are derived from taskpoolStore and stored in state.tasks
    */
   getState(): WeeklyState {
     return {
       ...this.state,
       projects: [...this.state.projects],
       tracks: [...this.state.tracks],
-      // Tasks are derived from taskpoolStore, not stored in state
-      tasks: this.getWeeklyTasks(),
+      tasks: [...this.state.tasks],
     };
   }
 
@@ -853,7 +862,10 @@ class WeeklyStore {
    * Preserves capacity settings
    */
   resetWeek(): void {
-    const newState = resetWeeklyStateForNewWeek(this.state);
+    const newState = {
+      ...resetWeeklyStateForNewWeek(this.state),
+      tasks: this.getWeeklyTasks(),
+    };
     this.setState(newState);
   }
 
@@ -862,7 +874,10 @@ class WeeklyStore {
    */
   clearAllData(): void {
     clearWeeklyState();
-    this.state = createInitialWeeklyState();
+    this.state = {
+      ...createInitialWeeklyState(),
+      tasks: this.getWeeklyTasks(),
+    };
     this.notify();
   }
 
@@ -913,10 +928,10 @@ class WeeklyStore {
   }
 
   /**
-   * Gets all tasks (derived from taskpoolStore)
+   * Gets all tasks (cached in state, derived from taskpoolStore)
    */
   get tasks(): readonly Task[] {
-    return this.getWeeklyTasks();
+    return [...this.state.tasks];
   }
 
   /**

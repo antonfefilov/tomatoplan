@@ -534,7 +534,8 @@ export class TrackGraphEditor extends LitElement {
     const hasStructChange =
       this._previousStructureSignature !== currentSignature;
 
-    if (hasStructChange || !this.track) {
+    // Rebuild if: structure changed, no track, OR we have a pending rebuild to retry
+    if (hasStructChange || !this.track || this._pendingStructureRebuild) {
       // Full rebuild
       const result = await this._rebuildGraph();
       // Only update signature if rebuild succeeded and this is still the latest sync

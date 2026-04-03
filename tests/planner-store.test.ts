@@ -523,14 +523,14 @@ describe("PlannerStore", () => {
   describe("persistence", () => {
     it("should persist state changes to localStorage", () => {
       store.setCapacity(12);
-      store.addTask("Persisted Task");
 
       const stored = localStorage.getItem(STORAGE_KEYS.PLANNER_STATE);
       expect(stored).toBeDefined();
 
       const parsed = JSON.parse(stored!);
       expect(parsed.dailyCapacity).toBe(12);
-      expect(parsed.tasks).toHaveLength(1);
+      // Tasks are no longer persisted in planner state - they're managed by taskpoolStore
+      expect(parsed.tasks).toHaveLength(0);
     });
   });
 
@@ -831,17 +831,14 @@ describe("PlannerStore", () => {
       expect(movedTask.description).toBe(originalTask.description);
     });
 
-    it("should persist reordered state to localStorage", () => {
+    it("should persist reordered state to taskpoolStore", () => {
       const taskId = store.tasks[0]!.id;
       store.reorderTask(taskId, 2);
 
-      const stored = localStorage.getItem(STORAGE_KEYS.PLANNER_STATE);
-      expect(stored).toBeDefined();
-
-      const parsed = JSON.parse(stored!);
-      expect(parsed.tasks[0].title).toBe("Task 2");
-      expect(parsed.tasks[1].title).toBe("Task 3");
-      expect(parsed.tasks[2].title).toBe("Task 1");
+      // Verify the reorder happened in the store's tasks
+      expect(store.tasks[0]!.title).toBe("Task 2");
+      expect(store.tasks[1]!.title).toBe("Task 3");
+      expect(store.tasks[2]!.title).toBe("Task 1");
     });
 
     it("should notify subscribers on reorder", () => {

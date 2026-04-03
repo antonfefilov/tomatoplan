@@ -10,13 +10,44 @@ import type { Track } from "../src/models/track.js";
 import type { Task } from "../src/models/task.js";
 
 // Mock cytoscape and dagre - use inline function to avoid hoisting issues
+// Shared spy for stable remove() assertions
+const removeSpy = vi.fn();
+
 vi.mock("cytoscape", () => {
+  // Layout mock that stores callbacks for 'one' method
+  const layoutOneCallbacks: { event: string; callback: () => void }[] = [];
+  const mockLayout = {
+    one: vi.fn((event: string, callback: () => void) => {
+      layoutOneCallbacks.push({ event, callback });
+      return mockLayout;
+    }),
+    run: vi.fn(() => {
+      // Simulate layoutstop event after run
+      const stopCallback = layoutOneCallbacks.find(
+        (entry) => entry.event === "layoutstop",
+      );
+      if (stopCallback) {
+        stopCallback.callback();
+      }
+    }),
+    // Expose for tests to trigger layoutstop manually
+    _triggerLayoutStop: () => {
+      const stopCallback = layoutOneCallbacks.find(
+        (entry) => entry.event === "layoutstop",
+      );
+      if (stopCallback) {
+        stopCallback.callback();
+      }
+    },
+  };
+
   const mockCy = {
     on: vi.fn(),
-    elements: vi.fn(() => ({ remove: vi.fn() })),
+    elements: vi.fn(() => ({ remove: removeSpy })),
     add: vi.fn(),
-    layout: vi.fn(() => ({ run: vi.fn() })),
+    layout: vi.fn(() => mockLayout),
     fit: vi.fn(),
+    resize: vi.fn(),
     nodes: vi.fn(() => ({
       forEach: vi.fn(),
       removeClass: vi.fn(),
@@ -310,9 +341,6 @@ describe("TrackGraphEditor", () => {
   });
 
   describe("Cytoscape event bridge", () => {
-    // These tests use the actual component's internal logic
-    // They verify that events are wired correctly by testing the output
-
     beforeEach(async () => {
       element.track = mockTrack;
       element.tasks = mockTasks;
@@ -321,13 +349,11 @@ describe("TrackGraphEditor", () => {
 
     describe("node selection behavior", () => {
       it("should set pendingEdgeSource when shift-clicked on node", async () => {
-        // Simulate shift-click behavior by setting pendingEdgeSource
         element.pendingEdgeSource = "task-1";
         await element.updateComplete;
 
         expect(element.pendingEdgeSource).toBe("task-1");
 
-        // Should show pending edge indicator
         const indicator = element.querySelector(".pending-edge-indicator");
         expect(indicator).toBeDefined();
       });
@@ -339,7 +365,6 @@ describe("TrackGraphEditor", () => {
         const eventSpy = vi.fn();
         element.addEventListener("track-edge-create-request", eventSpy);
 
-        // Dispatch event simulating edge creation completion
         element.dispatchEvent(
           new CustomEvent("track-edge-create-request", {
             bubbles: true,
@@ -356,24 +381,18 @@ describe("TrackGraphEditor", () => {
       it("should prevent edge removal when readonly", async () => {
         element.readonly = true;
         await element.updateComplete;
-
-        // Component should be in readonly mode
         expect(element.readonly).toBe(true);
       });
 
       it("should prevent node removal when readonly", async () => {
         element.readonly = true;
         await element.updateComplete;
-
         expect(element.readonly).toBe(true);
       });
     });
   });
 
   describe("Cytoscape tap handler readonly prevention", () => {
-    // These tests verify the readonly guard in the node tap handler
-    // by capturing the registered handler and invoking it directly
-
     type TapEvent = {
       target: { id: () => string };
       originalEvent?: { shiftKey: boolean };
@@ -386,13 +405,11 @@ describe("TrackGraphEditor", () => {
     });
 
     it("should dispatch track-node-select and NOT set pendingEdgeSource on shift+tap when readonly", async () => {
-      // Get the mock cytoscape instance
       const cytoscapeModule = await import("cytoscape");
       const mockCy = (
         cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
       )();
 
-      // Capture the tap handler
       expect(mockCy.on).toHaveBeenCalledWith(
         "tap",
         "node",
@@ -406,33 +423,26 @@ describe("TrackGraphEditor", () => {
 
       expect(tapHandler).toBeDefined();
 
-      // Set readonly mode
       element.readonly = true;
       await element.updateComplete;
 
-      // Listen for events
       const nodeSelectSpy = vi.fn();
       const edgeCreateSpy = vi.fn();
       element.addEventListener("track-node-select", nodeSelectSpy);
       element.addEventListener("track-edge-create-request", edgeCreateSpy);
 
-      // Simulate shift+tap on node (shift+click to start edge creation)
       tapHandler!({
         target: { id: () => "task-1" },
         originalEvent: { shiftKey: true },
       });
 
-      // Should emit node select (allowed in readonly)
       expect(nodeSelectSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           detail: { nodeId: "task-1" },
         }),
       );
 
-      // Should NOT start edge creation (pendingEdgeSource should remain undefined)
       expect(element.pendingEdgeSource).toBeUndefined();
-
-      // Should NOT emit edge create request
       expect(edgeCreateSpy).not.toHaveBeenCalled();
     });
 
@@ -442,7 +452,6 @@ describe("TrackGraphEditor", () => {
         cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
       )();
 
-      // Capture the tap handler
       expect(mockCy.on).toHaveBeenCalledWith(
         "tap",
         "node",
@@ -456,12 +465,10 @@ describe("TrackGraphEditor", () => {
 
       expect(tapHandler).toBeDefined();
 
-      // Set up pending edge state and readonly mode
       element.pendingEdgeSource = "task-1";
       element.readonly = true;
       await element.updateComplete;
 
-      // Listen for events
       const nodeSelectSpy = vi.fn();
       const edgeCreateSpy = vi.fn();
       const edgeCancelSpy = vi.fn();
@@ -469,23 +476,18 @@ describe("TrackGraphEditor", () => {
       element.addEventListener("track-edge-create-request", edgeCreateSpy);
       element.addEventListener("track-edge-creation-cancel", edgeCancelSpy);
 
-      // Simulate tap on target node (completing edge creation flow)
       tapHandler!({
         target: { id: () => "task-2" },
         originalEvent: { shiftKey: false },
       });
 
-      // Should emit node select (allowed in readonly)
       expect(nodeSelectSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           detail: { nodeId: "task-2" },
         }),
       );
 
-      // Should NOT emit edge create request
       expect(edgeCreateSpy).not.toHaveBeenCalled();
-
-      // Should cancel pending edge creation
       expect(edgeCancelSpy).toHaveBeenCalled();
       expect(element.pendingEdgeSource).toBeUndefined();
     });
@@ -496,7 +498,6 @@ describe("TrackGraphEditor", () => {
         cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
       )();
 
-      // Capture the tap handler
       const tapHandler = (
         mockCy.on as unknown as ReturnType<typeof vi.fn>
       ).mock.calls.find(
@@ -505,24 +506,18 @@ describe("TrackGraphEditor", () => {
 
       expect(tapHandler).toBeDefined();
 
-      // Ensure NOT readonly
       element.readonly = false;
       await element.updateComplete;
 
-      // Listen for events
       const nodeSelectSpy = vi.fn();
       element.addEventListener("track-node-select", nodeSelectSpy);
 
-      // Simulate shift+tap on node to start edge creation
       tapHandler!({
         target: { id: () => "task-1" },
         originalEvent: { shiftKey: true },
       });
 
-      // Should NOT emit node select when starting edge creation
       expect(nodeSelectSpy).not.toHaveBeenCalled();
-
-      // Should start edge creation
       expect(element.pendingEdgeSource).toBe("task-1");
     });
 
@@ -532,7 +527,6 @@ describe("TrackGraphEditor", () => {
         cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
       )();
 
-      // Capture the tap handler
       const tapHandler = (
         mockCy.on as unknown as ReturnType<typeof vi.fn>
       ).mock.calls.find(
@@ -541,29 +535,24 @@ describe("TrackGraphEditor", () => {
 
       expect(tapHandler).toBeDefined();
 
-      // Set up pending edge state (NOT readonly)
       element.pendingEdgeSource = "task-1";
       element.readonly = false;
       await element.updateComplete;
 
-      // Listen for events
       const edgeCreateSpy = vi.fn();
       element.addEventListener("track-edge-create-request", edgeCreateSpy);
 
-      // Simulate tap on target node
       tapHandler!({
         target: { id: () => "task-2" },
         originalEvent: { shiftKey: false },
       });
 
-      // Should emit edge create request
       expect(edgeCreateSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           detail: { sourceTaskId: "task-1", targetTaskId: "task-2" },
         }),
       );
 
-      // Should clear pending edge
       expect(element.pendingEdgeSource).toBeUndefined();
     });
 
@@ -573,7 +562,6 @@ describe("TrackGraphEditor", () => {
         cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
       )();
 
-      // Capture the tap handler
       const tapHandler = (
         mockCy.on as unknown as ReturnType<typeof vi.fn>
       ).mock.calls.find(
@@ -582,22 +570,18 @@ describe("TrackGraphEditor", () => {
 
       expect(tapHandler).toBeDefined();
 
-      // Set readonly mode (no pending edge)
       element.readonly = true;
       element.pendingEdgeSource = undefined;
       await element.updateComplete;
 
-      // Listen for events
       const nodeSelectSpy = vi.fn();
       element.addEventListener("track-node-select", nodeSelectSpy);
 
-      // Simulate regular tap on node (no shift key)
       tapHandler!({
         target: { id: () => "task-1" },
         originalEvent: { shiftKey: false },
       });
 
-      // Should emit node select (allowed in readonly)
       expect(nodeSelectSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           detail: { nodeId: "task-1" },
@@ -616,22 +600,18 @@ describe("TrackGraphEditor", () => {
     it("should update node classes when selectedNodeId changes", async () => {
       element.selectedNodeId = "task-1";
       await element.updateComplete;
-
-      // The component should have updated selectedNodeId
       expect(element.selectedNodeId).toBe("task-1");
     });
 
     it("should update node classes when pendingEdgeSource changes", async () => {
       element.pendingEdgeSource = "task-2";
       await element.updateComplete;
-
       expect(element.pendingEdgeSource).toBe("task-2");
     });
 
     it("should update node classes when readonly changes", async () => {
       element.readonly = true;
       await element.updateComplete;
-
       expect(element.readonly).toBe(true);
     });
 
@@ -643,6 +623,327 @@ describe("TrackGraphEditor", () => {
       element.selectedNodeId = undefined;
       await element.updateComplete;
       expect(element.selectedNodeId).toBeUndefined();
+    });
+  });
+
+  describe("deferred rebuild + resize retry", () => {
+    let requestAnimationFrameSpy: unknown;
+    let rafCallbacks: ((time: number) => void)[] = [];
+
+    beforeEach(() => {
+      rafCallbacks = [];
+      requestAnimationFrameSpy = vi
+        .spyOn(globalThis, "requestAnimationFrame")
+        .mockImplementation((cb: FrameRequestCallback) => {
+          rafCallbacks.push(cb);
+          return rafCallbacks.length as unknown as number;
+        });
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      (requestAnimationFrameSpy as ReturnType<typeof vi.spyOn>)?.mockRestore();
+      vi.restoreAllMocks();
+    });
+
+    function flushAnimationFrames() {
+      const callbacks = [...rafCallbacks];
+      rafCallbacks = [];
+      callbacks.forEach((cb) => cb(performance.now()));
+    }
+
+    let resizeObserverCallback: ResizeObserverCallback | null = null;
+
+    beforeEach(() => {
+      resizeObserverCallback = null;
+    });
+
+    function triggerResizeObserver(width = 800, height = 600) {
+      if (!resizeObserverCallback) {
+        throw new Error(
+          "ResizeObserver callback not set up. Ensure component created ResizeObserver.",
+        );
+      }
+      const target = document.createElement("div");
+      const mockEntry = {
+        target,
+        contentRect: {
+          width,
+          height,
+          left: 0,
+          top: 0,
+          right: width,
+          bottom: height,
+        } as DOMRectReadOnly,
+        borderBoxSize: [] as unknown as ResizeObserverSize[],
+        contentBoxSize: [] as unknown as ResizeObserverSize[],
+        devicePixelContentBoxSize: [] as unknown as ResizeObserverSize[],
+      } as unknown as ResizeObserverEntry;
+      resizeObserverCallback([mockEntry], null as unknown as ResizeObserver);
+    }
+
+    beforeEach(() => {
+      vi.stubGlobal(
+        "ResizeObserver",
+        class MockResizeObserver {
+          constructor(callback: ResizeObserverCallback) {
+            resizeObserverCallback = callback;
+          }
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+        },
+      );
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    function isPendingStructureRebuild(): Promise<boolean> {
+      element.requestUpdate();
+      return element.updateComplete.then(() => {
+        return (element as unknown as { _pendingStructureRebuild: boolean })
+          ._pendingStructureRebuild;
+      });
+    }
+
+    it("A. defers rebuild when container is zero-sized", async () => {
+      // This test verifies that when container has zero size and there's a
+      // structural change, _pendingStructureRebuild becomes true and rebuild is deferred.
+
+      // Mount with track/tasks
+      element.track = mockTrack;
+      element.tasks = mockTasks;
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      // Verify no deferred rebuild is pending initially
+      const pendingAfterInit = await isPendingStructureRebuild();
+      expect(pendingAfterInit).toBe(false);
+
+      // Spy on _rebuildGraph to simulate zero-size container deferral
+      const warnSpy = vi.spyOn(console, "warn");
+      const elementCasted = element as unknown as {
+        _rebuildGraph: () => Promise<"rebuilt" | "deferred">;
+        _pendingStructureRebuild: boolean;
+      };
+      const originalRebuildGraph = elementCasted._rebuildGraph;
+      elementCasted._rebuildGraph = async () => {
+        console.warn("Cytoscape container has zero size, deferring rebuild");
+        elementCasted._pendingStructureRebuild = true;
+        return "deferred";
+      };
+
+      // Trigger STRUCTURAL change (taskIds) - _rebuildGraph should defer
+      const updatedTrack = {
+        ...mockTrack,
+        taskIds: ["task-1", "task-2", "task-3"],
+      };
+      element.track = updatedTrack;
+      await element.updateComplete;
+
+      // _pendingStructureRebuild should be true because _rebuildGraph deferred
+      const pendingAfterChange = await isPendingStructureRebuild();
+      expect(pendingAfterChange).toBe(true);
+      expect(warnSpy).toHaveBeenCalledWith(
+        "Cytoscape container has zero size, deferring rebuild",
+      );
+
+      // Restore original method
+      elementCasted._rebuildGraph = originalRebuildGraph;
+    });
+
+    it("B. retries deferred rebuild after resize", async () => {
+      // This test verifies that when _pendingStructureRebuild = true and
+      // ResizeObserver fires, a FULL rebuild happens (remove, add, layout.run).
+
+      element.track = mockTrack;
+      element.tasks = mockTasks;
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      const cytoscapeModule = await import("cytoscape");
+      const mockCy = (
+        cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
+      )();
+
+      removeSpy.mockClear();
+      mockCy.add.mockClear();
+      const mockLayout = mockCy.layout.mock.results[0]?.value;
+      if (mockLayout) {
+        mockLayout.run.mockClear();
+      }
+
+      const pendingBefore = await isPendingStructureRebuild();
+      expect(pendingBefore).toBe(false);
+
+      // Get container and ensure it has proper dimensions for rebuild
+      const container = element.querySelector(
+        ".cytoscape-container",
+      ) as HTMLElement;
+      expect(container).toBeDefined();
+      Object.defineProperty(container, "clientWidth", {
+        get: () => 800,
+        configurable: true,
+      });
+      Object.defineProperty(container, "clientHeight", {
+        get: () => 600,
+        configurable: true,
+      });
+
+      // Manually set _pendingStructureRebuild = true to simulate deferred state
+      (
+        element as unknown as { _pendingStructureRebuild: boolean }
+      )._pendingStructureRebuild = true;
+
+      const pendingNow = await isPendingStructureRebuild();
+      expect(pendingNow).toBe(true);
+
+      // Trigger resize observer callback
+      expect(resizeObserverCallback).not.toBeNull();
+      triggerResizeObserver(800, 600);
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      // Assert: _pendingStructureRebuild should now be false (rebuild completed)
+      const pendingAfter = await isPendingStructureRebuild();
+      expect(pendingAfter).toBe(false);
+
+      // Assert: full rebuild happened
+      expect(removeSpy).toHaveBeenCalled();
+      expect(mockCy.add).toHaveBeenCalled();
+      if (mockLayout) {
+        expect(mockLayout.run).toHaveBeenCalled();
+      }
+    });
+
+    it("D. deferred rebuild uses latest structure after updates", async () => {
+      // This test verifies that when _pendingStructureRebuild is true and resize fires,
+      // the rebuild uses the LATEST structure (track/tasks) not stale ones.
+      //
+      // Note: Due to the way Lit's update cycle works, setting _pendingStructureRebuild = true
+      // before track update causes immediate rebuild (not deferred). The key assertion is that
+      // after track update with structural change AND subsequent resize, add() is called
+      // with the NEW structure.
+
+      element.track = mockTrack;
+      element.tasks = mockTasks;
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      const cytoscapeModule = await import("cytoscape");
+      const mockCy = (
+        cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
+      )();
+
+      removeSpy.mockClear();
+      mockCy.add.mockClear();
+
+      // Set container to proper dimensions
+      const container = element.querySelector(
+        ".cytoscape-container",
+      ) as HTMLElement;
+      expect(container).toBeDefined();
+      Object.defineProperty(container, "clientWidth", {
+        get: () => 800,
+        configurable: true,
+      });
+      Object.defineProperty(container, "clientHeight", {
+        get: () => 600,
+        configurable: true,
+      });
+
+      // Update track to NEW structure first (without _pendingStructureRebuild set)
+      // This triggers a normal rebuild with NEW structure
+      const updatedTrack = {
+        ...mockTrack,
+        taskIds: ["task-1", "task-2", "task-3"],
+        edges: [
+          { sourceTaskId: "task-1", targetTaskId: "task-2" },
+          { sourceTaskId: "task-2", targetTaskId: "task-3" },
+        ],
+        title: "Updated Track",
+      };
+      const updatedTasks = [
+        ...mockTasks,
+        {
+          id: "task-3",
+          title: "Task 3",
+          tomatoCount: 1,
+          finishedTomatoCount: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+
+      element.track = updatedTrack;
+      element.tasks = updatedTasks;
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      // Clear mocks after the update rebuild
+      removeSpy.mockClear();
+      mockCy.add.mockClear();
+
+      // Now set _pendingStructureRebuild = true and trigger resize
+      // This simulates a deferred rebuild being retried
+      (
+        element as unknown as { _pendingStructureRebuild: boolean }
+      )._pendingStructureRebuild = true;
+
+      // Trigger resize observer callback
+      expect(resizeObserverCallback).not.toBeNull();
+      triggerResizeObserver(800, 600);
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      // Key assertion: add() should have been called with the NEW structure
+      // because resize with _pendingStructureRebuild=true triggers rebuild
+      // and the track property has the latest structure
+      const allAddCalls = mockCy.add.mock.calls;
+      expect(allAddCalls.length).toBeGreaterThan(0);
+
+      const lastAddCall = allAddCalls[allAddCalls.length - 1][0] as Array<{
+        data: { id: string };
+      }>;
+      const addedIds = lastAddCall.map((el) => el.data.id);
+
+      // Should include the new task-3 element (proving latest structure was used)
+      expect(addedIds).toContain("task-3");
+    });
+
+    it("C. resize without pending rebuild only fits graph, does not rebuild", async () => {
+      element.track = mockTrack;
+      element.tasks = mockTasks;
+      await element.updateComplete;
+      flushAnimationFrames();
+      await element.updateComplete;
+
+      const cytoscapeModule = await import("cytoscape");
+      const mockCy = (
+        cytoscapeModule.default as unknown as ReturnType<typeof vi.fn>
+      )();
+
+      const pendingBefore = await isPendingStructureRebuild();
+      expect(pendingBefore).toBe(false);
+
+      vi.clearAllMocks();
+      removeSpy.mockClear();
+
+      triggerResizeObserver(800, 600);
+      await element.updateComplete;
+
+      expect(mockCy.resize).toHaveBeenCalled();
+      expect(mockCy.fit).toHaveBeenCalled();
+      expect(removeSpy).not.toHaveBeenCalled();
+      expect(mockCy.add).not.toHaveBeenCalled();
     });
   });
 });

@@ -22,16 +22,6 @@ describe("persistence", () => {
   describe("saveState and loadState", () => {
     it("should save and load state correctly", () => {
       const state = createInitialPlannerState(10, 25);
-      state.tasks = [
-        {
-          id: "task-1",
-          title: "My Task",
-          tomatoCount: 3,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ];
 
       saveState(state);
 
@@ -42,8 +32,6 @@ describe("persistence", () => {
       expect(loaded!.pool.capacityInMinutes).toBe(25);
       expect(loaded!.pool.dayStart).toBe("08:00");
       expect(loaded!.pool.dayEnd).toBe("18:25");
-      expect(loaded!.tasks).toHaveLength(1);
-      expect(loaded!.tasks[0]!.title).toBe("My Task");
     });
 
     it("should return null when no state exists", () => {
@@ -136,16 +124,6 @@ describe("persistence", () => {
   describe("exportState", () => {
     it("should export state as formatted JSON", () => {
       const state = createInitialPlannerState(10, 25);
-      state.tasks = [
-        {
-          id: "task-1",
-          title: "Task",
-          tomatoCount: 3,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ];
 
       const exported = exportState(state);
       const parsed = JSON.parse(exported);
@@ -154,7 +132,8 @@ describe("persistence", () => {
       expect(parsed.capacityInMinutes).toBe(25);
       expect(parsed.dayStart).toBe("08:00");
       expect(parsed.dayEnd).toBe("18:25");
-      expect(parsed.tasks).toHaveLength(1);
+      // Tasks are now saved as empty array (managed separately by taskpoolStore)
+      expect(parsed.tasks).toHaveLength(0);
       expect(parsed.exportedAt).toBeDefined();
       expect(parsed.appName).toBe("Tomato Plan");
     });
@@ -171,16 +150,6 @@ describe("persistence", () => {
   describe("importState", () => {
     it("should import valid state", () => {
       const state = createInitialPlannerState(10, 25, "09:00", "17:00");
-      state.tasks = [
-        {
-          id: "task-1",
-          title: "Task",
-          tomatoCount: 3,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ];
 
       const exported = exportState(state);
       const result = importState(exported);
@@ -190,7 +159,6 @@ describe("persistence", () => {
       expect(result.state!.dailyCapacity).toBe(10);
       expect(result.state!.dayStart).toBe("09:00");
       expect(result.state!.dayEnd).toBe("17:00");
-      expect(result.state!.tasks).toHaveLength(1);
     });
 
     it("should save imported state to localStorage", () => {
@@ -233,27 +201,8 @@ describe("persistence", () => {
   });
 
   describe("persistence integration", () => {
-    it("should handle full save/load cycle with tasks", () => {
+    it("should handle full save/load cycle", () => {
       const state = createInitialPlannerState(20, 30, "09:00", "17:00");
-      state.tasks = [
-        {
-          id: "task-1",
-          title: "Task 1",
-          description: "Description 1",
-          tomatoCount: 5,
-          finishedTomatoCount: 2,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-02T00:00:00.000Z",
-        },
-        {
-          id: "task-2",
-          title: "Task 2",
-          tomatoCount: 3,
-          finishedTomatoCount: 0,
-          createdAt: "2024-01-01T00:00:00.000Z",
-          updatedAt: "2024-01-01T00:00:00.000Z",
-        },
-      ];
 
       saveState(state);
       const loaded = loadState();
@@ -262,12 +211,6 @@ describe("persistence", () => {
       expect(loaded!.pool.capacityInMinutes).toBe(30);
       expect(loaded!.pool.dayStart).toBe("09:00");
       expect(loaded!.pool.dayEnd).toBe("17:00");
-      expect(loaded!.tasks).toHaveLength(2);
-      expect(loaded!.tasks[0]!.title).toBe("Task 1");
-      expect(loaded!.tasks[0]!.description).toBe("Description 1");
-      expect(loaded!.tasks[0]!.tomatoCount).toBe(5);
-      expect(loaded!.tasks[0]!.finishedTomatoCount).toBe(2);
-      expect(loaded!.tasks[1]!.title).toBe("Task 2");
     });
   });
 });

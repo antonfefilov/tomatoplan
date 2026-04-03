@@ -26,10 +26,10 @@ export interface WeeklyState {
 
   /**
    * Tasks with projectId references (derived from taskpoolStore).
-   * This field is computed on demand and not persisted.
+   * This field is cached in state and not persisted.
    * @deprecated Use weeklyStore.tasks or taskpoolStore methods instead.
    */
-  tasks?: readonly Task[];
+  tasks: readonly Task[];
 
   /** Version for potential migrations */
   readonly version: number;
@@ -70,7 +70,7 @@ export function resetWeeklyStateForNewWeek(
       newCapacityInMinutes ?? state.pool.capacityInMinutes,
     ),
     projects: [],
-    // tasks is not persisted - derived from taskpoolStore on load
+    // tasks is not persisted - cached in state, derived from taskpoolStore
     // Include empty array for backwards compatibility with code that reads state.tasks
     tasks: [],
     tracks: [],
