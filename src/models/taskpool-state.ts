@@ -279,6 +279,34 @@ export function unassignTaskFromDay(
 }
 
 /**
+ * Removes a task ID from a day bucket and deletes the entry if the array becomes empty.
+ * This helper ensures proper cleanup of empty day buckets to prevent stale entries.
+ *
+ * @param dayAssignments - The current day assignments map (will be copied)
+ * @param dayDate - The date from which to remove the task
+ * @param taskId - The task ID to remove
+ * @returns A new Map with the task removed and empty buckets cleaned up
+ */
+export function removeTaskFromDayBucket(
+  dayAssignments: Map<string, string[]>,
+  dayDate: string,
+  taskId: string,
+): Map<string, string[]> {
+  const newDayAssignments = new Map(dayAssignments);
+  const dayTasks = newDayAssignments.get(dayDate) ?? [];
+  const filtered = dayTasks.filter((id) => id !== taskId);
+
+  if (filtered.length > 0) {
+    newDayAssignments.set(dayDate, filtered);
+  } else {
+    // Delete empty bucket to prevent stale entries
+    newDayAssignments.delete(dayDate);
+  }
+
+  return newDayAssignments;
+}
+
+/**
  * Gets all tasks assigned to a specific day.
  */
 export function getTasksForDay(state: TaskpoolState, dayDate: string): Task[] {

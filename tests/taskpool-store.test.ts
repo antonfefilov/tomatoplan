@@ -809,4 +809,189 @@ describe("TaskpoolStore", () => {
       expect(result.success).toBe(false);
     });
   });
+
+  // Regression tests for empty day bucket cleanup (tomatoplan-ct7)
+  describe("empty day bucket cleanup", () => {
+    describe("importTasks", () => {
+      it("should remove empty day bucket when moving the only task to a different day", () => {
+        // Add a task to day A
+        const result = store.addTask("Test Task", undefined, {
+          dayDate: "2025-01-01",
+        });
+        if (!result.taskId) throw new Error("taskId should be defined");
+
+        // Verify day A has one task
+        expect(store.getTasksForDay("2025-01-01").length).toBe(1);
+        expect(store.daysWithTasks).toBe(1);
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-01");
+
+        // Import the same task moved to day B
+        const movedTask: Task = {
+          id: result.taskId,
+          title: "Test Task",
+          tomatoCount: 0,
+          finishedTomatoCount: 0,
+          dayDate: "2025-01-02",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        store.importTasks([movedTask]);
+
+        // Verify day A bucket is removed
+        expect(store.getTasksForDay("2025-01-01").length).toBe(0);
+        expect(store.daysWithTasks).toBe(1); // Should still be 1 (only day B)
+        expect(store.getAllDaysWithTasks()).not.toContain("2025-01-01");
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-02");
+      });
+
+      it("should remove empty day bucket when importing task with changed dayDate", () => {
+        // Add two tasks to day A
+        const result1 = store.addTask("Task 1", undefined, {
+          dayDate: "2025-01-01",
+        });
+        const result2 = store.addTask("Task 2", undefined, {
+          dayDate: "2025-01-01",
+        });
+        if (!result1.taskId || !result2.taskId)
+          throw new Error("taskId should be defined");
+
+        expect(store.daysWithTasks).toBe(1);
+
+        // Import task 1 moved to day B, task 2 stays on day A
+        const movedTask: Task = {
+          id: result1.taskId,
+          title: "Task 1",
+          tomatoCount: 0,
+          finishedTomatoCount: 0,
+          dayDate: "2025-01-02",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        store.importTasks([movedTask]);
+
+        // Day A should still have task 2
+        expect(store.getTasksForDay("2025-01-01").length).toBe(1);
+        expect(store.daysWithTasks).toBe(2); // Both days
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-01");
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-02");
+
+        // Now move task 2 to day B as well, making day A empty
+        const movedTask2: Task = {
+          id: result2.taskId,
+          title: "Task 2",
+          tomatoCount: 0,
+          finishedTomatoCount: 0,
+          dayDate: "2025-01-02",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        store.importTasks([movedTask2]);
+
+        // Day A bucket should be removed
+        expect(store.getTasksForDay("2025-01-01").length).toBe(0);
+        expect(store.daysWithTasks).toBe(1); // Only day B
+        expect(store.getAllDaysWithTasks()).not.toContain("2025-01-01");
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-02");
+      });
+
+      it("should handle unassigning the only task from a day via import", () => {
+        // Add a task to day A
+        const result = store.addTask("Test Task", undefined, {
+          dayDate: "2025-01-01",
+        });
+        if (!result.taskId) throw new Error("taskId should be defined");
+
+        expect(store.daysWithTasks).toBe(1);
+
+        // Import the task without dayDate (unassigned)
+        const unassignedTask: Task = {
+          id: result.taskId,
+          title: "Test Task",
+          tomatoCount: 0,
+          finishedTomatoCount: 0,
+          dayDate: undefined,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        store.importTasks([unassignedTask]);
+
+        // Day A bucket should be removed
+        expect(store.getTasksForDay("2025-01-01").length).toBe(0);
+        expect(store.daysWithTasks).toBe(0);
+        expect(store.getAllDaysWithTasks()).not.toContain("2025-01-01");
+      });
+    });
+
+    describe("migrateFromPlannerState", () => {
+      it("should remove empty day bucket when re-migrating task to different date", () => {
+        // First migration to day A
+        const legacyTasks: Task[] = [
+          {
+            id: "task-1",
+            title: "Legacy Task",
+            tomatoCount: 2,
+            finishedTomatoCount: 0,
+            createdAt: "2025-01-01T10:00:00Z",
+            updatedAt: "2025-01-01T10:00:00Z",
+          },
+        ];
+
+        store.migrateFromPlannerState(legacyTasks, "2025-01-01");
+        expect(store.daysWithTasks).toBe(1);
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-01");
+
+        // Re-migrate to day B (different date)
+        const updatedTasks: Task[] = [
+          {
+            id: "task-1",
+            title: "Legacy Task",
+            tomatoCount: 2,
+            finishedTomatoCount: 0,
+            dayDate: "2025-01-02", // Already has dayDate (edge case)
+            createdAt: "2025-01-01T10:00:00Z",
+            updatedAt: "2025-01-01T10:00:00Z",
+          },
+        ];
+
+        store.migrateFromPlannerState(updatedTasks, "2025-01-02");
+
+        // Day A bucket should be removed
+        expect(store.getTasksForDay("2025-01-01").length).toBe(0);
+        expect(store.daysWithTasks).toBe(1);
+        expect(store.getAllDaysWithTasks()).not.toContain("2025-01-01");
+        expect(store.getAllDaysWithTasks()).toContain("2025-01-02");
+      });
+    });
+
+    describe("getAllDaysWithTasks", () => {
+      it("should not include empty buckets after cleanup", () => {
+        // Create multiple days with tasks
+        store.addTask("Task 1", undefined, { dayDate: "2025-01-01" });
+        store.addTask("Task 2", undefined, { dayDate: "2025-01-02" });
+        store.addTask("Task 3", undefined, { dayDate: "2025-01-03" });
+
+        expect(store.daysWithTasks).toBe(3);
+        const allDays = store.getAllDaysWithTasks();
+        expect(allDays).toContain("2025-01-01");
+        expect(allDays).toContain("2025-01-02");
+        expect(allDays).toContain("2025-01-03");
+
+        // Move all tasks to a single day via import
+        const allTasks = store.getAllTasks();
+        const movedTasks = allTasks.map((t) => ({
+          ...t,
+          dayDate: "2025-01-04",
+        }));
+        store.importTasks(movedTasks);
+
+        // All previous day buckets should be removed
+        expect(store.daysWithTasks).toBe(1);
+        const remainingDays = store.getAllDaysWithTasks();
+        expect(remainingDays).not.toContain("2025-01-01");
+        expect(remainingDays).not.toContain("2025-01-02");
+        expect(remainingDays).not.toContain("2025-01-03");
+        expect(remainingDays).toContain("2025-01-04");
+      });
+    });
+  });
 });

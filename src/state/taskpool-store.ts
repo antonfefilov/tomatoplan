@@ -17,6 +17,7 @@ import {
   assignTaskToDay as assignTaskToDayHelper,
   unassignTaskFromDay as unassignTaskFromDayHelper,
   getTasksForDay as getTasksForDayHelper,
+  removeTaskFromDayBucket,
 } from "../models/taskpool-state.js";
 import { generateId } from "../utils/id.js";
 import { validateTaskTitle, validateTomatoCount } from "../utils/validation.js";
@@ -219,7 +220,7 @@ class TaskpoolStore {
    */
   importTasks(tasks: readonly Task[]): void {
     const newTasks = new Map(this.state.tasks);
-    const newDayAssignments = new Map(this.state.dayAssignments);
+    let newDayAssignments = new Map(this.state.dayAssignments);
 
     for (const task of tasks) {
       // Validate task
@@ -230,14 +231,12 @@ class TaskpoolStore {
       // Check if task already exists with a different dayDate
       const existingTask = this.state.tasks.get(task.id);
       if (existingTask?.dayDate && existingTask.dayDate !== task.dayDate) {
-        // Remove from old day's assignment
-        const oldDayTasks = newDayAssignments.get(existingTask.dayDate);
-        if (oldDayTasks) {
-          newDayAssignments.set(
-            existingTask.dayDate,
-            oldDayTasks.filter((id) => id !== task.id),
-          );
-        }
+        // Remove from old day's assignment (with proper empty bucket cleanup)
+        newDayAssignments = removeTaskFromDayBucket(
+          newDayAssignments,
+          existingTask.dayDate,
+          task.id,
+        );
       }
 
       // Add to tasks map
@@ -871,14 +870,12 @@ class TaskpoolStore {
       // Check if task already exists with a different dayDate
       const existingTask = this.state.tasks.get(task.id);
       if (existingTask?.dayDate && existingTask.dayDate !== task.dayDate) {
-        // Remove from old day's assignment
-        const oldDayTasks = newDayAssignments.get(existingTask.dayDate);
-        if (oldDayTasks) {
-          newDayAssignments.set(
-            existingTask.dayDate,
-            oldDayTasks.filter((id) => id !== task.id),
-          );
-        }
+        // Remove from old day's assignment (with proper empty bucket cleanup)
+        newDayAssignments = removeTaskFromDayBucket(
+          newDayAssignments,
+          existingTask.dayDate,
+          task.id,
+        );
       }
 
       newTasks.set(task.id, task);
