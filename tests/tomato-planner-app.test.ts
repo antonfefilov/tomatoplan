@@ -6,7 +6,46 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { PlannerState } from "../src/models/planner-state.js";
 import type { Task } from "../src/models/task.js";
 
-// Mock the plannerStore singleton before importing the component
+// Use vi.hoisted to create shared backing state before mocks are hoisted
+// Wrap in objects to allow mutation (hoisted returns constants)
+const mockState = vi.hoisted(() => {
+  return {
+    plannerDate: "2024-06-15",
+    plannerDayTasks: [] as Task[],
+  };
+});
+
+// Mock taskpoolStore - the canonical source for tasks
+vi.mock("../src/state/taskpool-store.js", () => ({
+  taskpoolStore: {
+    subscribe: vi.fn(),
+    getTasksForDay: vi.fn().mockImplementation((date: string) => {
+      // Return tasks only for the matching date
+      if (date === mockState.plannerDate) {
+        return mockState.plannerDayTasks;
+      }
+      return [];
+    }),
+    getAllTasks: vi.fn().mockImplementation(() => {
+      // Return all tasks for weeklyStore compatibility
+      return mockState.plannerDayTasks;
+    }),
+    addTask: vi.fn().mockReturnValue({ success: true, taskId: "test-task-id" }),
+    updateTask: vi.fn(),
+    removeTask: vi.fn(),
+    assignTomato: vi.fn(),
+    unassignTomato: vi.fn(),
+    markTomatoAsFinished: vi.fn(),
+    markTomatoAsUnfinished: vi.fn(),
+    reorderTask: vi.fn(),
+    getTaskById: vi.fn(),
+    setTaskProject: vi.fn(),
+    importTasks: vi.fn(),
+  },
+}));
+
+// Mock the plannerStore singleton - tasks is now a getter that derives from taskpoolStore
+// Note: The getter uses the hoisted state directly, not a local mock reference
 vi.mock("../src/state/planner-store.js", () => ({
   plannerStore: {
     subscribe: vi.fn(),
@@ -27,7 +66,11 @@ vi.mock("../src/state/planner-store.js", () => ({
     setTaskProject: vi.fn(),
     assignedTomatoes: 3,
     remainingTomatoes: 7,
-    tasks: [],
+    // tasks is now a getter that derives from hoisted state
+    // This matches production behavior where tasks are derived from taskpoolStore
+    get tasks() {
+      return mockState.plannerDayTasks;
+    },
   },
 }));
 
@@ -35,6 +78,7 @@ vi.mock("../src/state/planner-store.js", () => ({
 import "../src/components/app/tomato-planner-app.js";
 import type { TomatoPlannerApp } from "../src/components/app/tomato-planner-app.js";
 import { plannerStore } from "../src/state/planner-store.js";
+import { taskpoolStore } from "../src/state/taskpool-store.js";
 import "../src/components/layout/app-shell.js";
 import "../src/components/layout/app-header.js";
 import "../src/components/pool/tomato-pool-panel.js";
@@ -67,7 +111,24 @@ const mockStore = plannerStore as unknown as {
   setTaskProject: ReturnType<typeof vi.fn>;
   assignedTomatoes: number;
   remainingTomatoes: number;
-  tasks: readonly Task[];
+  readonly tasks: readonly Task[];
+};
+
+const mockTaskpoolStore = taskpoolStore as unknown as {
+  subscribe: ReturnType<typeof vi.fn>;
+  getTasksForDay: ReturnType<typeof vi.fn>;
+  getAllTasks: ReturnType<typeof vi.fn>;
+  addTask: ReturnType<typeof vi.fn>;
+  updateTask: ReturnType<typeof vi.fn>;
+  removeTask: ReturnType<typeof vi.fn>;
+  assignTomato: ReturnType<typeof vi.fn>;
+  unassignTomato: ReturnType<typeof vi.fn>;
+  markTomatoAsFinished: ReturnType<typeof vi.fn>;
+  markTomatoAsUnfinished: ReturnType<typeof vi.fn>;
+  reorderTask: ReturnType<typeof vi.fn>;
+  getTaskById: ReturnType<typeof vi.fn>;
+  setTaskProject: ReturnType<typeof vi.fn>;
+  importTasks: ReturnType<typeof vi.fn>;
 };
 
 const mockTasks: Task[] = [
@@ -82,6 +143,27 @@ const mockTasks: Task[] = [
   },
 ];
 
+/**
+ * Helper function to set planner tasks in the mock
+ * Updates the shared backing state and configures taskpoolStore mock to return them
+ */
+function setPlannerTasks(tasks: Task[]) {
+  // Update the hoisted state object
+  mockState.plannerDayTasks.splice(
+    0,
+    mockState.plannerDayTasks.length,
+    ...tasks,
+  );
+  // Update taskpoolStore mocks to return the tasks
+  mockTaskpoolStore.getTasksForDay.mockImplementation((date: string) => {
+    if (date === mockState.plannerDate) {
+      return mockState.plannerDayTasks;
+    }
+    return [];
+  });
+  mockTaskpoolStore.getAllTasks.mockReturnValue(mockState.plannerDayTasks);
+}
+
 describe("TomatoPlannerApp", () => {
   let element: TomatoPlannerApp;
   let unsubscribeSpy: ReturnType<typeof vi.fn>;
@@ -89,8 +171,12 @@ describe("TomatoPlannerApp", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
+    // Reset the hoisted shared backing state
+    mockState.plannerDayTasks.splice(0, mockState.plannerDayTasks.length);
+    mockState.plannerDate = "2024-06-15";
+
     // Set up default mock state (tasks are now on the store, not in state)
-    const mockState: PlannerState = {
+    const mockStateObj: PlannerState = {
       pool: {
         dailyCapacity: 10,
         date: "2024-06-15",
@@ -105,7 +191,7 @@ describe("TomatoPlannerApp", () => {
     unsubscribeSpy = vi.fn();
     mockStore.subscribe.mockImplementation(
       (callback: (state: PlannerState) => void) => {
-        callback(mockState);
+        callback(mockStateObj);
         return unsubscribeSpy;
       },
     );
@@ -115,7 +201,8 @@ describe("TomatoPlannerApp", () => {
     });
     mockStore.assignedTomatoes = 3;
     mockStore.remainingTomatoes = 7;
-    mockStore.tasks = [];
+    // Use helper to set tasks - tasks is a getter now
+    setPlannerTasks([]);
 
     element = document.createElement("tomato-planner-app") as TomatoPlannerApp;
     document.body.appendChild(element);
@@ -144,7 +231,8 @@ describe("TomatoPlannerApp", () => {
       const callback = subscribeCall![0] as (state: PlannerState) => void;
 
       // Simulate state update (tasks are now on the store, not in state)
-      mockStore.tasks = mockTasks;
+      // Use helper to set tasks - tasks is a getter now
+      setPlannerTasks(mockTasks);
       const newState: PlannerState = {
         pool: {
           dailyCapacity: 15,
@@ -374,7 +462,8 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
-      mockStore.tasks = mockTasks;
+      // Use helper to set tasks - tasks is a getter now
+      setPlannerTasks(mockTasks);
 
       callback({
         pool: {
@@ -415,7 +504,8 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
-      mockStore.tasks = mockTasks;
+      // Use helper to set tasks - tasks is a getter now
+      setPlannerTasks(mockTasks);
 
       callback({
         pool: {
@@ -542,7 +632,8 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
-      mockStore.tasks = mockTasks;
+      // Use helper to set tasks - tasks is a getter now
+      setPlannerTasks(mockTasks);
 
       callback({
         pool: {
@@ -587,7 +678,8 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
-      mockStore.tasks = mockTasks;
+      // Use helper to set tasks - tasks is a getter now
+      setPlannerTasks(mockTasks);
 
       callback({
         pool: {
