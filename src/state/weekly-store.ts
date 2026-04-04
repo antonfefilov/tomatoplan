@@ -132,18 +132,17 @@ class WeeklyStore {
    * Gets weekly tasks derived from taskpoolStore.
    * Filters tasks to only include those relevant to current week's projects.
    */
-  private getWeeklyTasks(): Task[] {
+  private getWeeklyTasks(projects?: readonly Project[]): Task[] {
     const currentWeekId = getCurrentWeekId();
     const allTasks = taskpoolStore.getAllTasks();
+    const projectsToUse = projects ?? this.state.projects;
 
     // Filter tasks to only include those:
     // 1. Without a project (unassigned tasks created this week)
     // 2. With a project from current week
     return allTasks.filter((task) => {
       if (task.projectId) {
-        const project = this.state.projects.find(
-          (p) => p.id === task.projectId,
-        );
+        const project = projectsToUse.find((p) => p.id === task.projectId);
         return project && project.weekId === currentWeekId;
       }
       return true;
@@ -862,9 +861,10 @@ class WeeklyStore {
    * Preserves capacity settings
    */
   resetWeek(): void {
+    const baseState = resetWeeklyStateForNewWeek(this.state);
     const newState = {
-      ...resetWeeklyStateForNewWeek(this.state),
-      tasks: this.getWeeklyTasks(),
+      ...baseState,
+      tasks: this.getWeeklyTasks(baseState.projects),
     };
     this.setState(newState);
   }
