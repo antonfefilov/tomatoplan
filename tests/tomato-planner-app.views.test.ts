@@ -598,6 +598,103 @@ describe("TomatoPlannerApp Views", () => {
         "proj-1",
       );
     });
+
+    // Regression test setup: add projects so project-items render
+    beforeEach(async () => {
+      // Set up weekly store with a project
+      const mockProject = createMockProject("proj-1", "Test Project", 5);
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(createMockWeeklyState([mockProject]));
+          return weeklyUnsubscribe;
+        },
+      );
+      // Re-render with projects
+      vi.clearAllMocks();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+      // Switch to Week view
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+    });
+
+    it("should call weeklyStore.incrementProjectEstimate exactly once when + button is clicked in Week view (regression test for 4x bubbling bug)", async () => {
+      // Clear any previous calls
+      mockWeeklyStore.incrementProjectEstimate.mockClear();
+
+      // Get project-list-panel and find project-item
+      const projectListPanel = element.shadowRoot!.querySelector(
+        "project-list-panel",
+      ) as HTMLElement;
+      const projectList = projectListPanel.shadowRoot!.querySelector(
+        "project-list",
+      ) as HTMLElement;
+      const projectItem = projectList.shadowRoot!.querySelector(
+        "project-item",
+      ) as HTMLElement & { mode: string; updateComplete: Promise<boolean> };
+
+      // Ensure planning mode so estimate buttons are visible
+      projectItem.mode = "planning";
+      await projectItem.updateComplete;
+
+      // Click the + button (second estimate-btn)
+      const increaseBtn = projectItem.shadowRoot!.querySelectorAll(
+        ".estimate-btn",
+      )[1] as HTMLButtonElement;
+      increaseBtn.click();
+      await element.updateComplete;
+
+      // Should be called exactly once, not 4 times (the original bug)
+      expect(mockWeeklyStore.incrementProjectEstimate).toHaveBeenCalledTimes(1);
+      expect(mockWeeklyStore.incrementProjectEstimate).toHaveBeenCalledWith(
+        "proj-1",
+      );
+    });
+
+    it("should call weeklyStore.decrementProjectEstimate exactly once when - button is clicked in Week view (regression test for 4x bubbling bug)", async () => {
+      // Clear any previous calls
+      mockWeeklyStore.decrementProjectEstimate.mockClear();
+
+      // Get project-list-panel and find project-item
+      const projectListPanel = element.shadowRoot!.querySelector(
+        "project-list-panel",
+      ) as HTMLElement;
+      const projectList = projectListPanel.shadowRoot!.querySelector(
+        "project-list",
+      ) as HTMLElement;
+      const projectItem = projectList.shadowRoot!.querySelector(
+        "project-item",
+      ) as HTMLElement & {
+        mode: string;
+        project: Project;
+        updateComplete: Promise<boolean>;
+      };
+
+      // Ensure planning mode so estimate buttons are visible
+      projectItem.mode = "planning";
+      // Ensure project has estimate > 0 so - button is enabled
+      projectItem.project = { ...projectItem.project, tomatoEstimate: 5 };
+      await projectItem.updateComplete;
+
+      // Click the - button (first estimate-btn)
+      const decreaseBtn = projectItem.shadowRoot!.querySelectorAll(
+        ".estimate-btn",
+      )[0] as HTMLButtonElement;
+      decreaseBtn.click();
+      await element.updateComplete;
+
+      // Should be called exactly once, not 4 times (the original bug)
+      expect(mockWeeklyStore.decrementProjectEstimate).toHaveBeenCalledTimes(1);
+      expect(mockWeeklyStore.decrementProjectEstimate).toHaveBeenCalledWith(
+        "proj-1",
+      );
+    });
   });
 
   // ============================================
