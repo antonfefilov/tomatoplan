@@ -886,6 +886,21 @@ class WeeklyStore {
   // ============================================
 
   /**
+   * SELECTOR IMMUTABILITY CONTRACT
+   * ==============================
+   * All array-returning getters (projects, tasks, tracks) return defensive
+   * shallow copies to prevent external mutation of internal state.
+   *
+   * IMPORTANT:
+   * - Returned arrays are snapshots and should be treated as read-only
+   * - Copies are shallow - nested entities (Project, Task, Track objects) remain mutable
+   * - All writes must go through store actions (addProject, updateProject, etc.)
+   * - Direct mutation of returned objects may cause inconsistent state
+   *
+   * For deep immutability, consumers should create their own deep copies.
+   */
+
+  /**
    * Gets the weekly capacity
    */
   get weeklyCapacity(): number {
@@ -907,10 +922,10 @@ class WeeklyStore {
   }
 
   /**
-   * Gets all projects
+   * Gets all projects (defensive copy)
    */
   get projects(): readonly Project[] {
-    return this.state.projects;
+    return [...this.state.projects];
   }
 
   /**
@@ -1025,10 +1040,10 @@ class WeeklyStore {
   // ============================================
 
   /**
-   * Gets all tracks
+   * Gets all tracks (defensive copy)
    */
   get tracks(): readonly Track[] {
-    return this.state.tracks;
+    return [...this.state.tracks];
   }
 
   /**
