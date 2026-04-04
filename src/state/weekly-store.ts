@@ -874,8 +874,9 @@ class WeeklyStore {
    */
   clearAllData(): void {
     clearWeeklyState();
+    this.state = createInitialWeeklyState();
     this.state = {
-      ...createInitialWeeklyState(),
+      ...this.state,
       tasks: this.getWeeklyTasks(),
     };
     this.notify();
