@@ -146,6 +146,10 @@ import "../src/components/tomato/tomato-icon.js";
 import "../src/components/tomato/tomato-pool-visual.js";
 import "../src/components/shared/dropdown-menu.js";
 import "../src/components/shared/empty-state.js";
+import "../src/components/track/track-list-panel.js";
+import "../src/components/track/track-builder-panel.js";
+import "../src/components/track/track-task-palette.js";
+import "../src/components/track/track-graph-editor.js";
 
 const mockPlannerStore = plannerStore as unknown as {
   subscribe: ReturnType<typeof vi.fn>;
@@ -1675,6 +1679,197 @@ describe("TomatoPlannerApp Views", () => {
       );
       // removeTask should NOT have been called - this proves task is unassigned, not deleted
       expect(mockPlannerStore.removeTask).not.toHaveBeenCalled();
+    });
+  });
+
+  // ============================================
+  // Tracks View - Track Task Source Integration Tests (tomatoplan-a8d.1)
+  // ============================================
+
+  describe("Tracks view - unscheduled tasks appear in track-task-palette", () => {
+    // Regression test for tomatoplan-a8d
+    // Before the fix, track-task-palette used day pool (getTasksForDay)
+    // which only showed tasks scheduled for today.
+    // After the fix, track-task-palette uses main task pool (getAllTasks)
+    // which includes unscheduled tasks (tasks without dayDate).
+
+    beforeEach(async () => {
+      // Create a mock track to have something to select
+      const mockTrack = {
+        id: "test-track-1",
+        title: "Test Track",
+        taskIds: [],
+        edges: [],
+        weekId: "2024-W24",
+        createdAt: "2024-06-10T00:00:00.000Z",
+        updatedAt: "2024-06-10T00:00:00.000Z",
+      };
+
+      const weeklyStateWithTrack: WeeklyState = {
+        pool: {
+          weekId: "2024-W24",
+          weekStartDate: "2024-06-10",
+          weekEndDate: "2024-06-16",
+          weeklyCapacity: 125,
+          capacityInMinutes: 25,
+        },
+        projects: [],
+        tasks: [],
+        tracks: [mockTrack],
+        version: 2,
+      };
+
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(weeklyStateWithTrack);
+          return weeklyUnsubscribe;
+        },
+      );
+
+      // Recreate element to pick up new mock data
+      element.remove();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+    });
+
+    it("should show all tasks from main pool in track-task-palette available tasks", async () => {
+      // Create an unscheduled task (no dayDate) - this should appear in track-task-palette
+      const unscheduledTask = createMockTask(
+        "unscheduled-task",
+        "Unscheduled Task",
+      );
+      // Explicitly no dayDate - task is NOT assigned to any day
+      delete (unscheduledTask as any).dayDate;
+
+      // Create a scheduled task (with dayDate for today)
+      const scheduledTask = createMockTask("scheduled-task", "Scheduled Task");
+      scheduledTask.dayDate = "2024-06-15"; // Today's date
+
+      // Set up taskpoolStore.getAllTasks to return BOTH tasks (main pool)
+      // This is the key: getAllTasks returns all tasks regardless of day assignment
+      mockTaskpoolStore.getAllTasks.mockReturnValue([
+        unscheduledTask,
+        scheduledTask,
+      ]);
+
+      // Set up taskpoolStore.getTasksForDay to return only scheduled task (day pool)
+      mockTaskpoolStore.getTasksForDay.mockImplementation((date: string) => {
+        if (date === "2024-06-15") {
+          return [scheduledTask];
+        }
+        return [];
+      });
+
+      // Switch to Tracks view
+      const tracksTab = element.shadowRoot!.querySelector(
+        '.tab-btn[aria-controls="tracks-view"]',
+      ) as HTMLButtonElement;
+      tracksTab.click();
+      await element.updateComplete;
+
+      // Select the track via track-list-panel
+      const trackListPanel =
+        element.shadowRoot!.querySelector("track-list-panel");
+      trackListPanel!.dispatchEvent(
+        new CustomEvent("select-track", {
+          bubbles: true,
+          composed: true,
+          detail: { trackId: "test-track-1" },
+        }),
+      );
+      await element.updateComplete;
+      // Also wait for track-builder-panel to update
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Verify track-builder-panel is rendered
+      const trackBuilderPanel = element.shadowRoot!.querySelector(
+        "track-builder-panel",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      expect(trackBuilderPanel).not.toBeNull();
+      await trackBuilderPanel.updateComplete;
+
+      // Verify track-task-palette is rendered inside track-builder-panel
+      const trackTaskPalette = trackBuilderPanel!.shadowRoot!.querySelector(
+        "track-task-palette",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      expect(trackTaskPalette).not.toBeNull();
+      await trackTaskPalette.updateComplete;
+
+      const paletteHTML = trackTaskPalette!.shadowRoot!.innerHTML;
+
+      // After the tomatoplan-a8d fix, track-task-palette uses getAllTasks (main pool)
+      // which includes BOTH scheduled and unscheduled tasks
+      // Before the fix, it used getTasksForDay (day pool) which only had today's tasks
+      expect(paletteHTML).toContain("Unscheduled Task");
+      expect(paletteHTML).toContain("Scheduled Task");
+    });
+
+    it("should use getAllTasks (main pool) not getTasksForDay (day pool) for track available tasks - regression verification", async () => {
+      // Create tasks: one unscheduled, one scheduled for a different day
+      const unscheduledTask = createMockTask(
+        "unassigned",
+        "Never Assigned Task",
+      );
+      delete (unscheduledTask as any).dayDate;
+
+      const otherDayTask = createMockTask("other-day", "Assigned to Other Day");
+      otherDayTask.dayDate = "2024-06-20"; // Different day
+
+      // Main pool has both tasks
+      mockTaskpoolStore.getAllTasks.mockReturnValue([
+        unscheduledTask,
+        otherDayTask,
+      ]);
+
+      // Day pool only has tasks for today (empty in this case since we're testing unscheduled)
+      mockTaskpoolStore.getTasksForDay.mockImplementation((date: string) => {
+        if (date === "2024-06-15") {
+          return []; // No tasks for today
+        }
+        return [];
+      });
+
+      // Switch to Tracks view
+      const tracksTab = element.shadowRoot!.querySelector(
+        '.tab-btn[aria-controls="tracks-view"]',
+      ) as HTMLButtonElement;
+      tracksTab.click();
+      await element.updateComplete;
+
+      // Select the track
+      const trackListPanel =
+        element.shadowRoot!.querySelector("track-list-panel");
+      trackListPanel!.dispatchEvent(
+        new CustomEvent("select-track", {
+          bubbles: true,
+          composed: true,
+          detail: { trackId: "test-track-1" },
+        }),
+      );
+      await element.updateComplete;
+      // Also wait for track-builder-panel to update
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // If track-task-palette uses getAllTasks (main pool), unscheduled task will be available
+      // If it incorrectly uses getTasksForDay (day pool), unscheduled task will NOT be available
+      const trackBuilderPanel = element.shadowRoot!.querySelector(
+        "track-builder-panel",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      expect(trackBuilderPanel).not.toBeNull();
+      await trackBuilderPanel.updateComplete;
+
+      const trackTaskPalette = trackBuilderPanel!.shadowRoot!.querySelector(
+        "track-task-palette",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      expect(trackTaskPalette).not.toBeNull();
+      await trackTaskPalette.updateComplete;
+
+      // This assertion is the regression check: the task from main pool should be visible
+      const paletteHTML = trackTaskPalette!.shadowRoot!.innerHTML;
+      expect(paletteHTML).toContain("Never Assigned Task");
     });
   });
 });
