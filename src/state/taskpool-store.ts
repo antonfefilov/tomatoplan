@@ -239,8 +239,21 @@ class TaskpoolStore {
         );
       }
 
+      // Merge with existing task to preserve local fields
+      // Local fields (managed locally): trackId, projectId, finishedTomatoCount
+      // Content fields (from import): title, description, tomatoCount, dayDate
+      const mergedTask: Task = existingTask
+        ? {
+            ...task, // Start with imported task data
+            // Preserve local fields from existing task
+            trackId: existingTask.trackId,
+            projectId: existingTask.projectId,
+            finishedTomatoCount: existingTask.finishedTomatoCount,
+          }
+        : { ...task };
+
       // Add to tasks map
-      newTasks.set(task.id, { ...task });
+      newTasks.set(task.id, mergedTask);
 
       // Update day assignments if task has a dayDate
       if (task.dayDate) {
