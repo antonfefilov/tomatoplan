@@ -588,12 +588,23 @@ export class TomatoPlannerApp extends LitElement {
   // Track Actions
   // ============================================
 
+  /**
+   * Gets all tasks from the main task pool for track building.
+   * This is separate from _getAllTasks() which combines daily + weekly stores,
+   * because taskpoolStore.getAllTasks() is the canonical source for ALL tasks.
+   */
+  private _getAllTasksForTracks(): readonly Task[] {
+    return taskpoolStore.getAllTasks();
+  }
+
   private _getAvailableTasksForTracks(): readonly Task[] {
     const trackedTaskIds = new Set(
       this._tracks.flatMap((track) => track.taskIds),
     );
 
-    return this._tasks.filter((task) => !trackedTaskIds.has(task.id));
+    return this._getAllTasksForTracks().filter(
+      (task) => !trackedTaskIds.has(task.id),
+    );
   }
 
   private _handleSaveTrack(
@@ -972,7 +983,7 @@ export class TomatoPlannerApp extends LitElement {
                     <track-list-panel
                       slot="pool-panel"
                       .tracks=${this._tracks}
-                      .tasks=${this._tasks}
+                      .tasks=${this._getAllTasksForTracks()}
                       .projects=${this._projects}
                       .selectedTrackId=${this._selectedTrackId}
                       @save-track=${this._handleSaveTrack}
@@ -984,7 +995,7 @@ export class TomatoPlannerApp extends LitElement {
                       .track=${this._tracks.find(
                         (t) => t.id === this._selectedTrackId,
                       )}
-                      .tasks=${this._tasks}
+                      .tasks=${this._getAllTasksForTracks()}
                       .availableTasks=${this._getAvailableTasksForTracks()}
                       .projects=${this._projects}
                       @add-task-to-track=${this._handleAddTaskToTrack}

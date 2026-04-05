@@ -313,7 +313,7 @@ export class TrackTaskPalette extends LitElement {
             : tasksInTrack.length === 0
               ? html`
                   <div class="empty-text">
-                    No tasks available. Create tasks in the Day view first.
+                    No tasks available. Create a task first.
                   </div>
                 `
               : html` <div class="empty-text">No tasks available to add</div> `}

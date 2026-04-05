@@ -303,7 +303,7 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
         "No tasks available to add",
       );
       expect(component.shadowRoot?.innerHTML).not.toContain(
-        "No tasks available. Create tasks in the Day view first.",
+        "No tasks available. Create a task first.",
       );
     });
 
@@ -325,7 +325,7 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
 
       // Check if there's an empty state message. According to the logic in the component:
       // if (tasksNotInTrack.length > 0): show Available section
-      // else if (tasksInTrack.length === 0): show "No tasks available. Create tasks in the Day view first."
+      // else if (tasksInTrack.length === 0): show "No tasks available. Create a task first."
       // else: show "No tasks available to add"
       const emptyTextElement =
         component.shadowRoot?.querySelector(".empty-text");
@@ -333,7 +333,7 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
       if (emptyTextElement) {
         // Since there are no tasks in this scenario, it should be the general message
         expect(emptyTextElement.textContent).toContain(
-          "No tasks available. Create tasks in the Day view first.",
+          "No tasks available. Create a task first.",
         );
       }
     });
