@@ -96,6 +96,25 @@ export class TaskEditorDialog extends LitElement {
     .dialog-content {
       position: relative;
     }
+
+    .error-message {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      color: #dc2626;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .error-icon {
+      width: 20px;
+      height: 20px;
+      fill: #dc2626;
+    }
   `;
 
   @property({ type: Boolean })
@@ -112,6 +131,9 @@ export class TaskEditorDialog extends LitElement {
 
   @property({ type: String })
   defaultProjectId?: string;
+
+  @property({ type: String })
+  error?: string;
 
   @state()
   private _focusedElement: HTMLElement | null = null;
@@ -202,6 +224,24 @@ export class TaskEditorDialog extends LitElement {
               : null}
           </div>
           <div class="dialog-content">
+            ${this.error
+              ? html`
+                  <div class="error-message" role="alert">
+                    <svg
+                      class="error-icon"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                    <span>${this.error}</span>
+                  </div>
+                `
+              : null}
             <task-form
               .task=${this.task}
               .projects=${this.projects}

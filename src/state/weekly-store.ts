@@ -561,6 +561,19 @@ class WeeklyStore {
       return { success: false, error: "Task not found" };
     }
 
+    // ATOMIC UPDATE: Validate project assignment FIRST before applying any other updates.
+    // This ensures that if project assignment fails, no other fields are mutated.
+    // Use hasOwnProperty to distinguish between undefined (not set) and
+    // explicitly set to undefined/null (unassign)
+    if (Object.prototype.hasOwnProperty.call(updates, "projectId")) {
+      const result = updates.projectId
+        ? this.assignTaskToProject(taskId, updates.projectId)
+        : this.unassignTaskFromProject(taskId);
+
+      if (!result.success) return result;
+    }
+
+    // Only apply other field updates if project validation succeeded (or wasn't needed)
     if (updates.title !== undefined) {
       const result = taskpoolStore.updateTask(taskId, { title: updates.title });
       if (!result.success) {

@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import type { PlannerState } from "../src/models/planner-state.js";
 import type { Task } from "../src/models/task.js";
+import type { Project } from "../src/models/project.js";
 
 // Use vi.hoisted to create shared backing state before mocks are hoisted
 // Wrap in objects to allow mutation (hoisted returns constants)
@@ -31,7 +32,7 @@ vi.mock("../src/state/taskpool-store.js", () => ({
       return mockState.plannerDayTasks;
     }),
     addTask: vi.fn().mockReturnValue({ success: true, taskId: "test-task-id" }),
-    updateTask: vi.fn(),
+    updateTask: vi.fn().mockReturnValue({ success: true }),
     removeTask: vi.fn(),
     assignTomato: vi.fn(),
     unassignTomato: vi.fn(),
@@ -39,7 +40,8 @@ vi.mock("../src/state/taskpool-store.js", () => ({
     markTomatoAsUnfinished: vi.fn(),
     reorderTask: vi.fn(),
     getTaskById: vi.fn(),
-    setTaskProject: vi.fn(),
+    setTaskProject: vi.fn().mockReturnValue({ success: true }),
+    unassignTaskFromProject: vi.fn().mockReturnValue({ success: true }),
     importTasks: vi.fn(),
   },
 }));
@@ -54,7 +56,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     setDayStart: vi.fn(),
     setDayEnd: vi.fn(),
     addTask: vi.fn().mockReturnValue({ success: true, taskId: "test-task-id" }),
-    updateTask: vi.fn(),
+    updateTask: vi.fn().mockReturnValue({ success: true }),
     removeTask: vi.fn(),
     assignTomato: vi.fn(),
     unassignTomato: vi.fn(),
@@ -63,7 +65,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     reorderTask: vi.fn(),
     resetDay: vi.fn(),
     getTaskById: vi.fn(),
-    setTaskProject: vi.fn(),
+    setTaskProject: vi.fn().mockReturnValue({ success: true }),
     assignedTomatoes: 3,
     remainingTomatoes: 7,
     // tasks is now a getter that derives from hoisted state
@@ -74,11 +76,26 @@ vi.mock("../src/state/planner-store.js", () => ({
   },
 }));
 
+// Mock weeklyStore for project assignment validation
+vi.mock("../src/state/weekly-store.js", () => ({
+  weeklyStore: {
+    subscribe: vi.fn(),
+    getTaskById: vi.fn(),
+    assignTaskToProject: vi.fn().mockReturnValue({ success: true }),
+    unassignTaskFromProject: vi.fn().mockReturnValue({ success: true }),
+    updateTask: vi.fn().mockReturnValue({ success: true }),
+    getProjectById: vi.fn(),
+    projects: [],
+    tasks: [],
+  },
+}));
+
 // Import component and dependent elements after mocking
 import "../src/components/app/tomato-planner-app.js";
 import type { TomatoPlannerApp } from "../src/components/app/tomato-planner-app.js";
 import { plannerStore } from "../src/state/planner-store.js";
 import { taskpoolStore } from "../src/state/taskpool-store.js";
+import { weeklyStore } from "../src/state/weekly-store.js";
 import "../src/components/layout/app-shell.js";
 import "../src/components/layout/app-header.js";
 import "../src/components/pool/tomato-pool-panel.js";
@@ -128,7 +145,19 @@ const mockTaskpoolStore = taskpoolStore as unknown as {
   reorderTask: ReturnType<typeof vi.fn>;
   getTaskById: ReturnType<typeof vi.fn>;
   setTaskProject: ReturnType<typeof vi.fn>;
+  unassignTaskFromProject: ReturnType<typeof vi.fn>;
   importTasks: ReturnType<typeof vi.fn>;
+};
+
+const mockWeeklyStore = weeklyStore as unknown as {
+  subscribe: ReturnType<typeof vi.fn>;
+  getTaskById: ReturnType<typeof vi.fn>;
+  assignTaskToProject: ReturnType<typeof vi.fn>;
+  unassignTaskFromProject: ReturnType<typeof vi.fn>;
+  updateTask: ReturnType<typeof vi.fn>;
+  getProjectById: ReturnType<typeof vi.fn>;
+  projects: readonly Project[];
+  tasks: readonly Task[];
 };
 
 const mockTasks: Task[] = [
@@ -199,8 +228,26 @@ describe("TomatoPlannerApp", () => {
       success: true,
       taskId: "test-task-id",
     });
+    mockStore.updateTask.mockReturnValue({ success: true });
+    mockStore.setTaskProject.mockReturnValue({ success: true });
     mockStore.assignedTomatoes = 3;
     mockStore.remainingTomatoes = 7;
+
+    // Set up taskpoolStore mocks
+    mockTaskpoolStore.addTask.mockReturnValue({
+      success: true,
+      taskId: "test-task-id",
+    });
+    mockTaskpoolStore.updateTask.mockReturnValue({ success: true });
+    mockTaskpoolStore.setTaskProject.mockReturnValue({ success: true });
+    mockTaskpoolStore.unassignTaskFromProject.mockReturnValue({
+      success: true,
+    });
+
+    // Set up weeklyStore mocks
+    mockWeeklyStore.assignTaskToProject.mockReturnValue({ success: true });
+    mockWeeklyStore.updateTask.mockReturnValue({ success: true });
+
     // Use helper to set tasks - tasks is a getter now
     setPlannerTasks([]);
 
@@ -678,6 +725,8 @@ describe("TomatoPlannerApp", () => {
         state: PlannerState,
       ) => void;
       mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockWeeklyStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockTaskpoolStore.getTaskById.mockReturnValue(mockTasks[0]);
       // Use helper to set tasks - tasks is a getter now
       setPlannerTasks(mockTasks);
 
@@ -721,7 +770,7 @@ describe("TomatoPlannerApp", () => {
       );
       await element.updateComplete;
 
-      expect(mockStore.updateTask).toHaveBeenCalledWith("task-1", {
+      expect(mockTaskpoolStore.updateTask).toHaveBeenCalledWith("task-1", {
         title: "Updated Task",
         description: "Updated desc",
       });

@@ -202,6 +202,9 @@ export class TomatoPlannerApp extends LitElement {
   @state()
   private _defaultProjectIdForNewTask: string | undefined = undefined;
 
+  @state()
+  private _taskDialogError: string | undefined = undefined;
+
   private _unsubscribe: (() => void) | null = null;
   private _timerUnsubscribe: (() => void) | null = null;
   private _weeklyUnsubscribe: (() => void) | null = null;
@@ -298,6 +301,7 @@ export class TomatoPlannerApp extends LitElement {
 
   private _handleOpenTaskDialog() {
     this._editingTask = undefined;
+    this._taskDialogError = undefined;
     this._showTaskDialog = true;
   }
 
@@ -307,6 +311,7 @@ export class TomatoPlannerApp extends LitElement {
       weeklyStore.getTaskById(e.detail.taskId);
     if (task) {
       this._editingTask = task;
+      this._taskDialogError = undefined;
       this._showTaskDialog = true;
     }
   }
@@ -322,16 +327,53 @@ export class TomatoPlannerApp extends LitElement {
     const { taskId, title, description, projectId } = e.detail;
 
     if (taskId) {
-      // Try updating in plannerStore first
+      // First check if task exists in either store
+      // plannerStore.getTaskById finds tasks assigned to today
+      // weeklyStore.getTaskById finds any task in taskpoolStore
       const plannerTask = plannerStore.getTaskById(taskId);
-      if (plannerTask) {
-        plannerStore.updateTask(taskId, { title, description });
-        plannerStore.setTaskProject(taskId, projectId);
-      }
-      // Also try weeklyStore
       const weeklyTask = weeklyStore.getTaskById(taskId);
-      if (weeklyTask) {
-        weeklyStore.updateTask(taskId, { title, description, projectId });
+
+      if (!plannerTask && !weeklyTask) {
+        // Task not found in either store - show error and keep dialog open
+        this._taskDialogError = "Task not found. It may have been deleted.";
+        return;
+      }
+
+      // ATOMIC UPDATE: Validate project assignment BEFORE applying any updates
+      // This ensures that if project validation fails, no other fields are mutated
+      // Use weeklyStore.assignTaskToProject for validation (checks project exists and is active)
+      if (projectId !== undefined) {
+        if (projectId) {
+          // Assigning to a project - validate first
+          const projectResult = weeklyStore.assignTaskToProject(
+            taskId,
+            projectId,
+          );
+          if (!projectResult.success) {
+            this._taskDialogError =
+              projectResult.error ?? "Failed to set project";
+            return;
+          }
+        } else {
+          // Unassigning from project - no validation needed, just unassign
+          const projectResult = taskpoolStore.unassignTaskFromProject(taskId);
+          if (!projectResult.success) {
+            this._taskDialogError =
+              projectResult.error ?? "Failed to remove project";
+            return;
+          }
+        }
+      }
+
+      // Now apply the title/description updates via taskpoolStore
+      // (both plannerStore and weeklyStore ultimately use taskpoolStore)
+      const updateResult = taskpoolStore.updateTask(taskId, {
+        title,
+        description,
+      });
+      if (!updateResult.success) {
+        this._taskDialogError = updateResult.error ?? "Failed to update task";
+        return;
       }
     } else {
       // Create new task
@@ -342,10 +384,23 @@ export class TomatoPlannerApp extends LitElement {
           ? plannerStore.addTask(title, description) // Assigns to today
           : taskpoolStore.addTask(title, description); // Creates without dayDate
 
+      if (!result.success) {
+        this._taskDialogError = result.error ?? "Failed to create task";
+        return;
+      }
+
       if (result.success && result.taskId) {
         // Set project assignment if a project was selected
         if (projectId) {
-          taskpoolStore.setTaskProject(result.taskId, projectId);
+          const projectResult = taskpoolStore.setTaskProject(
+            result.taskId,
+            projectId,
+          );
+          if (!projectResult.success) {
+            this._taskDialogError =
+              projectResult.error ?? "Failed to set project";
+            return;
+          }
         }
       }
     }
@@ -357,6 +412,7 @@ export class TomatoPlannerApp extends LitElement {
     this._showTaskDialog = false;
     this._editingTask = undefined;
     this._defaultProjectIdForNewTask = undefined;
+    this._taskDialogError = undefined;
   }
 
   private _handleDeleteTask(e: CustomEvent<{ taskId: string }>) {
@@ -960,6 +1016,7 @@ export class TomatoPlannerApp extends LitElement {
         .projects=${this._projects}
         .isEdit=${isEdit}
         .defaultProjectId=${this._defaultProjectIdForNewTask}
+        .error=${this._taskDialogError}
         @save=${this._handleSaveTask}
         @cancel=${this._closeTaskDialog}
       ></task-editor-dialog>

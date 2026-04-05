@@ -1025,6 +1025,110 @@ describe("WeeklyStore", () => {
       expect(result.error).toBe("Task not found");
       expect(store.tasks).toHaveLength(0);
     });
+
+    it("should assign task to project when projectId is set", () => {
+      const { projectId } = store.addProject("Project");
+
+      const task: Task = {
+        id: "task-1",
+        title: "Task",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+      const result = store.updateTask("task-1", { projectId });
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById("task-1")!.projectId).toBe(projectId);
+    });
+
+    it("should unassign task from project when projectId is undefined", () => {
+      const { projectId } = store.addProject("Project");
+
+      const task: Task = {
+        id: "task-1",
+        title: "Task",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        projectId,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+      const result = store.updateTask("task-1", { projectId: undefined });
+
+      expect(result.success).toBe(true);
+      expect(store.getTaskById("task-1")!.projectId).toBeUndefined();
+    });
+
+    it("should fail to assign task to non-existent project", () => {
+      const task: Task = {
+        id: "task-1",
+        title: "Task",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+      const result = store.updateTask("task-1", { projectId: "non-existent" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Project not found");
+    });
+
+    it("should fail to assign task to inactive project", () => {
+      const { projectId } = store.addProject("Project");
+      store.completeProject(projectId!);
+
+      const task: Task = {
+        id: "task-1",
+        title: "Task",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+      const result = store.updateTask("task-1", { projectId });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("inactive");
+    });
+
+    it("should update title, description, tomatoCount and projectId together", () => {
+      const { projectId } = store.addProject("Project");
+
+      const task: Task = {
+        id: "task-1",
+        title: "Original",
+        tomatoCount: 2,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+      const result = store.updateTask("task-1", {
+        title: "Updated",
+        description: "New description",
+        tomatoCount: 5,
+        projectId,
+      });
+
+      expect(result.success).toBe(true);
+      const updated = store.getTaskById("task-1")!;
+      expect(updated.title).toBe("Updated");
+      expect(updated.description).toBe("New description");
+      expect(updated.tomatoCount).toBe(5);
+      expect(updated.projectId).toBe(projectId);
+    });
   });
 
   describe("removeTask", () => {
