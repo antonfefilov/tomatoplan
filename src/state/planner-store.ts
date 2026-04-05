@@ -466,6 +466,14 @@ class PlannerStore {
   }
 
   /**
+   * Assigns a task to today by delegating to taskpoolStore
+   * This is used when a task from the Tasks pool needs to be assigned to the current day
+   */
+  assignTaskToToday(taskId: string): { success: boolean; error?: string } {
+    return taskpoolStore.assignTaskToDay(taskId, this.state.pool.date);
+  }
+
+  /**
    * Marks a task as done by setting finishedTomatoCount to at least tomatoCount.
    * This is a one-way convenience action - if finished already >= planned, no change.
    */

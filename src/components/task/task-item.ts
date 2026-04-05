@@ -388,6 +388,32 @@ export class TaskItem extends LitElement {
       cursor: not-allowed;
     }
 
+    /* Assign to Today button styling */
+    .btn-assign-today {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: none;
+      background: #fef2f2;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .btn-assign-today:hover {
+      background: #fee2e2;
+    }
+
+    .btn-assign-today:focus-visible {
+      outline: 2px solid #ef4444;
+      outline-offset: 2px;
+    }
+
     /* Project badge styling */
     .project-badge {
       display: inline-flex;
@@ -470,6 +496,12 @@ export class TaskItem extends LitElement {
 
   @property({ type: Boolean })
   showProject = false;
+
+  @property({ type: Boolean })
+  showAssignToToday = false;
+
+  @property({ type: String })
+  todayDate?: string;
 
   private _handleEdit() {
     this.dispatchEvent(
@@ -580,6 +612,17 @@ export class TaskItem extends LitElement {
     e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("mark-done", {
+        bubbles: true,
+        composed: true,
+        detail: { taskId: this.task.id },
+      }),
+    );
+  }
+
+  private _handleAssignToToday(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("assign-to-today", {
         bubbles: true,
         composed: true,
         detail: { taskId: this.task.id },
@@ -706,6 +749,21 @@ export class TaskItem extends LitElement {
                   ></span>
                   <span>${this._getProjectTitle(task.projectId)}</span>
                 </div>
+              `
+            : null}
+          ${this.showAssignToToday &&
+          this.todayDate &&
+          task.dayDate !== this.todayDate
+            ? html`
+                <button
+                  class="btn-assign-today"
+                  @click=${this._handleAssignToToday}
+                  ?disabled=${disabled}
+                  aria-label="Add to Today"
+                  title="Add to Today"
+                >
+                  + Today
+                </button>
               `
             : null}
           <dropdown-menu label="Task options">

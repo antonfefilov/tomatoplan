@@ -176,6 +176,12 @@ export class TasksViewPanel extends LitElement {
   @property({ type: Number })
   timerRemainingSeconds = 0;
 
+  @property({ type: Boolean })
+  showAssignToToday = false;
+
+  @property({ type: String })
+  todayDate?: string;
+
   /**
    * Filters tasks based on the selected status and project filters
    */
@@ -336,6 +342,17 @@ export class TasksViewPanel extends LitElement {
     );
   }
 
+  private _handleAssignToToday(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("assign-to-today", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const filteredTasks = this._getFilteredTasks();
     const taskCount = filteredTasks.length;
@@ -422,6 +439,8 @@ export class TasksViewPanel extends LitElement {
                 .timerRemainingSeconds=${this.timerRemainingSeconds}
                 .projects=${this.projects}
                 .showProject=${true}
+                .showAssignToToday=${this.showAssignToToday}
+                .todayDate=${this.todayDate}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
                 @mark-tomato-finished=${this._handleMarkTomatoFinished}
@@ -432,6 +451,7 @@ export class TasksViewPanel extends LitElement {
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
                 @mark-done=${this._handleMarkDone}
+                @assign-to-today=${this._handleAssignToToday}
               ></task-list>
             `}
       </div>

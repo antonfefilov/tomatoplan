@@ -105,6 +105,12 @@ export class TaskList extends LitElement {
   @property({ type: Boolean })
   showProject = false;
 
+  @property({ type: Boolean })
+  showAssignToToday = false;
+
+  @property({ type: String })
+  todayDate?: string;
+
   @state()
   private _draggedTaskId: string | null = null;
 
@@ -206,6 +212,17 @@ export class TaskList extends LitElement {
     e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("mark-done", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
+  private _handleAssignToToday(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("assign-to-today", {
         bubbles: true,
         composed: true,
         detail: e.detail,
@@ -383,6 +400,8 @@ export class TaskList extends LitElement {
           .timerRemainingSeconds=${this.timerRemainingSeconds}
           .projects=${this.projects}
           .showProject=${this.showProject}
+          .showAssignToToday=${this.showAssignToToday}
+          .todayDate=${this.todayDate}
           @edit-task=${this._handleEditTask}
           @delete-task=${this._handleDeleteTask}
           @mark-tomato-finished=${this._handleMarkTomatoFinished}
@@ -392,6 +411,7 @@ export class TaskList extends LitElement {
           @resume-timer=${this._handleResumeTimer}
           @reset-timer=${this._handleResetTimer}
           @mark-done=${this._handleMarkDone}
+          @assign-to-today=${this._handleAssignToToday}
         ></task-item>
       </div>
     `;

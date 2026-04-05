@@ -410,6 +410,74 @@ describe("PlannerStore", () => {
     });
   });
 
+  describe("assignTaskToToday", () => {
+    it("should assign task to today via taskpoolStore", async () => {
+      // Create task via taskpoolStore (not assigned to any day)
+      const { taskpoolStore } = await import("../src/state/taskpool-store.js");
+      const addResult = taskpoolStore.addTask("Unassigned Task");
+      const taskId = addResult.taskId!;
+
+      // Verify task is not assigned to any day
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBeUndefined();
+
+      // Assign task to today via plannerStore
+      const result = store.assignTaskToToday(taskId);
+
+      expect(result.success).toBe(true);
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBe(
+        store.getState().pool.date,
+      );
+    });
+
+    it("should move task from another day to today", async () => {
+      const { taskpoolStore } = await import("../src/state/taskpool-store.js");
+      const addResult = taskpoolStore.addTask(
+        "Task for Another Day",
+        undefined,
+        {
+          dayDate: "2024-06-20",
+        },
+      );
+      const taskId = addResult.taskId!;
+
+      // Verify task is assigned to another day
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBe("2024-06-20");
+
+      // Assign task to today (current date is 2024-06-15)
+      const result = store.assignTaskToToday(taskId);
+
+      expect(result.success).toBe(true);
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBe(
+        store.getState().pool.date,
+      );
+    });
+
+    it("should succeed when task is already assigned to today", async () => {
+      const { taskpoolStore } = await import("../src/state/taskpool-store.js");
+      const todayDate = store.getState().pool.date;
+      const addResult = taskpoolStore.addTask("Today Task", undefined, {
+        dayDate: todayDate,
+      });
+      const taskId = addResult.taskId!;
+
+      // Verify task is already assigned to today
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBe(todayDate);
+
+      // Assign task to today again
+      const result = store.assignTaskToToday(taskId);
+
+      expect(result.success).toBe(true);
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBe(todayDate);
+    });
+
+    it("should fail for non-existent task", () => {
+      const result = store.assignTaskToToday("non-existent");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+  });
+
   describe("selectors", () => {
     beforeEach(() => {
       store.addTask("Task 1");

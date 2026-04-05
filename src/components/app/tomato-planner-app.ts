@@ -464,6 +464,10 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.markTaskDone(e.detail.taskId);
   }
 
+  private _handleAssignToToday(e: CustomEvent<{ taskId: string }>) {
+    plannerStore.assignTaskToToday(e.detail.taskId);
+  }
+
   private _handleReorderTask(
     e: CustomEvent<{ taskId: string; toIndex: number }>,
   ) {
@@ -935,6 +939,8 @@ export class TomatoPlannerApp extends LitElement {
                     .timerActiveTaskId=${this._timerActiveTaskId}
                     .timerStatus=${this._timerStatus}
                     .timerRemainingSeconds=${this._timerRemainingSeconds}
+                    .showAssignToToday=${true}
+                    .todayDate=${this._currentDate}
                     @open-task-dialog=${this._handleOpenTaskDialog}
                     @edit-task=${this._handleEditTask}
                     @delete-task=${this._handleDeleteTask}
@@ -948,6 +954,7 @@ export class TomatoPlannerApp extends LitElement {
                     @resume-timer=${this._handleResumeTimer}
                     @reset-timer=${this._handleResetTimer}
                     @mark-done=${this._handleMarkDone}
+                    @assign-to-today=${this._handleAssignToToday}
                   ></tasks-view-panel>
                 `
               : this._activeView === "tracks"
