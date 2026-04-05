@@ -77,6 +77,9 @@ describe("TrackGraphEditor", () => {
   let mockTrack: Track;
   let mockTasks: Task[];
 
+  // Helper to get the render root for DOM queries
+  const root = () => element.renderRoot as ParentNode;
+
   beforeEach(async () => {
     mockTrack = {
       id: "track-1",
@@ -129,12 +132,13 @@ describe("TrackGraphEditor", () => {
   describe("light DOM", () => {
     it("should use light DOM (renderRoot is element)", () => {
       expect(element.renderRoot).toBe(element);
+      expect(element.shadowRoot).toBeNull();
     });
   });
 
   describe("empty state rendering", () => {
     it("should render empty state when no track", () => {
-      const emptyState = element.querySelector(".empty-state");
+      const emptyState = root().querySelector(".empty-state");
       expect(emptyState).toBeDefined();
     });
 
@@ -143,7 +147,7 @@ describe("TrackGraphEditor", () => {
       element.tasks = [];
       await element.updateComplete;
 
-      const emptyState = element.querySelector(".empty-state");
+      const emptyState = root().querySelector(".empty-state");
       expect(emptyState).toBeDefined();
     });
   });
@@ -156,22 +160,22 @@ describe("TrackGraphEditor", () => {
     });
 
     it("should render graph container", () => {
-      const cyContainer = element.querySelector(".cytoscape-container");
+      const cyContainer = root().querySelector(".cytoscape-container");
       expect(cyContainer).toBeDefined();
     });
 
     it("should render control buttons", () => {
-      const controlBtns = element.querySelectorAll(".control-btn");
+      const controlBtns = root().querySelectorAll(".control-btn");
       expect(controlBtns.length).toBe(2);
     });
 
     it("should render instructions overlay", () => {
-      const instructions = element.querySelector(".instructions-overlay");
+      const instructions = root().querySelector(".instructions-overlay");
       expect(instructions).toBeDefined();
     });
 
     it("should render all instruction items", () => {
-      const items = element.querySelectorAll(".instruction-item");
+      const items = root().querySelectorAll(".instruction-item");
       expect(items.length).toBe(4);
     });
   });
@@ -215,7 +219,7 @@ describe("TrackGraphEditor", () => {
       element.pendingEdgeSource = "task-1";
       await element.updateComplete;
 
-      const indicator = element.querySelector(".pending-edge-indicator");
+      const indicator = root().querySelector(".pending-edge-indicator");
       expect(indicator).toBeDefined();
     });
 
@@ -225,7 +229,7 @@ describe("TrackGraphEditor", () => {
       element.pendingEdgeSource = "task-1";
       await element.updateComplete;
 
-      const cancelBtn = element.querySelector(".cancel-btn");
+      const cancelBtn = root().querySelector(".cancel-btn");
       expect(cancelBtn).toBeDefined();
     });
 
@@ -235,7 +239,7 @@ describe("TrackGraphEditor", () => {
       element.pendingEdgeSource = undefined;
       await element.updateComplete;
 
-      const indicator = element.querySelector(".pending-edge-indicator");
+      const indicator = root().querySelector(".pending-edge-indicator");
       expect(indicator).toBeNull();
     });
   });
@@ -311,7 +315,7 @@ describe("TrackGraphEditor", () => {
   describe("empty to non-empty initialization transition", () => {
     it("should initialize Cytoscape when transitioning from empty to graph state", async () => {
       // Start with empty state
-      expect(element.querySelector(".empty-state")).toBeDefined();
+      expect(root().querySelector(".empty-state")).toBeDefined();
 
       // Transition to graph state
       element.track = mockTrack;
@@ -319,7 +323,7 @@ describe("TrackGraphEditor", () => {
       await element.updateComplete;
 
       // Should now have graph container
-      expect(element.querySelector(".cytoscape-container")).toBeDefined();
+      expect(root().querySelector(".cytoscape-container")).toBeDefined();
     });
 
     it("should show empty state after graph to empty transition", async () => {
@@ -328,7 +332,7 @@ describe("TrackGraphEditor", () => {
       element.tasks = mockTasks;
       await element.updateComplete;
 
-      expect(element.querySelector(".cytoscape-container")).toBeDefined();
+      expect(root().querySelector(".cytoscape-container")).toBeDefined();
 
       // Transition to empty state
       element.track = undefined;
@@ -336,7 +340,7 @@ describe("TrackGraphEditor", () => {
       await element.updateComplete;
 
       // Should now show empty state
-      expect(element.querySelector(".empty-state")).toBeDefined();
+      expect(root().querySelector(".empty-state")).toBeDefined();
     });
   });
 
@@ -354,7 +358,7 @@ describe("TrackGraphEditor", () => {
 
         expect(element.pendingEdgeSource).toBe("task-1");
 
-        const indicator = element.querySelector(".pending-edge-indicator");
+        const indicator = root().querySelector(".pending-edge-indicator");
         expect(indicator).toBeDefined();
       });
 
@@ -781,7 +785,7 @@ describe("TrackGraphEditor", () => {
       expect(pendingBefore).toBe(false);
 
       // Get container and ensure it has proper dimensions for rebuild
-      const container = element.querySelector(
+      const container = root().querySelector(
         ".cytoscape-container",
       ) as HTMLElement;
       expect(container).toBeDefined();
@@ -821,7 +825,7 @@ describe("TrackGraphEditor", () => {
       }
     });
 
-it("D. deferred rebuild uses latest structure after updates", async () => {
+    it("D. deferred rebuild uses latest structure after updates", async () => {
       // This test validates the deferred-update flow:
       // 1) rebuild deferred (simulate zero-size by forcing pending state)
       // 2) structural updates while pending
@@ -840,7 +844,7 @@ it("D. deferred rebuild uses latest structure after updates", async () => {
       flushAnimationFrames();
       await element.updateComplete;
 
-      const container = element.querySelector(
+      const container = root().querySelector(
         ".cytoscape-container",
       ) as HTMLElement;
       expect(container).toBeDefined();
@@ -870,7 +874,8 @@ it("D. deferred rebuild uses latest structure after updates", async () => {
         _pendingStructureRebuild: boolean;
       };
 
-      const originalRebuildGraph = elementCasted._rebuildGraph.bind(elementCasted);
+      const originalRebuildGraph =
+        elementCasted._rebuildGraph.bind(elementCasted);
       let rebuildAttempts = 0;
 
       elementCasted._rebuildGraph = async () => {
