@@ -739,59 +739,51 @@ describe("TaskItem", () => {
   });
 
   describe("remove-from-day", () => {
-    it("should show 'Remove from Day' menu item when showRemoveFromDay is true and task has dayDate", async () => {
+    it("should show star button when showRemoveFromDay is true and task has dayDate", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-01" };
       element.showRemoveFromDay = true;
+      element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      // Find the dropdown menu and check for the remove-from-day menu item
-      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
-      const removeMenuItem = Array.from(menuItems).find((item) =>
-        item.textContent?.includes("Remove from Day"),
-      );
-      expect(removeMenuItem).toBeDefined();
+      const starBtn = element.shadowRoot!.querySelector(".btn-day-star");
+      expect(starBtn).toBeDefined();
     });
 
-    it("should hide 'Remove from Day' menu item when showRemoveFromDay is false", async () => {
+    it("should hide star button when showRemoveFromDay is false", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-01" };
       element.showRemoveFromDay = false;
+      element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
-      const removeMenuItem = Array.from(menuItems).find((item) =>
-        item.textContent?.includes("Remove from Day"),
-      );
-      expect(removeMenuItem).toBeUndefined();
+      const starBtn = element.shadowRoot!.querySelector(".btn-day-star");
+      expect(starBtn).toBeNull();
     });
 
-    it("should hide 'Remove from Day' menu item when task.dayDate is undefined", async () => {
+    it("should hide star button when task.dayDate is undefined", async () => {
       element.task = { ...mockTask, dayDate: undefined };
       element.showRemoveFromDay = true;
+      element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
-      const removeMenuItem = Array.from(menuItems).find((item) =>
-        item.textContent?.includes("Remove from Day"),
-      );
-      expect(removeMenuItem).toBeUndefined();
+      const starBtn = element.shadowRoot!.querySelector(".btn-day-star");
+      expect(starBtn).toBeNull();
     });
 
-    it("should dispatch remove-from-day event exactly once with taskId when 'Remove from Day' is clicked", async () => {
+    it("should dispatch remove-from-day event exactly once with taskId when star button is clicked", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-01" };
       element.showRemoveFromDay = true;
+      element.todayDate = "2024-01-01";
       await element.updateComplete;
 
       const spy = vi.fn();
       element.addEventListener("remove-from-day", spy);
 
-      // Find and click the "Remove from Day" menu item
-      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
-      const removeMenuItem = Array.from(menuItems).find((item) =>
-        item.textContent?.includes("Remove from Day"),
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
 
-      expect(removeMenuItem).toBeDefined();
-      removeMenuItem.click();
+      expect(starBtn).toBeDefined();
+      starBtn.click();
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalledTimes(1);

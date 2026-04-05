@@ -834,9 +834,10 @@ describe("TaskList - Drag and Drop", () => {
       });
     });
 
-    it("should bubble remove-from-day event exactly once when clicking the menu item in task-item's shadow DOM", async () => {
+    it("should bubble remove-from-day event exactly once when clicking the star button in task-item's shadow DOM", async () => {
       element.tasks = mockTasksWithDayDate;
       element.showRemoveFromDay = true;
+      element.todayDate = "2024-01-15"; // Match the dayDate in mockTasksWithDayDate
       await element.updateComplete;
 
       const spy = vi.fn();
@@ -851,14 +852,13 @@ describe("TaskList - Drag and Drop", () => {
       ) as HTMLElement & { updateComplete: Promise<boolean> };
       await taskItem.updateComplete;
 
-      // Find and click the "Remove from Day" menu item
-      const menuItems = taskItem.shadowRoot!.querySelectorAll(".menu-item");
-      const removeMenuItem = Array.from(menuItems).find((item) =>
-        item.textContent?.includes("Remove from Day"),
+      // Find and click the star button
+      const starBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
 
-      expect(removeMenuItem).toBeDefined();
-      removeMenuItem.click();
+      expect(starBtn).toBeDefined();
+      starBtn.click();
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalledTimes(1);
