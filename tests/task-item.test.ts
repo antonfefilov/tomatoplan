@@ -597,6 +597,99 @@ describe("TaskItem", () => {
     });
   });
 
+  describe("assign-to-today", () => {
+    it("should show Add to Today button for unassigned task", async () => {
+      element.task = { ...mockTask, dayDate: undefined };
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const assignBtn = element.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      expect(assignBtn).toBeDefined();
+      expect(assignBtn.textContent).toContain("Today");
+    });
+
+    it("should hide Add to Today button for task already on todayDate", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-01" };
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const assignBtn = element.shadowRoot!.querySelector(".btn-assign-today");
+      expect(assignBtn).toBeNull();
+    });
+
+    it("should show Add to Today button for task assigned to another date", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-02" };
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const assignBtn = element.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      expect(assignBtn).toBeDefined();
+      expect(assignBtn.textContent).toContain("Today");
+    });
+
+    it("should hide Add to Today button when showAssignToToday is false", async () => {
+      element.task = { ...mockTask, dayDate: undefined };
+      element.showAssignToToday = false;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const assignBtn = element.shadowRoot!.querySelector(".btn-assign-today");
+      expect(assignBtn).toBeNull();
+    });
+
+    it("should hide Add to Today button when todayDate is undefined", async () => {
+      element.task = { ...mockTask, dayDate: undefined };
+      element.showAssignToToday = true;
+      element.todayDate = undefined;
+      await element.updateComplete;
+
+      const assignBtn = element.shadowRoot!.querySelector(".btn-assign-today");
+      expect(assignBtn).toBeNull();
+    });
+
+    it("should dispatch assign-to-today event exactly once with taskId when Add to Today is clicked", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-02" };
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("assign-to-today", spy);
+
+      const assignBtn = element.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      assignBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+
+    it("should disable Add to Today button when component is disabled", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-02" };
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      element.disabled = true;
+      await element.updateComplete;
+
+      const assignBtn = element.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      expect(assignBtn.disabled).toBe(true);
+    });
+  });
+
   describe("done task styling", () => {
     it("should apply 'done' class when task is done (finished >= planned, planned > 0)", async () => {
       element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 3 };

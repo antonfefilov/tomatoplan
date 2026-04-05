@@ -331,6 +331,117 @@ describe("TasksViewPanel", () => {
     });
   });
 
+  describe("assign-to-today integration", () => {
+    it("should bubble assign-to-today event exactly once when clicking the actual button in task-item (strong forwarding test)", async () => {
+      // Create a task not on todayDate so button is visible
+      const tasksWithDayDate: Task[] = [
+        {
+          id: "task-1",
+          title: "First Task",
+          description: "Description 1",
+          tomatoCount: 2,
+          finishedTomatoCount: 0,
+          projectId: "project-1",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+          dayDate: "2024-01-02", // Not today
+        },
+      ];
+      element.tasks = tasksWithDayDate;
+      element.projects = mockProjects;
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("assign-to-today", spy);
+
+      // Navigate to task-item and click the actual button
+      const taskList = element.shadowRoot!.querySelector(
+        "task-list",
+      ) as HTMLElement;
+      const taskItemWrapper = taskList.shadowRoot!.querySelector(
+        ".task-item-wrapper",
+      ) as HTMLElement;
+      const taskItem = taskItemWrapper.querySelector(
+        "task-item",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await taskItem.updateComplete;
+
+      const assignBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      expect(assignBtn).not.toBeNull();
+
+      assignBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+    });
+
+    it("should pass showAssignToToday prop to task-list", async () => {
+      element.tasks = mockTasks;
+      element.showAssignToToday = true;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.showAssignToToday).toBe(true);
+    });
+
+    it("should pass todayDate prop to task-list", async () => {
+      element.tasks = mockTasks;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.todayDate).toBe("2024-01-01");
+    });
+
+    it("should not pass showAssignToToday when it is false", async () => {
+      element.tasks = mockTasks;
+      element.showAssignToToday = false;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.showAssignToToday).toBe(false);
+    });
+
+    it("should not pass todayDate when it is undefined", async () => {
+      element.tasks = mockTasks;
+      element.todayDate = undefined;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.todayDate).toBeUndefined();
+    });
+
+    it("should re-dispatch assign-to-today with bubbles and composed (exactly once)", async () => {
+      element.tasks = mockTasks;
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("assign-to-today", spy);
+
+      const taskList = element.shadowRoot!.querySelector("task-list")!;
+      taskList.dispatchEvent(
+        new CustomEvent("assign-to-today", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-2" },
+        }),
+      );
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+  });
+
   describe("props passing", () => {
     it("should pass remaining prop to task-list", async () => {
       element.tasks = mockTasks;

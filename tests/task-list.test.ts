@@ -673,6 +673,118 @@ describe("TaskList - Drag and Drop", () => {
     });
   });
 
+  describe("task-item wiring for assign-to-today", () => {
+    const mockTasks: Task[] = [
+      {
+        id: "task-1",
+        title: "First Task",
+        tomatoCount: 2,
+        finishedTomatoCount: 1,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+        dayDate: "2024-01-02",
+      },
+      {
+        id: "task-2",
+        title: "Second Task",
+        tomatoCount: 3,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+        dayDate: undefined,
+      },
+    ];
+
+    it("should pass showAssignToToday prop to task-item", async () => {
+      element.tasks = mockTasks;
+      element.showAssignToToday = true;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<HTMLElement & { showAssignToToday: boolean }>;
+      expect(taskItems.length).toBe(2);
+      taskItems.forEach((item) => {
+        expect(item.showAssignToToday).toBe(true);
+      });
+    });
+
+    it("should pass todayDate prop to task-item", async () => {
+      element.tasks = mockTasks;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<HTMLElement & { todayDate: string | undefined }>;
+      expect(taskItems.length).toBe(2);
+      taskItems.forEach((item) => {
+        expect(item.todayDate).toBe("2024-01-01");
+      });
+    });
+
+    it("should bubble assign-to-today event when clicking the actual button in task-item's shadow DOM (strong forwarding test)", async () => {
+      element.tasks = mockTasks;
+      element.showAssignToToday = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("assign-to-today", spy);
+
+      // Navigate to the task-item and its shadow DOM button
+      const taskItemWrapper = element.shadowRoot!.querySelector(
+        ".task-item-wrapper",
+      ) as HTMLElement;
+      const taskItem = taskItemWrapper.querySelector(
+        "task-item",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await taskItem.updateComplete;
+
+      // Click the actual .btn-assign-today button in task-item's shadow DOM
+      // This verifies the handler wiring exists, not just that events can bubble
+      const assignBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      expect(assignBtn).not.toBeNull();
+
+      assignBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+
+    it("should not pass showAssignToToday when it is false", async () => {
+      element.tasks = mockTasks;
+      element.showAssignToToday = false;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<HTMLElement & { showAssignToToday: boolean }>;
+      taskItems.forEach((item) => {
+        expect(item.showAssignToToday).toBe(false);
+      });
+    });
+
+    it("should not pass todayDate when it is undefined", async () => {
+      element.tasks = mockTasks;
+      element.todayDate = undefined;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<HTMLElement & { todayDate: string | undefined }>;
+      taskItems.forEach((item) => {
+        expect(item.todayDate).toBeUndefined();
+      });
+    });
+  });
+
   describe("dragleave behavior", () => {
     it("should clear drag-over when leaving wrapper entirely", async () => {
       const wrappers =

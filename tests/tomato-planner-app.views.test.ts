@@ -70,6 +70,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     getTaskById: vi.fn(),
     setTaskProject: vi.fn(),
     markTaskDone: vi.fn(),
+    assignTaskToToday: vi.fn(),
     assignedTomatoes: 3,
     remainingTomatoes: 7,
     capacityInMinutes: 25,
@@ -132,6 +133,8 @@ import "../src/components/task/task-list-panel.js";
 import "../src/components/task/task-list.js";
 import "../src/components/task/task-item.js";
 import "../src/components/task/task-editor-dialog.js";
+import "../src/components/task/tasks-pool-panel.js";
+import "../src/components/task/tasks-view-panel.js";
 import "../src/components/project/project-list-panel.js";
 import "../src/components/project/project-list.js";
 import "../src/components/project/project-item.js";
@@ -161,6 +164,7 @@ const mockPlannerStore = plannerStore as unknown as {
   getTaskById: ReturnType<typeof vi.fn>;
   setTaskProject: ReturnType<typeof vi.fn>;
   markTaskDone: ReturnType<typeof vi.fn>;
+  assignTaskToToday: ReturnType<typeof vi.fn>;
   assignedTomatoes: number;
   remainingTomatoes: number;
   capacityInMinutes: number;
@@ -1452,6 +1456,128 @@ describe("TomatoPlannerApp Views", () => {
       await element.updateComplete;
 
       expect(appHeader.headerModel?.view).toBe("day");
+    });
+  });
+
+  // ============================================
+  // Tasks View Integration Tests
+  // ============================================
+
+  describe("Tasks view integration", () => {
+    beforeEach(async () => {
+      // Switch to Tasks view
+      const tasksTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='tasks-view']",
+      ) as HTMLButtonElement;
+      tasksTab.click();
+      await element.updateComplete;
+    });
+
+    it("should render tasks-view-panel in Tasks view", async () => {
+      const tasksViewPanel =
+        element.shadowRoot!.querySelector("tasks-view-panel");
+      expect(tasksViewPanel).not.toBeNull();
+    });
+
+    it("should pass showAssignToToday=true to tasks-view-panel in Tasks view", async () => {
+      const tasksViewPanel = element.shadowRoot!.querySelector(
+        "tasks-view-panel",
+      ) as HTMLElement & { showAssignToToday: boolean };
+      expect(tasksViewPanel.showAssignToToday).toBe(true);
+    });
+
+    it("should pass todayDate to tasks-view-panel in Tasks view", async () => {
+      const tasksViewPanel = element.shadowRoot!.querySelector(
+        "tasks-view-panel",
+      ) as HTMLElement & { todayDate: string | undefined };
+      expect(tasksViewPanel.todayDate).toBe("2024-06-15");
+    });
+
+    it("should call plannerStore.assignTaskToToday exactly once when Add to Today button is clicked in task-item (true end-to-end test)", async () => {
+      // Clear any previous calls
+      mockPlannerStore.assignTaskToToday.mockClear();
+
+      // Create a task that is not assigned to today so the button is visible
+      const unassignedTask = createMockTask(
+        "task-to-assign",
+        "Unassigned Task",
+      );
+      unassignedTask.dayDate = "2024-06-14"; // Not today (2024-06-15)
+
+      // Get the tasks-view-panel and set tasks directly
+      const tasksViewPanel = element.shadowRoot!.querySelector(
+        "tasks-view-panel",
+      ) as unknown as HTMLElement & {
+        tasks: readonly Task[];
+        showAssignToToday: boolean;
+        todayDate: string | undefined;
+        updateComplete: Promise<boolean>;
+      };
+
+      // Set up the panel with a task that has the assign button visible
+      // Note: tasks is readonly but we can still assign in tests via property binding
+      tasksViewPanel.tasks = [unassignedTask] as readonly Task[];
+      tasksViewPanel.showAssignToToday = true;
+      tasksViewPanel.todayDate = "2024-06-15"; // Today's date
+      await tasksViewPanel.updateComplete;
+
+      // Navigate to task-list -> task-item
+      const taskList = tasksViewPanel.shadowRoot!.querySelector(
+        "task-list",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await taskList.updateComplete;
+
+      const taskItem = taskList.shadowRoot!.querySelector(
+        "task-item",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+
+      // Verify task-item exists
+      expect(taskItem).not.toBeNull();
+
+      // Wait for task-item to render
+      await taskItem.updateComplete;
+
+      // Locate the actual .btn-assign-today button in task-item's shadow DOM
+      const assignBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-assign-today",
+      ) as HTMLButtonElement;
+      expect(assignBtn).not.toBeNull();
+      expect(assignBtn.disabled).toBe(false);
+
+      // Click the actual button (true end-to-end interaction)
+      assignBtn.click();
+      await element.updateComplete;
+
+      // Assert the store method was called exactly once with correct taskId
+      expect(mockPlannerStore.assignTaskToToday).toHaveBeenCalledTimes(1);
+      expect(mockPlannerStore.assignTaskToToday).toHaveBeenCalledWith(
+        "task-to-assign",
+      );
+    });
+
+    it("should call plannerStore.assignTaskToToday exactly once when assign-to-today event is dispatched from tasks-view-panel", async () => {
+      // Clear any previous calls
+      mockPlannerStore.assignTaskToToday.mockClear();
+
+      // Dispatch event from tasks-view-panel level (valid for testing store call directly)
+      const tasksViewPanel = element.shadowRoot!.querySelector(
+        "tasks-view-panel",
+      ) as HTMLElement;
+
+      tasksViewPanel.dispatchEvent(
+        new CustomEvent("assign-to-today", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "test-task-id" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Assert exactly once to catch duplicate dispatch regressions
+      expect(mockPlannerStore.assignTaskToToday).toHaveBeenCalledTimes(1);
+      expect(mockPlannerStore.assignTaskToToday).toHaveBeenCalledWith(
+        "test-task-id",
+      );
     });
   });
 });
