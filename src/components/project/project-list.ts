@@ -71,68 +71,6 @@ export class ProjectList extends LitElement {
   @property({ type: Object })
   projectRelations: ProjectRelationsMap = {};
 
-  private _handleEditProject(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("edit-project", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleDeleteProject(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("delete-project", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleSelectProject(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("select-project", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleIncreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
-    e.stopPropagation();
-    this.dispatchEvent(
-      new CustomEvent("increase-project-plan", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleDecreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
-    e.stopPropagation();
-    this.dispatchEvent(
-      new CustomEvent("decrease-project-plan", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleAddProjectTask(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("add-project-task", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
   override render() {
     if (this.projects.length === 0) {
       return html`
@@ -170,12 +108,6 @@ export class ProjectList extends LitElement {
               .expanded=${this.expandedProjectId === project.id}
               .relatedTasks=${this.projectRelations[project.id]?.tasks ?? []}
               .relatedTracks=${this.projectRelations[project.id]?.tracks ?? []}
-              @edit-project=${this._handleEditProject}
-              @delete-project=${this._handleDeleteProject}
-              @select-project=${this._handleSelectProject}
-              @increase-project-plan=${this._handleIncreaseProjectPlan}
-              @decrease-project-plan=${this._handleDecreaseProjectPlan}
-              @add-project-task=${this._handleAddProjectTask}
             ></project-item>
           `,
         )}

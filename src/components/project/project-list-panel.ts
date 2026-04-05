@@ -173,26 +173,6 @@ export class ProjectListPanel extends LitElement {
     this._editingProject = undefined;
   }
 
-  private _handleDeleteProject(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("delete-project", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleSelectProject(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("select-project", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
   private _handleIncreaseProjectPlan(e: CustomEvent<{ projectId: string }>) {
     e.stopPropagation();
     this.dispatchEvent(
@@ -208,16 +188,6 @@ export class ProjectListPanel extends LitElement {
     e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("decrease-project-plan", {
-        bubbles: true,
-        composed: true,
-        detail: e.detail,
-      }),
-    );
-  }
-
-  private _handleAddProjectTask(e: CustomEvent<{ projectId: string }>) {
-    this.dispatchEvent(
-      new CustomEvent("add-project-task", {
         bubbles: true,
         composed: true,
         detail: e.detail,
@@ -269,12 +239,9 @@ export class ProjectListPanel extends LitElement {
             .expandedProjectId=${this._expandedProjectId}
             .projectRelations=${projectRelations}
             @edit-project=${this._handleEditProject}
-            @delete-project=${this._handleDeleteProject}
-            @select-project=${this._handleSelectProject}
             @toggle-project-details=${this._handleToggleProjectDetails}
             @increase-project-plan=${this._handleIncreaseProjectPlan}
             @decrease-project-plan=${this._handleDecreaseProjectPlan}
-            @add-project-task=${this._handleAddProjectTask}
           ></project-list>
         </div>
 
