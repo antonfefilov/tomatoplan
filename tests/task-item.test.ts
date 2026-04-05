@@ -10,6 +10,7 @@ import type { Task } from "../src/models/task.js";
 // Import dependent custom elements
 import "../src/components/tomato/tomato-icon.js";
 import "../src/components/shared/dropdown-menu.js";
+import "../src/components/shared/day-star-icon.js";
 
 describe("TaskItem", () => {
   let element: TaskItem;
@@ -597,64 +598,89 @@ describe("TaskItem", () => {
     });
   });
 
-  describe("assign-to-today", () => {
-    it("should show Add to Today button for unassigned task", async () => {
+  describe("day star button", () => {
+    it("should show day star button for unassigned task when showAssignToToday is true", async () => {
       element.task = { ...mockTask, dayDate: undefined };
       element.showAssignToToday = true;
       element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      const assignBtn = element.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      expect(assignBtn).toBeDefined();
-      expect(assignBtn.textContent).toContain("Today");
+      expect(starBtn).toBeDefined();
+      expect(starBtn.getAttribute("aria-label")).toBe("Add to Day");
+
+      // Check that the star icon is NOT filled (outline)
+      const starIcon = starBtn.querySelector("day-star-icon") as HTMLElement & {
+        filled: boolean;
+      };
+      expect(starIcon).toBeDefined();
+      expect(starIcon.filled).toBe(false);
     });
 
-    it("should hide Add to Today button for task already on todayDate", async () => {
+    it("should show filled star for task already on todayDate when showRemoveFromDay is true", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-01" };
-      element.showAssignToToday = true;
+      element.showRemoveFromDay = true;
       element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      const assignBtn = element.shadowRoot!.querySelector(".btn-assign-today");
-      expect(assignBtn).toBeNull();
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
+      ) as HTMLButtonElement;
+      expect(starBtn).toBeDefined();
+      expect(starBtn.getAttribute("aria-label")).toBe("Remove from Day");
+
+      // Check that the star icon IS filled
+      const starIcon = starBtn.querySelector("day-star-icon") as HTMLElement & {
+        filled: boolean;
+      };
+      expect(starIcon).toBeDefined();
+      expect(starIcon.filled).toBe(true);
     });
 
-    it("should show Add to Today button for task assigned to another date", async () => {
+    it("should show outline star for task assigned to another date", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-02" };
       element.showAssignToToday = true;
       element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      const assignBtn = element.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      expect(assignBtn).toBeDefined();
-      expect(assignBtn.textContent).toContain("Today");
+      expect(starBtn).toBeDefined();
+      expect(starBtn.getAttribute("aria-label")).toBe("Add to Day");
+
+      // Check that the star icon is NOT filled (outline)
+      const starIcon = starBtn.querySelector("day-star-icon") as HTMLElement & {
+        filled: boolean;
+      };
+      expect(starIcon).toBeDefined();
+      expect(starIcon.filled).toBe(false);
     });
 
-    it("should hide Add to Today button when showAssignToToday is false", async () => {
+    it("should hide star button when both showAssignToToday and showRemoveFromDay are false", async () => {
       element.task = { ...mockTask, dayDate: undefined };
       element.showAssignToToday = false;
+      element.showRemoveFromDay = false;
       element.todayDate = "2024-01-01";
       await element.updateComplete;
 
-      const assignBtn = element.shadowRoot!.querySelector(".btn-assign-today");
-      expect(assignBtn).toBeNull();
+      const starBtn = element.shadowRoot!.querySelector(".btn-day-star");
+      expect(starBtn).toBeNull();
     });
 
-    it("should hide Add to Today button when todayDate is undefined", async () => {
+    it("should hide star button when todayDate is undefined", async () => {
       element.task = { ...mockTask, dayDate: undefined };
       element.showAssignToToday = true;
       element.todayDate = undefined;
       await element.updateComplete;
 
-      const assignBtn = element.shadowRoot!.querySelector(".btn-assign-today");
-      expect(assignBtn).toBeNull();
+      const starBtn = element.shadowRoot!.querySelector(".btn-day-star");
+      expect(starBtn).toBeNull();
     });
 
-    it("should dispatch assign-to-today event exactly once with taskId when Add to Today is clicked", async () => {
+    it("should dispatch assign-to-today event when clicking outline star", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-02" };
       element.showAssignToToday = true;
       element.todayDate = "2024-01-01";
@@ -663,10 +689,10 @@ describe("TaskItem", () => {
       const spy = vi.fn();
       element.addEventListener("assign-to-today", spy);
 
-      const assignBtn = element.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      assignBtn.click();
+      starBtn.click();
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalledTimes(1);
@@ -676,17 +702,39 @@ describe("TaskItem", () => {
       expect(event.composed).toBe(true);
     });
 
-    it("should disable Add to Today button when component is disabled", async () => {
+    it("should dispatch remove-from-day event when clicking filled star", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-01" };
+      element.showRemoveFromDay = true;
+      element.todayDate = "2024-01-01";
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("remove-from-day", spy);
+
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
+      ) as HTMLButtonElement;
+      starBtn.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+
+    it("should disable star button when component is disabled", async () => {
       element.task = { ...mockTask, dayDate: "2024-01-02" };
       element.showAssignToToday = true;
       element.todayDate = "2024-01-01";
       element.disabled = true;
       await element.updateComplete;
 
-      const assignBtn = element.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      const starBtn = element.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      expect(assignBtn.disabled).toBe(true);
+      expect(starBtn.disabled).toBe(true);
     });
   });
 

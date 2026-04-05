@@ -191,6 +191,9 @@ export class TaskListPanel extends LitElement {
   @property({ type: Boolean })
   showRemoveFromDay = false;
 
+  @property({ type: String })
+  todayDate?: string;
+
   /**
    * Formats minutes into a human-readable hours/minutes string
    * e.g., 200 minutes -> "3h 20m"
@@ -352,6 +355,17 @@ export class TaskListPanel extends LitElement {
     );
   }
 
+  private _handleAssignToToday(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("assign-to-today", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const taskCount = this.tasks.length;
 
@@ -424,7 +438,9 @@ export class TaskListPanel extends LitElement {
                 .timerActiveTaskId=${this.timerActiveTaskId}
                 .timerStatus=${this.timerStatus}
                 .timerRemainingSeconds=${this.timerRemainingSeconds}
+                .showAssignToToday=${true}
                 .showRemoveFromDay=${this.showRemoveFromDay}
+                .todayDate=${this.todayDate}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
                 @mark-tomato-finished=${this._handleMarkTomatoFinished}
@@ -435,6 +451,7 @@ export class TaskListPanel extends LitElement {
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
                 @mark-done=${this._handleMarkDone}
+                @assign-to-today=${this._handleAssignToToday}
                 @remove-from-day=${this._handleRemoveFromDay}
               ></task-list>
             `}

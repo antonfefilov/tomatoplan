@@ -869,6 +869,7 @@ export class TomatoPlannerApp extends LitElement {
                 .timerStatus=${this._timerStatus}
                 .timerRemainingSeconds=${this._timerRemainingSeconds}
                 .showRemoveFromDay=${true}
+                .todayDate=${this._currentDate}
                 @open-task-dialog=${this._handleOpenTaskDialog}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
@@ -882,6 +883,7 @@ export class TomatoPlannerApp extends LitElement {
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
                 @mark-done=${this._handleMarkDone}
+                @assign-to-today=${this._handleAssignToToday}
                 @remove-from-day=${this._handleRemoveFromDay}
               ></task-list-panel>
             `
@@ -946,6 +948,7 @@ export class TomatoPlannerApp extends LitElement {
                     .timerStatus=${this._timerStatus}
                     .timerRemainingSeconds=${this._timerRemainingSeconds}
                     .showAssignToToday=${true}
+                    .showRemoveFromDay=${true}
                     .todayDate=${this._currentDate}
                     @open-task-dialog=${this._handleOpenTaskDialog}
                     @edit-task=${this._handleEditTask}
@@ -961,6 +964,7 @@ export class TomatoPlannerApp extends LitElement {
                     @reset-timer=${this._handleResetTimer}
                     @mark-done=${this._handleMarkDone}
                     @assign-to-today=${this._handleAssignToToday}
+                    @remove-from-day=${this._handleRemoveFromDay}
                   ></tasks-view-panel>
                 `
               : this._activeView === "tracks"

@@ -13,6 +13,7 @@ import { formatTimeEstimate } from "../../utils/time.js";
 import type { Project } from "../../models/project.js";
 import "../tomato/tomato-icon.js";
 import "../shared/dropdown-menu.js";
+import "../shared/day-star-icon.js";
 
 @customElement("task-item")
 export class TaskItem extends LitElement {
@@ -388,30 +389,33 @@ export class TaskItem extends LitElement {
       cursor: not-allowed;
     }
 
-    /* Assign to Today button styling */
-    .btn-assign-today {
+    /* Day star button styling - minimal icon button */
+    .btn-day-star {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 4px 8px;
-      border-radius: 6px;
+      width: 28px;
+      height: 28px;
       border: none;
-      background: #fef2f2;
-      color: #ef4444;
+      background: transparent;
       cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      transition: all 0.15s ease;
+      transition: opacity 0.15s ease;
+      padding: 0;
     }
 
-    .btn-assign-today:hover {
-      background: #fee2e2;
+    .btn-day-star:hover {
+      opacity: 0.8;
     }
 
-    .btn-assign-today:focus-visible {
-      outline: 2px solid #ef4444;
+    .btn-day-star:focus-visible {
+      outline: 2px solid #b45309;
       outline-offset: 2px;
+      border-radius: 4px;
+    }
+
+    .btn-day-star:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
     }
 
     /* Project badge styling */
@@ -701,6 +705,14 @@ export class TaskItem extends LitElement {
     // Determine if task is done
     const taskIsDone = isTaskDone(task);
 
+    // Determine star button state
+    const isAssignedToCurrentDay =
+      !!this.todayDate && task.dayDate === this.todayDate;
+    const canRemoveFromDay = this.showRemoveFromDay && isAssignedToCurrentDay;
+    const canAssignToDay =
+      this.showAssignToToday && !isAssignedToCurrentDay && !!this.todayDate;
+    const showDayStar = canRemoveFromDay || canAssignToDay;
+
     return html`
       <div class="task-card${taskIsDone ? " done" : ""}">
         <div class="task-header">
@@ -765,18 +777,20 @@ export class TaskItem extends LitElement {
                 </div>
               `
             : null}
-          ${this.showAssignToToday &&
-          this.todayDate &&
-          task.dayDate !== this.todayDate
+          ${showDayStar
             ? html`
                 <button
-                  class="btn-assign-today"
-                  @click=${this._handleAssignToToday}
+                  class="btn-day-star"
+                  @click=${canRemoveFromDay
+                    ? this._handleRemoveFromDay
+                    : this._handleAssignToToday}
                   ?disabled=${disabled}
-                  aria-label="Add to Today"
-                  title="Add to Today"
+                  aria-label=${canRemoveFromDay
+                    ? "Remove from Day"
+                    : "Add to Day"}
+                  title=${canRemoveFromDay ? "Remove from Day" : "Add to Day"}
                 >
-                  + Today
+                  <day-star-icon .filled=${canRemoveFromDay}></day-star-icon>
                 </button>
               `
             : null}

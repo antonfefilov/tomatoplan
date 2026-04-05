@@ -368,12 +368,12 @@ describe("TasksViewPanel", () => {
       ) as HTMLElement & { updateComplete: Promise<boolean> };
       await taskItem.updateComplete;
 
-      const assignBtn = taskItem.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      const starBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      expect(assignBtn).not.toBeNull();
+      expect(starBtn).not.toBeNull();
 
-      assignBtn.click();
+      starBtn.click();
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalledTimes(1);

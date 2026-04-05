@@ -179,6 +179,9 @@ export class TasksViewPanel extends LitElement {
   @property({ type: Boolean })
   showAssignToToday = false;
 
+  @property({ type: Boolean })
+  showRemoveFromDay = false;
+
   @property({ type: String })
   todayDate?: string;
 
@@ -353,6 +356,17 @@ export class TasksViewPanel extends LitElement {
     );
   }
 
+  private _handleRemoveFromDay(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("remove-from-day", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const filteredTasks = this._getFilteredTasks();
     const taskCount = filteredTasks.length;
@@ -440,6 +454,7 @@ export class TasksViewPanel extends LitElement {
                 .projects=${this.projects}
                 .showProject=${true}
                 .showAssignToToday=${this.showAssignToToday}
+                .showRemoveFromDay=${this.showRemoveFromDay}
                 .todayDate=${this.todayDate}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
@@ -452,6 +467,7 @@ export class TasksViewPanel extends LitElement {
                 @reset-timer=${this._handleResetTimer}
                 @mark-done=${this._handleMarkDone}
                 @assign-to-today=${this._handleAssignToToday}
+                @remove-from-day=${this._handleRemoveFromDay}
               ></task-list>
             `}
       </div>

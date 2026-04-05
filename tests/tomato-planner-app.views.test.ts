@@ -1539,15 +1539,15 @@ describe("TomatoPlannerApp Views", () => {
       // Wait for task-item to render
       await taskItem.updateComplete;
 
-      // Locate the actual .btn-assign-today button in task-item's shadow DOM
-      const assignBtn = taskItem.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      // Locate the actual .btn-day-star button in task-item's shadow DOM
+      const starBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      expect(assignBtn).not.toBeNull();
-      expect(assignBtn.disabled).toBe(false);
+      expect(starBtn).not.toBeNull();
+      expect(starBtn.disabled).toBe(false);
 
       // Click the actual button (true end-to-end interaction)
-      assignBtn.click();
+      starBtn.click();
       await element.updateComplete;
 
       // Assert the store method was called exactly once with correct taskId

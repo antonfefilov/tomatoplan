@@ -741,14 +741,14 @@ describe("TaskList - Drag and Drop", () => {
       ) as HTMLElement & { updateComplete: Promise<boolean> };
       await taskItem.updateComplete;
 
-      // Click the actual .btn-assign-today button in task-item's shadow DOM
+      // Click the actual .btn-day-star button in task-item's shadow DOM
       // This verifies the handler wiring exists, not just that events can bubble
-      const assignBtn = taskItem.shadowRoot!.querySelector(
-        ".btn-assign-today",
+      const starBtn = taskItem.shadowRoot!.querySelector(
+        ".btn-day-star",
       ) as HTMLButtonElement;
-      expect(assignBtn).not.toBeNull();
+      expect(starBtn).not.toBeNull();
 
-      assignBtn.click();
+      starBtn.click();
       await element.updateComplete;
 
       expect(spy).toHaveBeenCalledTimes(1);
