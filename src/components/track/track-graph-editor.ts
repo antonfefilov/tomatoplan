@@ -537,7 +537,7 @@ export class TrackGraphEditor extends LitElement {
     // Rebuild if: structure changed, no track, OR we have a pending rebuild to retry
     if (hasStructChange || !this.track || this._pendingStructureRebuild) {
       // Full rebuild
-      const result = await this._rebuildGraph();
+      const result = await this._rebuildGraph(syncVersion);
       // Only update signature if rebuild succeeded and this is still the latest sync
       if (syncVersion === this._syncVersion && result === "rebuilt") {
         this._previousStructureSignature = currentSignature;
@@ -550,7 +550,9 @@ export class TrackGraphEditor extends LitElement {
     }
   }
 
-  private async _rebuildGraph(): Promise<"rebuilt" | "deferred"> {
+  private async _rebuildGraph(
+    syncVersion: number,
+  ): Promise<"rebuilt" | "deferred"> {
     if (!this._cy) return "deferred";
 
     // Wait for DOM to stabilize
@@ -569,12 +571,23 @@ export class TrackGraphEditor extends LitElement {
       return "deferred";
     }
 
+    // Early exit if this sync is stale (another sync started while waiting)
+    if (syncVersion !== this._syncVersion) {
+      return "deferred";
+    }
+
     // Remove all elements
     this._cy.elements().remove();
 
     if (!this.track) {
       this._pendingStructureRebuild = false;
       return "rebuilt";
+    }
+
+    // Check if stale before adding elements
+    if (syncVersion !== this._syncVersion) {
+      this._pendingStructureRebuild = true;
+      return "deferred";
     }
 
     // Add new elements
@@ -599,6 +612,11 @@ export class TrackGraphEditor extends LitElement {
       layout.one("layoutstop", () => {
         this._fitGraph();
       });
+
+      // Check if stale before running layout
+      if (syncVersion !== this._syncVersion) {
+        return "rebuilt";
+      }
 
       layout.run();
     }
