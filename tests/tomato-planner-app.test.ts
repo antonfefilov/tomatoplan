@@ -792,4 +792,276 @@ describe("TomatoPlannerApp", () => {
       expect(mockStore.addTask).toHaveBeenCalledWith("New Task", "New desc");
     });
   });
+
+  describe("edit task error handling", () => {
+    it("should keep dialog open and show error when task is stale (not found)", async () => {
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockWeeklyStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockTaskpoolStore.getTaskById.mockReturnValue(mockTasks[0]);
+      setPlannerTasks(mockTasks);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+          dayStart: "08:00",
+          dayEnd: "18:25",
+        },
+        version: 2,
+      });
+      await element.updateComplete;
+
+      // Open edit dialog
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+      taskListPanel.dispatchEvent(
+        new CustomEvent("edit-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Simulate stale deletion - task no longer exists in either store
+      mockStore.getTaskById.mockReturnValue(undefined);
+      mockWeeklyStore.getTaskById.mockReturnValue(undefined);
+
+      // Save the task
+      const taskDialog =
+        element.shadowRoot!.querySelector("task-editor-dialog")!;
+      taskDialog.dispatchEvent(
+        new CustomEvent("save", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            taskId: "task-1",
+            title: "Updated Task",
+            description: "Updated desc",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      const dialog = element.shadowRoot!.querySelector(
+        "task-editor-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+        error: string | null;
+      };
+      expect(dialog.open).toBe(true);
+      expect(dialog.error).toBe("Task not found. It may have been deleted.");
+      expect(mockTaskpoolStore.updateTask).not.toHaveBeenCalled();
+      expect(mockWeeklyStore.assignTaskToProject).not.toHaveBeenCalled();
+    });
+
+    it("should keep dialog open and show error when project assignment fails", async () => {
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockWeeklyStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockTaskpoolStore.getTaskById.mockReturnValue(mockTasks[0]);
+      setPlannerTasks(mockTasks);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+          dayStart: "08:00",
+          dayEnd: "18:25",
+        },
+        version: 2,
+      });
+      await element.updateComplete;
+
+      // Open edit dialog
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+      taskListPanel.dispatchEvent(
+        new CustomEvent("edit-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Make project assignment fail
+      mockWeeklyStore.assignTaskToProject.mockReturnValue({
+        success: false,
+        error: "Project is archived",
+      });
+
+      // Save the task with a projectId
+      const taskDialog =
+        element.shadowRoot!.querySelector("task-editor-dialog")!;
+      taskDialog.dispatchEvent(
+        new CustomEvent("save", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            taskId: "task-1",
+            title: "Updated Task",
+            description: "Updated desc",
+            projectId: "project-1",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      const dialog = element.shadowRoot!.querySelector(
+        "task-editor-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+        error: string | null;
+      };
+      expect(dialog.open).toBe(true);
+      expect(dialog.error).toBe("Project is archived");
+      expect(mockWeeklyStore.assignTaskToProject).toHaveBeenCalled();
+      // Update should not be called due to atomic behavior
+      expect(mockTaskpoolStore.updateTask).not.toHaveBeenCalled();
+    });
+
+    it("should keep dialog open and show error when update fails", async () => {
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockWeeklyStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockTaskpoolStore.getTaskById.mockReturnValue(mockTasks[0]);
+      setPlannerTasks(mockTasks);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+          dayStart: "08:00",
+          dayEnd: "18:25",
+        },
+        version: 2,
+      });
+      await element.updateComplete;
+
+      // Open edit dialog
+      const taskListPanel =
+        element.shadowRoot!.querySelector("task-list-panel")!;
+      taskListPanel.dispatchEvent(
+        new CustomEvent("edit-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Make update fail
+      mockTaskpoolStore.updateTask.mockReturnValue({
+        success: false,
+        error: "Failed to persist task",
+      });
+
+      // Save the task
+      const taskDialog =
+        element.shadowRoot!.querySelector("task-editor-dialog")!;
+      taskDialog.dispatchEvent(
+        new CustomEvent("save", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            taskId: "task-1",
+            title: "Updated Task",
+            description: "Updated desc",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      const dialog = element.shadowRoot!.querySelector(
+        "task-editor-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+        error: string | null;
+      };
+      expect(dialog.open).toBe(true);
+      expect(dialog.error).toBe("Failed to persist task");
+    });
+
+    it("should keep dialog open and show error when task is stale (Tasks view path)", async () => {
+      // Switch to Tasks view
+      (element as any)._activeView = "tasks";
+      await element.updateComplete;
+
+      const callback = mockStore.subscribe.mock.calls[0]![0] as (
+        state: PlannerState,
+      ) => void;
+      mockStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockWeeklyStore.getTaskById.mockReturnValue(mockTasks[0]);
+      mockTaskpoolStore.getTaskById.mockReturnValue(mockTasks[0]);
+      setPlannerTasks(mockTasks);
+
+      callback({
+        pool: {
+          dailyCapacity: 10,
+          date: "2024-06-15",
+          capacityInMinutes: 25,
+          dayStart: "08:00",
+          dayEnd: "18:25",
+        },
+        version: 2,
+      });
+      await element.updateComplete;
+
+      // Open edit dialog from tasks-view-panel (Tasks view)
+      const tasksViewPanel =
+        element.shadowRoot!.querySelector("tasks-view-panel")!;
+      expect(tasksViewPanel).toBeDefined();
+
+      tasksViewPanel.dispatchEvent(
+        new CustomEvent("edit-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Simulate stale deletion - task no longer exists in either store
+      mockStore.getTaskById.mockReturnValue(undefined);
+      mockWeeklyStore.getTaskById.mockReturnValue(undefined);
+
+      // Save the task
+      const taskDialog =
+        element.shadowRoot!.querySelector("task-editor-dialog")!;
+      taskDialog.dispatchEvent(
+        new CustomEvent("save", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            taskId: "task-1",
+            title: "Updated Task",
+            description: "Updated desc",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      const dialog = element.shadowRoot!.querySelector(
+        "task-editor-dialog",
+      ) as HTMLElement & {
+        open: boolean;
+        error: string | null;
+      };
+      expect(dialog.open).toBe(true);
+      expect(dialog.error).toBe("Task not found. It may have been deleted.");
+      expect(mockTaskpoolStore.updateTask).not.toHaveBeenCalled();
+      expect(mockWeeklyStore.assignTaskToProject).not.toHaveBeenCalled();
+    });
+  });
 });
