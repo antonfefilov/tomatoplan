@@ -478,6 +478,78 @@ describe("PlannerStore", () => {
     });
   });
 
+  describe("unassignTaskFromDay", () => {
+    it("should remove task's day assignment via taskpoolStore", async () => {
+      const { taskpoolStore } = await import("../src/state/taskpool-store.js");
+
+      // Create a task assigned to today
+      const todayDate = store.getState().pool.date;
+      const addResult = taskpoolStore.addTask("Task for Today", undefined, {
+        dayDate: todayDate,
+      });
+      const taskId = addResult.taskId!;
+
+      // Verify task is assigned to today
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBe(todayDate);
+
+      // Unassign task from day
+      const result = store.unassignTaskFromDay(taskId);
+
+      expect(result.success).toBe(true);
+      expect(taskpoolStore.getTaskById(taskId)?.dayDate).toBeUndefined();
+    });
+
+    it("should keep task in taskpool after unassigning from day", async () => {
+      const { taskpoolStore } = await import("../src/state/taskpool-store.js");
+
+      // Create a task assigned to today
+      const todayDate = store.getState().pool.date;
+      const addResult = taskpoolStore.addTask("Task for Today", undefined, {
+        dayDate: todayDate,
+      });
+      const taskId = addResult.taskId!;
+
+      // Unassign task from day
+      store.unassignTaskFromDay(taskId);
+
+      // Task should still exist in taskpoolStore
+      const task = taskpoolStore.getTaskById(taskId);
+      expect(task).toBeDefined();
+      expect(task?.title).toBe("Task for Today");
+    });
+
+    it("should NOT delete the task (only unassign from day)", async () => {
+      const { taskpoolStore } = await import("../src/state/taskpool-store.js");
+
+      // Create a task assigned to today with tomatoes
+      const todayDate = store.getState().pool.date;
+      const addResult = taskpoolStore.addTask("Task with Tomatoes", undefined, {
+        dayDate: todayDate,
+      });
+      const taskId = addResult.taskId!;
+
+      // Assign some tomatoes to the task
+      taskpoolStore.assignTomato(taskId);
+      taskpoolStore.assignTomato(taskId);
+
+      // Unassign task from day
+      store.unassignTaskFromDay(taskId);
+
+      // Task should still exist with its data intact
+      const task = taskpoolStore.getTaskById(taskId);
+      expect(task).toBeDefined();
+      expect(task?.tomatoCount).toBe(2);
+      expect(task?.dayDate).toBeUndefined();
+    });
+
+    it("should fail for non-existent task", () => {
+      const result = store.unassignTaskFromDay("non-existent");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("not found");
+    });
+  });
+
   describe("selectors", () => {
     beforeEach(() => {
       store.addTask("Task 1");

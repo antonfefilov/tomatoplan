@@ -785,6 +785,90 @@ describe("TaskList - Drag and Drop", () => {
     });
   });
 
+  describe("task-item wiring for remove-from-day", () => {
+    const mockTasksWithDayDate: Task[] = [
+      {
+        id: "task-1",
+        title: "First Task",
+        tomatoCount: 2,
+        finishedTomatoCount: 1,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+        dayDate: "2024-01-15",
+      },
+      {
+        id: "task-2",
+        title: "Second Task",
+        tomatoCount: 3,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+        dayDate: "2024-01-15",
+      },
+    ];
+
+    it("should pass showRemoveFromDay prop to task-item", async () => {
+      element.tasks = mockTasksWithDayDate;
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<HTMLElement & { showRemoveFromDay: boolean }>;
+      expect(taskItems.length).toBe(2);
+      taskItems.forEach((item) => {
+        expect(item.showRemoveFromDay).toBe(true);
+      });
+    });
+
+    it("should not pass showRemoveFromDay when it is false", async () => {
+      element.tasks = mockTasksWithDayDate;
+      element.showRemoveFromDay = false;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<HTMLElement & { showRemoveFromDay: boolean }>;
+      taskItems.forEach((item) => {
+        expect(item.showRemoveFromDay).toBe(false);
+      });
+    });
+
+    it("should bubble remove-from-day event exactly once when clicking the menu item in task-item's shadow DOM", async () => {
+      element.tasks = mockTasksWithDayDate;
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("remove-from-day", spy);
+
+      // Navigate to the task-item and its shadow DOM
+      const taskItemWrapper = element.shadowRoot!.querySelector(
+        ".task-item-wrapper",
+      ) as HTMLElement;
+      const taskItem = taskItemWrapper.querySelector(
+        "task-item",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await taskItem.updateComplete;
+
+      // Find and click the "Remove from Day" menu item
+      const menuItems = taskItem.shadowRoot!.querySelectorAll(".menu-item");
+      const removeMenuItem = Array.from(menuItems).find((item) =>
+        item.textContent?.includes("Remove from Day"),
+      ) as HTMLButtonElement;
+
+      expect(removeMenuItem).toBeDefined();
+      removeMenuItem.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+  });
+
   describe("dragleave behavior", () => {
     it("should clear drag-over when leaving wrapper entirely", async () => {
       const wrappers =

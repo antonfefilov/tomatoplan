@@ -690,6 +690,70 @@ describe("TaskItem", () => {
     });
   });
 
+  describe("remove-from-day", () => {
+    it("should show 'Remove from Day' menu item when showRemoveFromDay is true and task has dayDate", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-01" };
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      // Find the dropdown menu and check for the remove-from-day menu item
+      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
+      const removeMenuItem = Array.from(menuItems).find((item) =>
+        item.textContent?.includes("Remove from Day"),
+      );
+      expect(removeMenuItem).toBeDefined();
+    });
+
+    it("should hide 'Remove from Day' menu item when showRemoveFromDay is false", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-01" };
+      element.showRemoveFromDay = false;
+      await element.updateComplete;
+
+      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
+      const removeMenuItem = Array.from(menuItems).find((item) =>
+        item.textContent?.includes("Remove from Day"),
+      );
+      expect(removeMenuItem).toBeUndefined();
+    });
+
+    it("should hide 'Remove from Day' menu item when task.dayDate is undefined", async () => {
+      element.task = { ...mockTask, dayDate: undefined };
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
+      const removeMenuItem = Array.from(menuItems).find((item) =>
+        item.textContent?.includes("Remove from Day"),
+      );
+      expect(removeMenuItem).toBeUndefined();
+    });
+
+    it("should dispatch remove-from-day event exactly once with taskId when 'Remove from Day' is clicked", async () => {
+      element.task = { ...mockTask, dayDate: "2024-01-01" };
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("remove-from-day", spy);
+
+      // Find and click the "Remove from Day" menu item
+      const menuItems = element.shadowRoot!.querySelectorAll(".menu-item");
+      const removeMenuItem = Array.from(menuItems).find((item) =>
+        item.textContent?.includes("Remove from Day"),
+      ) as HTMLButtonElement;
+
+      expect(removeMenuItem).toBeDefined();
+      removeMenuItem.click();
+      await element.updateComplete;
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+  });
+
   describe("done task styling", () => {
     it("should apply 'done' class when task is done (finished >= planned, planned > 0)", async () => {
       element.task = { ...mockTask, tomatoCount: 3, finishedTomatoCount: 3 };

@@ -71,6 +71,7 @@ vi.mock("../src/state/planner-store.js", () => ({
     setTaskProject: vi.fn(),
     markTaskDone: vi.fn(),
     assignTaskToToday: vi.fn(),
+    unassignTaskFromDay: vi.fn(),
     assignedTomatoes: 3,
     remainingTomatoes: 7,
     capacityInMinutes: 25,
@@ -165,6 +166,7 @@ const mockPlannerStore = plannerStore as unknown as {
   setTaskProject: ReturnType<typeof vi.fn>;
   markTaskDone: ReturnType<typeof vi.fn>;
   assignTaskToToday: ReturnType<typeof vi.fn>;
+  unassignTaskFromDay: ReturnType<typeof vi.fn>;
   assignedTomatoes: number;
   remainingTomatoes: number;
   capacityInMinutes: number;
@@ -1578,6 +1580,101 @@ describe("TomatoPlannerApp Views", () => {
       expect(mockPlannerStore.assignTaskToToday).toHaveBeenCalledWith(
         "test-task-id",
       );
+    });
+  });
+
+  // ============================================
+  // Remove from Day Integration Tests (Day View)
+  // ============================================
+
+  describe("remove-from-day integration in Day view", () => {
+    beforeEach(async () => {
+      // Ensure we're on Day view
+      const dayTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='day-view']",
+      ) as HTMLButtonElement;
+      dayTab.click();
+      await element.updateComplete;
+    });
+
+    it("should pass showRemoveFromDay=true to task-list-panel in Day view", async () => {
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement & { showRemoveFromDay: boolean };
+      expect(taskListPanel.showRemoveFromDay).toBe(true);
+    });
+
+    it("should call plannerStore.unassignTaskFromDay exactly once when remove-from-day event is dispatched from task-list-panel", async () => {
+      // Clear any previous calls
+      mockPlannerStore.unassignTaskFromDay = vi
+        .fn()
+        .mockReturnValue({ success: true });
+
+      // Create a task assigned to today
+      const todayTask = createMockTask("task-to-remove", "Task to Remove");
+      todayTask.dayDate = "2024-06-15"; // Today's date
+
+      // Set up plannerStore with the task
+      setPlannerTasks([todayTask]);
+      await element.updateComplete;
+
+      // Dispatch event from task-list-panel level
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("remove-from-day", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-to-remove" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Assert exactly once
+      expect(mockPlannerStore.unassignTaskFromDay).toHaveBeenCalledTimes(1);
+      expect(mockPlannerStore.unassignTaskFromDay).toHaveBeenCalledWith(
+        "task-to-remove",
+      );
+    });
+
+    it("should call plannerStore.unassignTaskFromDay (NOT removeTask) when remove-from-day event is dispatched", async () => {
+      // Set up mocks
+      mockPlannerStore.unassignTaskFromDay = vi
+        .fn()
+        .mockReturnValue({ success: true });
+      mockPlannerStore.removeTask = vi.fn().mockReturnValue({ success: true });
+
+      // Create a task assigned to today with tomatoes
+      const todayTask = createMockTask("task-to-unassign", "Task to Unassign");
+      todayTask.dayDate = "2024-06-15";
+      todayTask.tomatoCount = 3;
+
+      setPlannerTasks([todayTask]);
+      await element.updateComplete;
+
+      // Dispatch event from task-list-panel level (valid for testing store call directly)
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement;
+
+      taskListPanel.dispatchEvent(
+        new CustomEvent("remove-from-day", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-to-unassign" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Assert unassignTaskFromDay was called (not removeTask)
+      expect(mockPlannerStore.unassignTaskFromDay).toHaveBeenCalledTimes(1);
+      expect(mockPlannerStore.unassignTaskFromDay).toHaveBeenCalledWith(
+        "task-to-unassign",
+      );
+      // removeTask should NOT have been called - this proves task is unassigned, not deleted
+      expect(mockPlannerStore.removeTask).not.toHaveBeenCalled();
     });
   });
 });

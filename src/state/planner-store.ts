@@ -474,6 +474,14 @@ class PlannerStore {
   }
 
   /**
+   * Removes a task's day assignment
+   * The task stays in the taskpool but is no longer assigned to today
+   */
+  unassignTaskFromDay(taskId: string): { success: boolean; error?: string } {
+    return taskpoolStore.unassignTaskFromDay(taskId);
+  }
+
+  /**
    * Marks a task as done by setting finishedTomatoCount to at least tomatoCount.
    * This is a one-way convenience action - if finished already >= planned, no change.
    */

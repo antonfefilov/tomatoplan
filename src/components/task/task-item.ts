@@ -500,6 +500,9 @@ export class TaskItem extends LitElement {
   @property({ type: Boolean })
   showAssignToToday = false;
 
+  @property({ type: Boolean })
+  showRemoveFromDay = false;
+
   @property({ type: String })
   todayDate?: string;
 
@@ -623,6 +626,17 @@ export class TaskItem extends LitElement {
     e.stopPropagation();
     this.dispatchEvent(
       new CustomEvent("assign-to-today", {
+        bubbles: true,
+        composed: true,
+        detail: { taskId: this.task.id },
+      }),
+    );
+  }
+
+  private _handleRemoveFromDay(e: Event) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("remove-from-day", {
         bubbles: true,
         composed: true,
         detail: { taskId: this.task.id },
@@ -781,6 +795,26 @@ export class TaskItem extends LitElement {
               </svg>
               Edit
             </button>
+            ${this.showRemoveFromDay && task.dayDate
+              ? html`
+                  <button class="menu-item" @click=${this._handleRemoveFromDay}>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      width="16"
+                      height="16"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L9 9.94l-1.78 1.78a.75.75 0 101.06 1.06l1.78-1.78 1.78 1.78a.75.75 0 101.06-1.06L10.94 10l1.78-1.78a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                    Remove from Day
+                  </button>
+                `
+              : null}
             <button class="menu-item danger" @click=${this._handleDelete}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"

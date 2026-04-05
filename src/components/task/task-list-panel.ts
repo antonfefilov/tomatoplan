@@ -188,6 +188,9 @@ export class TaskListPanel extends LitElement {
   @property({ type: Number })
   timerRemainingSeconds = 0;
 
+  @property({ type: Boolean })
+  showRemoveFromDay = false;
+
   /**
    * Formats minutes into a human-readable hours/minutes string
    * e.g., 200 minutes -> "3h 20m"
@@ -338,6 +341,17 @@ export class TaskListPanel extends LitElement {
     );
   }
 
+  private _handleRemoveFromDay(e: CustomEvent<{ taskId: string }>) {
+    e.stopPropagation();
+    this.dispatchEvent(
+      new CustomEvent("remove-from-day", {
+        bubbles: true,
+        composed: true,
+        detail: e.detail,
+      }),
+    );
+  }
+
   override render() {
     const taskCount = this.tasks.length;
 
@@ -410,6 +424,7 @@ export class TaskListPanel extends LitElement {
                 .timerActiveTaskId=${this.timerActiveTaskId}
                 .timerStatus=${this.timerStatus}
                 .timerRemainingSeconds=${this.timerRemainingSeconds}
+                .showRemoveFromDay=${this.showRemoveFromDay}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
                 @mark-tomato-finished=${this._handleMarkTomatoFinished}
@@ -420,6 +435,7 @@ export class TaskListPanel extends LitElement {
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
                 @mark-done=${this._handleMarkDone}
+                @remove-from-day=${this._handleRemoveFromDay}
               ></task-list>
             `}
       </div>

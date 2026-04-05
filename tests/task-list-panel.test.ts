@@ -338,4 +338,85 @@ describe("TaskListPanel", () => {
       expect(taskList.disabled).toBe(true);
     });
   });
+
+  describe("showRemoveFromDay prop passthrough", () => {
+    const mockTasksWithDayDate: Task[] = [
+      {
+        id: "task-1",
+        title: "First Task",
+        description: "Description 1",
+        tomatoCount: 2,
+        finishedTomatoCount: 1,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+        dayDate: "2024-01-15",
+      },
+      {
+        id: "task-2",
+        title: "Second Task",
+        description: undefined,
+        tomatoCount: 3,
+        finishedTomatoCount: 0,
+        createdAt: "2024-01-01T00:00:00.000Z",
+        updatedAt: "2024-01-01T00:00:00.000Z",
+        dayDate: "2024-01-15",
+      },
+    ];
+
+    it("should pass showRemoveFromDay prop to task-list when true", async () => {
+      element.tasks = mockTasksWithDayDate;
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.showRemoveFromDay).toBe(true);
+    });
+
+    it("should pass showRemoveFromDay prop to task-list when false", async () => {
+      element.tasks = mockTasksWithDayDate;
+      element.showRemoveFromDay = false;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.showRemoveFromDay).toBe(false);
+    });
+  });
+
+  describe("remove-from-day event bubbling", () => {
+    const mockTaskWithDayDate: Task = {
+      id: "task-1",
+      title: "Test Task",
+      description: "Description",
+      tomatoCount: 2,
+      finishedTomatoCount: 1,
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
+      dayDate: "2024-01-15",
+    };
+
+    it("should bubble remove-from-day event from task-list exactly once", async () => {
+      element.tasks = [mockTaskWithDayDate];
+      element.showRemoveFromDay = true;
+      await element.updateComplete;
+
+      const spy = vi.fn();
+      element.addEventListener("remove-from-day", spy);
+
+      // Get the task-list and dispatch remove-from-day from it
+      const taskList = element.shadowRoot!.querySelector("task-list")!;
+      taskList.dispatchEvent(
+        new CustomEvent("remove-from-day", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-1" },
+        }),
+      );
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      const event = spy.mock.calls[0]![0] as CustomEvent;
+      expect(event.detail.taskId).toBe("task-1");
+      expect(event.bubbles).toBe(true);
+      expect(event.composed).toBe(true);
+    });
+  });
 });

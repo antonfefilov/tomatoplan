@@ -468,6 +468,10 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.assignTaskToToday(e.detail.taskId);
   }
 
+  private _handleRemoveFromDay(e: CustomEvent<{ taskId: string }>) {
+    plannerStore.unassignTaskFromDay(e.detail.taskId);
+  }
+
   private _handleReorderTask(
     e: CustomEvent<{ taskId: string; toIndex: number }>,
   ) {
@@ -864,6 +868,7 @@ export class TomatoPlannerApp extends LitElement {
                 .timerActiveTaskId=${this._timerActiveTaskId}
                 .timerStatus=${this._timerStatus}
                 .timerRemainingSeconds=${this._timerRemainingSeconds}
+                .showRemoveFromDay=${true}
                 @open-task-dialog=${this._handleOpenTaskDialog}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
@@ -877,6 +882,7 @@ export class TomatoPlannerApp extends LitElement {
                 @resume-timer=${this._handleResumeTimer}
                 @reset-timer=${this._handleResetTimer}
                 @mark-done=${this._handleMarkDone}
+                @remove-from-day=${this._handleRemoveFromDay}
               ></task-list-panel>
             `
           : this._activeView === "week"
