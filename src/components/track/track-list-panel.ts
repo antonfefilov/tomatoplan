@@ -27,9 +27,13 @@ export class TrackListPanel extends LitElement {
     }
 
     .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       background: white;
       border-bottom: 1px solid #e5e7eb;
-      padding: 16px 20px;
+      padding: 12px 16px;
+      min-height: 52px;
     }
 
     .panel-title {
@@ -41,10 +45,53 @@ export class TrackListPanel extends LitElement {
       margin: 0;
     }
 
+    .toggle-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #6b7280;
+      transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+    }
+
+    .toggle-btn:hover {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .toggle-btn:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .toggle-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
     .panel-content {
       flex: 1;
       overflow-y: auto;
       padding: 20px;
+    }
+
+    :host([collapsed]) .panel-content {
+      display: none;
+    }
+
+    :host([collapsed]) .panel-title {
+      display: none;
+    }
+
+    :host([collapsed]) .panel-footer {
+      display: none;
     }
 
     .track-list {
@@ -210,11 +257,23 @@ export class TrackListPanel extends LitElement {
   @property({ type: String })
   selectedTrackId: string | undefined = undefined;
 
+  @property({ type: Boolean, reflect: true })
+  collapsed = false;
+
   @state()
   private _showTrackDialog = false;
 
   @state()
   private _editingTrack: Track | undefined = undefined;
+
+  private _handleToggleCollapse() {
+    this.dispatchEvent(
+      new CustomEvent("toggle-collapse", {
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 
   private _getTaskCount(trackId: string): number {
     const track = this.tracks.find((t) => t.id === trackId);
@@ -291,9 +350,27 @@ export class TrackListPanel extends LitElement {
       <div class="panel-container">
         <div class="panel-header">
           <h2 class="panel-title">Tracks</h2>
+          <button
+            class="toggle-btn"
+            @click=${this._handleToggleCollapse}
+            aria-label=${this.collapsed ? "Expand panel" : "Collapse panel"}
+            aria-expanded=${!this.collapsed}
+            aria-controls="panel-content"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
-        <div class="panel-content">
+        <div class="panel-content" id="panel-content">
           ${this.tracks.length === 0
             ? html`
                 <empty-state

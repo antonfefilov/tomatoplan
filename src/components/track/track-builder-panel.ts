@@ -31,7 +31,8 @@ export class TrackBuilderPanel extends LitElement {
     .builder-header {
       background: white;
       border-bottom: 1px solid #e5e7eb;
-      padding: 16px 20px;
+      padding: 12px 20px;
+      min-height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
