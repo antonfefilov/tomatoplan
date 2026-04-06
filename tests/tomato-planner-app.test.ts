@@ -84,6 +84,7 @@ vi.mock("../src/state/weekly-store.js", () => ({
     assignTaskToProject: vi.fn().mockReturnValue({ success: true }),
     unassignTaskFromProject: vi.fn().mockReturnValue({ success: true }),
     updateTask: vi.fn().mockReturnValue({ success: true }),
+    removeTask: vi.fn(),
     getProjectById: vi.fn(),
     projects: [],
     tasks: [],
@@ -155,6 +156,7 @@ const mockWeeklyStore = weeklyStore as unknown as {
   assignTaskToProject: ReturnType<typeof vi.fn>;
   unassignTaskFromProject: ReturnType<typeof vi.fn>;
   updateTask: ReturnType<typeof vi.fn>;
+  removeTask: ReturnType<typeof vi.fn>;
   getProjectById: ReturnType<typeof vi.fn>;
   projects: readonly Project[];
   tasks: readonly Task[];
@@ -589,7 +591,8 @@ describe("TomatoPlannerApp", () => {
       );
       await element.updateComplete;
 
-      expect(mockStore.removeTask).toHaveBeenCalledWith("task-1");
+      // Now always uses weeklyStore.removeTask to ensure proper track cleanup
+      expect(mockWeeklyStore.removeTask).toHaveBeenCalledWith("task-1");
     });
 
     it("should call assignTomato on store when add-tomato event is dispatched", async () => {

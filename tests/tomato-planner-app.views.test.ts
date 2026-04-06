@@ -96,6 +96,7 @@ vi.mock("../src/state/weekly-store.js", () => ({
     incrementProjectEstimate: vi.fn(),
     decrementProjectEstimate: vi.fn(),
     syncTasks: vi.fn(),
+    removeTask: vi.fn(),
     tasks: [],
   },
 }));
@@ -204,6 +205,7 @@ const mockWeeklyStore = weeklyStore as unknown as {
   incrementProjectEstimate: ReturnType<typeof vi.fn>;
   decrementProjectEstimate: ReturnType<typeof vi.fn>;
   syncTasks: ReturnType<typeof vi.fn>;
+  removeTask: ReturnType<typeof vi.fn>;
   tasks: readonly Task[];
 };
 

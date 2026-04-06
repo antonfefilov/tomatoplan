@@ -424,13 +424,8 @@ export class TomatoPlannerApp extends LitElement {
     if (this._deletingTaskId) {
       // Clear timer if it's running for this task
       timerStore.clearTimerForTask(this._deletingTaskId);
-      // Check which store has the task and remove from there
-      const plannerTask = plannerStore.getTaskById(this._deletingTaskId);
-      if (plannerTask) {
-        plannerStore.removeTask(this._deletingTaskId);
-      } else {
-        weeklyStore.removeTask(this._deletingTaskId);
-      }
+      // Always use weeklyStore.removeTask to ensure proper cleanup including track references
+      weeklyStore.removeTask(this._deletingTaskId);
     }
     this._closeDeleteDialog();
   }

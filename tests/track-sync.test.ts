@@ -216,6 +216,60 @@ describe("Track membership synchronization", () => {
       const track = store.getTrackById(trackId!);
       expect(track?.taskIds).not.toContain("task-1");
     });
+
+    it("regression: removing task via removeTask cleans up all track references (bd-gs8)", () => {
+      // Regression test for bug: task deleted from Tasks view still displayed in Tracks view
+      // Root cause: plannerStore.removeTask() didn't call cleanupTaskFromTracks()
+      // Fix: always use weeklyStore.removeTask() which properly cleans up track references
+
+      // Create a track
+      const { trackId } = store.addTrack("Test Track");
+
+      // Create and sync a task assigned to today (simulating Tasks view scenario)
+      const task: Task = {
+        id: "task-today-1",
+        title: "Task assigned to today",
+        tomatoCount: 2,
+        finishedTomatoCount: 0,
+        dayDate: "2024-06-15", // Assigned to today
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+
+      // Add task to track (simulating being in Tracks view)
+      const addResult = store.addTaskToTrack(trackId!, "task-today-1");
+      expect(addResult.success).toBe(true);
+
+      // Verify task is in track before deletion
+      const trackBefore = store.getTrackById(trackId!);
+      expect(trackBefore?.taskIds).toContain("task-today-1");
+      expect(trackBefore?.taskIds).toHaveLength(1);
+
+      // Verify task has trackId set
+      const taskBefore = store.getTaskById("task-today-1");
+      expect(taskBefore?.trackId).toBe(trackId);
+
+      // Delete the task using weeklyStore.removeTask (the fixed approach)
+      // This should clean up track references AND remove from taskpool
+      store.removeTask("task-today-1");
+
+      // CRITICAL: Verify task is removed from track.taskIds
+      const trackAfter = store.getTrackById(trackId!);
+      expect(trackAfter?.taskIds).not.toContain("task-today-1");
+      expect(trackAfter?.taskIds).toHaveLength(0);
+
+      // Verify task no longer exists in taskpool
+      const deletedTask = store.getTaskById("task-today-1");
+      expect(deletedTask).toBeUndefined();
+
+      // This regression test ensures that the bug where:
+      // - Deleting from Tasks view (which used plannerStore.removeTask)
+      // - Left stale taskIds in tracks.taskIds
+      // - Causing Tasks to still appear in Tracks view
+      // Is now fixed because we always use weeklyStore.removeTask()
+    });
   });
 
   describe("task movement between tracks", () => {
