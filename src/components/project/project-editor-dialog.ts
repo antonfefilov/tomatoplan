@@ -292,7 +292,7 @@ export class ProjectEditorDialog extends LitElement {
 
   private _handleEstimateInput(e: Event) {
     const value = parseInt((e.target as HTMLInputElement).value, 10);
-    if (!isNaN(value) && value >= 0) {
+    if (!Number.isNaN(value) && value >= 0) {
       this._tomatoEstimate = Math.min(value, this.maxEstimate);
     }
   }

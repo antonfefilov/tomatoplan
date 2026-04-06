@@ -83,11 +83,11 @@ export function isValidPersistedState(
   const obj = data as Record<string, unknown>;
 
   return (
-    typeof obj["dailyCapacity"] === "number" &&
-    obj["dailyCapacity"] > 0 &&
-    Array.isArray(obj["tasks"]) &&
-    typeof obj["savedDate"] === "string" &&
-    typeof obj["version"] === "number"
+    typeof obj.dailyCapacity === "number" &&
+    obj.dailyCapacity > 0 &&
+    Array.isArray(obj.tasks) &&
+    typeof obj.savedDate === "string" &&
+    typeof obj.version === "number"
     // capacityInMinutes is optional for backward compatibility
   );
 }

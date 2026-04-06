@@ -8,7 +8,7 @@ import { customElement, property } from "lit/decorators.js";
 import type { Track, TrackEdge } from "../../models/track.js";
 import type { Task } from "../../models/task.js";
 import { getIncomingEdges, getOutgoingEdges } from "../../models/track.js";
-import { getEdgePath, NodePosition } from "../../utils/track-graph.js";
+import { getEdgePath, type NodePosition } from "../../utils/track-graph.js";
 import { isTaskDone } from "../../models/task.js";
 import "./track-node.js";
 import "../shared/empty-state.js";

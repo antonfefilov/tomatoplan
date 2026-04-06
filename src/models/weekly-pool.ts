@@ -86,7 +86,7 @@ export function isStale(pool: WeeklyPool): boolean {
  */
 export function getDaysRemainingInWeek(pool: WeeklyPool): number {
   const today = new Date();
-  const weekEnd = new Date(pool.weekEndDate + "T23:59:59");
+  const weekEnd = new Date(`${pool.weekEndDate}T23:59:59`);
 
   if (today > weekEnd) {
     return 0;

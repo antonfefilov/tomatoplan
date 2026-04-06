@@ -97,10 +97,10 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
 
       expect(availableSection).toBeTruthy();
 
-      if (availableSection && availableSection.textContent) {
+      if (availableSection?.textContent) {
         // Extract the count from "Available (num)"
         const match = availableSection.textContent.match(/Available \((\d+)\)/);
-        const count = match && match[1] ? parseInt(match[1], 10) : 0;
+        const count = match?.[1] ? parseInt(match[1], 10) : 0;
         expect(count).toBe(1); // Should be exactly 1
       }
 
@@ -173,7 +173,7 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
         if (elementText) {
           // Extract the count from the section title
           const match = elementText.match(/In Track \((\d+)\)/);
-          const count = match && match[1] ? parseInt(match[1], 10) : 0;
+          const count = match?.[1] ? parseInt(match[1], 10) : 0;
           expect(count).toBe(1); // Verify exactly 1 task in track
         }
       }
@@ -243,21 +243,21 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
       expect(inTrackSection).toBeTruthy();
       expect(availableSection).toBeTruthy();
 
-      if (inTrackSection && inTrackSection.textContent) {
+      if (inTrackSection?.textContent) {
         // Verify the In Track section has exactly 1 task
         const inTrackMatch =
           inTrackSection.textContent.match(/In Track \((\d+)\)/);
         const inTrackCount =
-          inTrackMatch && inTrackMatch[1] ? parseInt(inTrackMatch[1], 10) : 0;
+          inTrackMatch?.[1] ? parseInt(inTrackMatch[1], 10) : 0;
         expect(inTrackCount).toBe(1); // Should be exactly 1
       }
 
-      if (availableSection && availableSection.textContent) {
+      if (availableSection?.textContent) {
         // Verify the Available section has exactly 1 task (the unfinished one, not the finished one)
         const availableMatch =
           availableSection.textContent.match(/Available \((\d+)\)/);
         const availableCount =
-          availableMatch && availableMatch[1]
+          availableMatch?.[1]
             ? parseInt(availableMatch[1], 10)
             : 0;
         expect(availableCount).toBe(1); // Should count only unfinished tasks not in track

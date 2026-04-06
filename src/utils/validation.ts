@@ -41,7 +41,7 @@ export function getRemainingTomatoes(
  * Validates that a daily capacity value is within acceptable bounds
  */
 export function validateDailyCapacity(capacity: number): ValidationResult {
-  if (typeof capacity !== "number" || isNaN(capacity)) {
+  if (typeof capacity !== "number" || Number.isNaN(capacity)) {
     return { valid: false, error: "Capacity must be a valid number" };
   }
 
@@ -70,7 +70,7 @@ export function validateDailyCapacity(capacity: number): ValidationResult {
  * Validates that a capacityInMinutes (tomato duration) value is within acceptable bounds
  */
 export function validateCapacityInMinutes(minutes: number): ValidationResult {
-  if (typeof minutes !== "number" || isNaN(minutes)) {
+  if (typeof minutes !== "number" || Number.isNaN(minutes)) {
     return { valid: false, error: "Duration must be a valid number" };
   }
 
@@ -131,7 +131,7 @@ export function canUnassignTomato(currentCount: number): ValidationResult {
  * Validates a tomato count for a specific task
  */
 export function validateTomatoCount(count: number): ValidationResult {
-  if (typeof count !== "number" || isNaN(count)) {
+  if (typeof count !== "number" || Number.isNaN(count)) {
     return { valid: false, error: "Tomato count must be a valid number" };
   }
 

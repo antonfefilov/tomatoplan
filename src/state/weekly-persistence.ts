@@ -59,12 +59,12 @@ function isValidPersistedWeeklyState(
   const obj = data as Record<string, unknown>;
 
   return (
-    typeof obj["weeklyCapacity"] === "number" &&
-    obj["weeklyCapacity"] > 0 &&
-    typeof obj["weekId"] === "string" &&
-    Array.isArray(obj["projects"]) &&
+    typeof obj.weeklyCapacity === "number" &&
+    obj.weeklyCapacity > 0 &&
+    typeof obj.weekId === "string" &&
+    Array.isArray(obj.projects) &&
     // tasks is no longer persisted - derived from taskpoolStore on load
-    typeof obj["version"] === "number"
+    typeof obj.version === "number"
   );
 }
 

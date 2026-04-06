@@ -762,7 +762,7 @@ export class TomatoPlannerApp extends LitElement {
           totalFinished: this._overallMetrics.totalFinished,
           totalPlanned: this._overallMetrics.totalPlanned,
         };
-      case "tasks":
+      case "tasks": {
         const doneTasks = allTasks.filter((task) => isTaskDone(task));
         const activeTasks = allTasks.filter((task) => !isTaskDone(task));
         return {
@@ -771,7 +771,8 @@ export class TomatoPlannerApp extends LitElement {
           activeTaskCount: activeTasks.length,
           doneTaskCount: doneTasks.length,
         };
-      case "tracks":
+      }
+      case "tracks": {
         const selectedTrack = this._selectedTrackId
           ? this._tracks.find((t) => t.id === this._selectedTrackId)
           : undefined;
@@ -780,6 +781,7 @@ export class TomatoPlannerApp extends LitElement {
           trackCount: this._tracks.length,
           selectedTrackTitle: selectedTrack?.title,
         };
+      }
     }
   }
 

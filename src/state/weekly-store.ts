@@ -196,7 +196,7 @@ class WeeklyStore {
    * Sets the weekly tomato capacity
    */
   setWeeklyCapacity(capacity: number): ActionResult {
-    if (typeof capacity !== "number" || isNaN(capacity) || capacity < 1) {
+    if (typeof capacity !== "number" || Number.isNaN(capacity) || capacity < 1) {
       return { success: false, error: "Capacity must be a positive number" };
     }
 
@@ -565,7 +565,7 @@ class WeeklyStore {
     // This ensures that if project assignment fails, no other fields are mutated.
     // Use hasOwnProperty to distinguish between undefined (not set) and
     // explicitly set to undefined/null (unassign)
-    if (Object.prototype.hasOwnProperty.call(updates, "projectId")) {
+    if (Object.hasOwn(updates, "projectId")) {
       const result = updates.projectId
         ? this.assignTaskToProject(taskId, updates.projectId)
         : this.unassignTaskFromProject(taskId);

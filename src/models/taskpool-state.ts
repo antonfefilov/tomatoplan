@@ -21,8 +21,8 @@ export function isValidDayDate(
   const pattern = /^\d{4}-\d{2}-\d{2}$/;
   if (!pattern.test(date)) return false;
   // Validate it's a real date
-  const parsed = new Date(date + "T00:00:00Z");
-  return !isNaN(parsed.getTime());
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime());
 }
 
 /**
@@ -249,7 +249,7 @@ export function unassignTaskFromDay(
   taskId: string,
 ): TaskpoolState {
   const task = state.tasks.get(taskId);
-  if (!task || !task.dayDate) return state;
+  if (!task?.dayDate) return state;
 
   const dayDate = task.dayDate;
   const newDayAssignments = new Map(state.dayAssignments);

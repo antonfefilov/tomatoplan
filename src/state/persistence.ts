@@ -205,7 +205,7 @@ export function loadPlannerStateForMigration(): {
     if (
       typeof parsed !== "object" ||
       parsed === null ||
-      typeof (parsed as Record<string, unknown>)["savedDate"] !== "string"
+      typeof (parsed as Record<string, unknown>).savedDate !== "string"
     ) {
       return null;
     }
@@ -214,16 +214,16 @@ export function loadPlannerStateForMigration(): {
 
     // Check for tasks array
     if (
-      !data["tasks"] ||
-      !Array.isArray(data["tasks"]) ||
-      data["tasks"].length === 0
+      !data.tasks ||
+      !Array.isArray(data.tasks) ||
+      data.tasks.length === 0
     ) {
       return null;
     }
 
     return {
-      tasks: data["tasks"] as readonly import("../models/task.js").Task[],
-      savedDate: data["savedDate"] as string,
+      tasks: data.tasks as readonly import("../models/task.js").Task[],
+      savedDate: data.savedDate as string,
     };
   } catch (error) {
     console.error("Failed to load planner state for migration:", error);
