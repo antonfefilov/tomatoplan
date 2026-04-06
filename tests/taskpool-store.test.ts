@@ -810,6 +810,136 @@ describe("TaskpoolStore", () => {
     });
   });
 
+  // Regression tests for dayDate conflict resolution in importTasks (tomatoplan-sd2)
+  describe("importTasks dayDate conflict resolution", () => {
+    // Helper to create imported task fixtures
+    function makeImportedTask(id: string, overrides: Partial<Task> = {}): Task {
+      return {
+        id,
+        title: "Imported Task",
+        tomatoCount: 0,
+        finishedTomatoCount: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...overrides,
+      };
+    }
+
+    it("should use imported dayDate while preserving local fields", () => {
+      // Setup: Create local task on day "2024-01-15" with local fields
+      const result = store.addTask("Original Task", undefined, {
+        dayDate: "2024-01-15",
+        tomatoCount: 3,
+      });
+      if (!result.taskId) throw new Error("taskId should be defined");
+
+      // Set local fields
+      store.setTaskTrack(result.taskId, "track-123");
+      store.setTaskProject(result.taskId, "project-456");
+      store.setFinishedTomatoCount(result.taskId, 2);
+
+      // Verify initial state
+      const initialTask = store.getTaskById(result.taskId);
+      expect(initialTask?.dayDate).toBe("2024-01-15");
+      expect(initialTask?.trackId).toBe("track-123");
+      expect(initialTask?.projectId).toBe("project-456");
+      expect(initialTask?.finishedTomatoCount).toBe(2);
+      expect(store.getTasksForDay("2024-01-15").length).toBe(1);
+
+      // Import: Same task with dayDate "2024-01-16" and updated content
+      const importedTask = makeImportedTask(result.taskId, {
+        title: "Updated Title",
+        tomatoCount: 5,
+        dayDate: "2024-01-16",
+      });
+      store.importTasks([importedTask]);
+
+      // Verify:
+      // - dayDate comes from imported task
+      // - local fields preserved
+      // - content fields updated from import
+      const updatedTask = store.getTaskById(result.taskId);
+      expect(updatedTask?.dayDate).toBe("2024-01-16");
+      expect(updatedTask?.trackId).toBe("track-123");
+      expect(updatedTask?.projectId).toBe("project-456");
+      expect(updatedTask?.finishedTomatoCount).toBe(2);
+      expect(updatedTask?.title).toBe("Updated Title");
+      expect(updatedTask?.tomatoCount).toBe(5);
+
+      // - old day bucket cleaned up, new day bucket contains task
+      expect(store.getTasksForDay("2024-01-15").length).toBe(0);
+      expect(store.getTasksForDay("2024-01-16").length).toBe(1);
+      expect(store.getTasksForDay("2024-01-16")[0]?.id).toBe(result.taskId);
+    });
+
+    it("should preserve trackId when moving task to different day", () => {
+      // Setup: Task on old day with trackId assigned
+      const result = store.addTask("Task with Track", undefined, {
+        dayDate: "2024-01-10",
+      });
+      if (!result.taskId) throw new Error("taskId should be defined");
+      store.setTaskTrack(result.taskId, "track-special");
+
+      const initialTask = store.getTaskById(result.taskId);
+      expect(initialTask?.trackId).toBe("track-special");
+      expect(store.getTasksForDay("2024-01-10").length).toBe(1);
+
+      // Import: Same task with new dayDate
+      const importedTask = makeImportedTask(result.taskId, {
+        dayDate: "2024-01-20",
+      });
+      store.importTasks([importedTask]);
+
+      // Verify:
+      // - trackId preserved
+      const updatedTask = store.getTaskById(result.taskId);
+      expect(updatedTask?.trackId).toBe("track-special");
+      expect(updatedTask?.dayDate).toBe("2024-01-20");
+
+      // - getTasksForDay(oldDay) no longer contains it
+      expect(store.getTasksForDay("2024-01-10").length).toBe(0);
+
+      // - getTasksForDay(newDay) contains it
+      expect(store.getTasksForDay("2024-01-20").length).toBe(1);
+      expect(store.getTasksForDay("2024-01-20")[0]?.id).toBe(result.taskId);
+    });
+
+    it("should handle import with undefined dayDate", () => {
+      // Setup: Existing task with valid dayDate
+      const result = store.addTask("Task to Unassign", undefined, {
+        dayDate: "2024-01-05",
+      });
+      if (!result.taskId) throw new Error("taskId should be defined");
+
+      // Set local fields to verify preservation
+      store.setTaskProject(result.taskId, "project-xyz");
+      store.setFinishedTomatoCount(result.taskId, 3);
+
+      const initialTask = store.getTaskById(result.taskId);
+      expect(initialTask?.dayDate).toBe("2024-01-05");
+      expect(initialTask?.projectId).toBe("project-xyz");
+      expect(initialTask?.finishedTomatoCount).toBe(3);
+      expect(store.getTasksForDay("2024-01-05").length).toBe(1);
+
+      // Import: Task with undefined dayDate
+      const importedTask = makeImportedTask(result.taskId, {
+        dayDate: undefined,
+      });
+      store.importTasks([importedTask]);
+
+      // Verify:
+      // - dayDate becomes undefined
+      // - local fields still preserved
+      const updatedTask = store.getTaskById(result.taskId);
+      expect(updatedTask?.dayDate).toBeUndefined();
+      expect(updatedTask?.projectId).toBe("project-xyz");
+      expect(updatedTask?.finishedTomatoCount).toBe(3);
+
+      // Day bucket should be cleaned up
+      expect(store.getTasksForDay("2024-01-05").length).toBe(0);
+    });
+  });
+
   // Regression tests for empty day bucket cleanup (tomatoplan-ct7)
   describe("empty day bucket cleanup", () => {
     describe("importTasks", () => {
