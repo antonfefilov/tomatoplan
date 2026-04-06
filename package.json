@@ -18,7 +18,7 @@
     "lit": "^3.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.0.0",
+    "@biomejs/biome": "2.4.10",
     "@types/cytoscape": "^3.21.9",
     "@types/cytoscape-dagre": "^2.3.4",
     "@types/dagre": "^0.7.54",
