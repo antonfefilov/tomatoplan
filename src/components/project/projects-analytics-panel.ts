@@ -184,27 +184,6 @@ export class ProjectsAnalyticsPanel extends LitElement {
       color: #dc2626;
     }
 
-    .time-info {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 16px;
-      padding: 12px;
-      background: #f3f4f6;
-      border-radius: 8px;
-    }
-
-    .time-label {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .time-value {
-      font-size: 16px;
-      font-weight: 600;
-      color: #374151;
-    }
-
     .status-breakdown {
       display: flex;
       gap: 8px;

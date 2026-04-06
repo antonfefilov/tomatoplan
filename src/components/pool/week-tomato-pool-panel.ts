@@ -14,7 +14,6 @@ import {
 } from "../../models/project-analytics.js";
 import type { WeeklyPool } from "../../models/weekly-pool.js";
 import "../tomato/tomato-icon.js";
-import "../shared/empty-state.js";
 
 @customElement("week-tomato-pool-panel")
 export class WeekTomatoPoolPanel extends LitElement {
