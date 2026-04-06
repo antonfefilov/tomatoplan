@@ -920,7 +920,85 @@ describe("TomatoPlannerApp Views", () => {
       expect(appShell.leftPanelCollapsed).toBe(true);
     });
 
-    it("should auto-expand panel when switching to Week view", async () => {
+    it("should toggle panel collapse from projects-analytics-panel in Projects view", async () => {
+      const projectsTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='projects-view']",
+      ) as HTMLButtonElement;
+      projectsTab.click();
+      await element.updateComplete;
+
+      const projectsAnalyticsPanel = element.shadowRoot!.querySelector(
+        "projects-analytics-panel",
+      ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+      expect(projectsAnalyticsPanel).not.toBeNull();
+
+      const toggleButton = projectsAnalyticsPanel.shadowRoot!.querySelector(
+        ".toggle-btn",
+      ) as HTMLButtonElement;
+      expect(toggleButton).not.toBeNull();
+
+      toggleButton.click();
+      await element.updateComplete;
+
+      let appShell = element.shadowRoot!.querySelector("app-shell") as
+        | (HTMLElement & {
+            leftPanelCollapsed: boolean;
+          })
+        | null;
+      expect(appShell).not.toBeNull();
+      expect(appShell!.leftPanelCollapsed).toBe(true);
+
+      toggleButton.click();
+      await element.updateComplete;
+
+      appShell = element.shadowRoot!.querySelector("app-shell") as
+        | (HTMLElement & {
+            leftPanelCollapsed: boolean;
+          })
+        | null;
+      expect(appShell!.leftPanelCollapsed).toBe(false);
+    });
+
+    it("should toggle panel collapse from track-list-panel in Tracks view", async () => {
+      const tracksTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='tracks-view']",
+      ) as HTMLButtonElement;
+      tracksTab.click();
+      await element.updateComplete;
+
+      const trackListPanel = element.shadowRoot!.querySelector(
+        "track-list-panel",
+      ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+      expect(trackListPanel).not.toBeNull();
+
+      const toggleButton = trackListPanel.shadowRoot!.querySelector(
+        ".toggle-btn",
+      ) as HTMLButtonElement;
+      expect(toggleButton).not.toBeNull();
+
+      toggleButton.click();
+      await element.updateComplete;
+
+      let appShell = element.shadowRoot!.querySelector("app-shell") as
+        | (HTMLElement & {
+            leftPanelCollapsed: boolean;
+          })
+        | null;
+      expect(appShell).not.toBeNull();
+      expect(appShell!.leftPanelCollapsed).toBe(true);
+
+      toggleButton.click();
+      await element.updateComplete;
+
+      appShell = element.shadowRoot!.querySelector("app-shell") as
+        | (HTMLElement & {
+            leftPanelCollapsed: boolean;
+          })
+        | null;
+      expect(appShell!.leftPanelCollapsed).toBe(false);
+    });
+
+    it("should preserve panel collapsed state when switching to Week view", async () => {
       // First collapse panel in Day view
       const tomatoPoolPanel =
         element.shadowRoot!.querySelector("tomato-pool-panel")!;
@@ -940,7 +1018,7 @@ describe("TomatoPlannerApp Views", () => {
       };
       expect(appShell.leftPanelCollapsed).toBe(true);
 
-      // Switch to Week view - should auto-expand
+      // Switch to Week view - should preserve collapsed state
       const weekTab = element.shadowRoot!.querySelector(
         ".tab-btn[aria-controls='week-view']",
       ) as HTMLButtonElement;
@@ -952,10 +1030,10 @@ describe("TomatoPlannerApp Views", () => {
       ) as HTMLElement & {
         leftPanelCollapsed: boolean;
       };
-      expect(appShell.leftPanelCollapsed).toBe(false);
+      expect(appShell.leftPanelCollapsed).toBe(true);
     });
 
-    it("should auto-expand panel when switching to Projects view", async () => {
+    it("should preserve panel collapsed state when switching to Projects view", async () => {
       // First collapse panel in Day view
       const tomatoPoolPanel =
         element.shadowRoot!.querySelector("tomato-pool-panel")!;
@@ -967,7 +1045,7 @@ describe("TomatoPlannerApp Views", () => {
       );
       await element.updateComplete;
 
-      // Switch to Projects view - should auto-expand
+      // Switch to Projects view - should preserve collapsed state
       const projectsTab = element.shadowRoot!.querySelector(
         ".tab-btn[aria-controls='projects-view']",
       ) as HTMLButtonElement;
@@ -979,7 +1057,7 @@ describe("TomatoPlannerApp Views", () => {
       ) as HTMLElement & {
         leftPanelCollapsed: boolean;
       };
-      expect(appShell.leftPanelCollapsed).toBe(false);
+      expect(appShell.leftPanelCollapsed).toBe(true);
     });
   });
 

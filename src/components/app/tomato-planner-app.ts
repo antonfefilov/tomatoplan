@@ -532,26 +532,18 @@ export class TomatoPlannerApp extends LitElement {
 
   private _handleSwitchToWeekView() {
     this._activeView = "week";
-    // Auto-expand panel when switching to Week view to avoid stuck collapsed state
-    this._panelCollapsed = false;
   }
 
   private _handleSwitchToProjectsView() {
     this._activeView = "projects";
-    // Auto-expand panel when switching to Projects view
-    this._panelCollapsed = false;
   }
 
   private _handleSwitchToTracksView() {
     this._activeView = "tracks";
-    // Auto-expand panel when switching to Tracks view
-    this._panelCollapsed = false;
   }
 
   private _handleSwitchToTasksView() {
     this._activeView = "tasks";
-    // Auto-expand panel when switching to Tasks view
-    this._panelCollapsed = false;
   }
 
   // ============================================
@@ -988,9 +980,11 @@ export class TomatoPlannerApp extends LitElement {
                       .tasks=${this._getAllTasksForTracks()}
                       .projects=${this._projects}
                       .selectedTrackId=${this._selectedTrackId}
+                      .collapsed=${this._panelCollapsed}
                       @save-track=${this._handleSaveTrack}
                       @delete-track=${this._handleDeleteTrack}
                       @select-track=${this._handleSelectTrack}
+                      @toggle-collapse=${this._handleTogglePanelCollapse}
                     ></track-list-panel>
                     <track-builder-panel
                       slot="task-panel"
@@ -1020,6 +1014,8 @@ export class TomatoPlannerApp extends LitElement {
                         .archivedProjectCount=${this._overallMetrics
                           .archivedProjectCount}
                         .capacityInMinutes=${this._capacityInMinutesWeekly}
+                        .collapsed=${this._panelCollapsed}
+                        @toggle-collapse=${this._handleTogglePanelCollapse}
                       ></projects-analytics-panel>
                     </div>
                     <project-list-panel
