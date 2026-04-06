@@ -1665,6 +1665,79 @@ describe("TomatoPlannerApp Views", () => {
         "test-task-id",
       );
     });
+
+    // ============================================
+    // Regression test for tomatoplan-gs8.1: Tasks view delete track cleanup
+    // ============================================
+
+    it("should call weeklyStore.removeTask (NOT plannerStore.removeTask) when task is deleted from Tasks view and delete is confirmed (regression test for tomatoplan-gs8)", async () => {
+      // Regression test: When deleting a task from Tasks view, it should use
+      // weeklyStore.removeTask to ensure proper cleanup including track references.
+      // Previously, deletions might have used plannerStore.removeTask which doesn't
+      // clean up track references, causing deleted tasks to still appear in Tracks view.
+
+      // Clear any previous calls
+      mockWeeklyStore.removeTask.mockClear();
+      mockPlannerStore.removeTask.mockClear();
+
+      // Create a task that exists in the weekly store (with potential track references)
+      const taskToDelete = createMockTask(
+        "task-to-delete-from-tasks-view",
+        "Task to Delete",
+      );
+
+      // Set up the tasks for the panel
+      const tasksViewPanel = element.shadowRoot!.querySelector(
+        "tasks-view-panel",
+      ) as unknown as HTMLElement & {
+        tasks: readonly Task[];
+        updateComplete: Promise<boolean>;
+      };
+      tasksViewPanel.tasks = [taskToDelete] as readonly Task[];
+      await tasksViewPanel.updateComplete;
+
+      // Step 1: Dispatch delete-task event from tasks-view-panel
+      // This triggers the delete confirmation dialog
+      tasksViewPanel.dispatchEvent(
+        new CustomEvent("delete-task", {
+          bubbles: true,
+          composed: true,
+          detail: { taskId: "task-to-delete-from-tasks-view" },
+        }),
+      );
+      await element.updateComplete;
+
+      // Step 2: Verify delete dialog is showing
+      const confirmDialog = element.shadowRoot!.querySelector(
+        "confirm-dialog",
+      ) as unknown as HTMLElement & {
+        open: boolean;
+        updateComplete: Promise<boolean>;
+      };
+      expect(confirmDialog).not.toBeNull();
+      expect(confirmDialog.open).toBe(true);
+
+      // Step 3: Confirm the delete by dispatching 'confirm' event
+      // This triggers _handleConfirmDelete which calls weeklyStore.removeTask
+      confirmDialog.dispatchEvent(
+        new CustomEvent("confirm", {
+          bubbles: true,
+          composed: true,
+        }),
+      );
+      await element.updateComplete;
+
+      // Step 4: Assert weeklyStore.removeTask was called (the correct path)
+      // This ensures track references are cleaned up properly
+      expect(mockWeeklyStore.removeTask).toHaveBeenCalledTimes(1);
+      expect(mockWeeklyStore.removeTask).toHaveBeenCalledWith(
+        "task-to-delete-from-tasks-view",
+      );
+
+      // Step 5: Assert plannerStore.removeTask was NOT called
+      // This proves the fix routes deletions through weeklyStore, not plannerStore
+      expect(mockPlannerStore.removeTask).not.toHaveBeenCalled();
+    });
   });
 
   // ============================================
