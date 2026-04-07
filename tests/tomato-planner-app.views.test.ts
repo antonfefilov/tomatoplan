@@ -9,6 +9,7 @@ import type { WeeklyState } from "../src/models/weekly-state.js";
 import type { TimerState } from "../src/models/timer-state.js";
 import type { Task } from "../src/models/task.js";
 import type { Project } from "../src/models/project.js";
+import type { Track } from "../src/models/track.js";
 
 // Use vi.hoisted to create shared backing state before mocks are hoisted
 // Wrap in objects to allow mutation (hoisted returns constants)
@@ -239,6 +240,7 @@ function createMockPlannerState(): PlannerState {
 function createMockWeeklyState(
   projects: Project[] = [],
   tasks: Task[] = [],
+  tracks: Track[] = [],
 ): WeeklyState {
   return {
     pool: {
@@ -250,7 +252,7 @@ function createMockWeeklyState(
     },
     projects,
     tasks,
-    tracks: [],
+    tracks,
     version: 2,
   };
 }
@@ -959,6 +961,164 @@ describe("TomatoPlannerApp Views", () => {
         ".tab-btn[aria-controls='day-view']",
       );
       expect(dayTab!.classList.contains("active")).toBe(true);
+    });
+  });
+
+  describe("single-toggle project expansion regression", () => {
+    beforeEach(async () => {
+      const projects = [
+        createMockProject("project-alpha", "Alpha Project"),
+        createMockProject("project-beta", "Beta Project"),
+      ];
+
+      const weeklyTasks: Task[] = [
+        createMockTask("task-alpha", "Alpha Weekly Task", "project-alpha"),
+        createMockTask("task-beta", "Beta Weekly Task", "project-beta"),
+      ];
+
+      const weeklyTracks: Track[] = [
+        {
+          id: "track-alpha",
+          title: "Alpha Weekly Track",
+          projectId: "project-alpha",
+          taskIds: ["task-alpha"],
+          edges: [],
+          createdAt: "2024-06-10T00:00:00.000Z",
+          updatedAt: "2024-06-10T00:00:00.000Z",
+        },
+        {
+          id: "track-beta",
+          title: "Beta Weekly Track",
+          projectId: "project-beta",
+          taskIds: ["task-beta"],
+          edges: [],
+          createdAt: "2024-06-10T00:00:00.000Z",
+          updatedAt: "2024-06-10T00:00:00.000Z",
+        },
+      ];
+
+      mockWeeklyStore.tasks = weeklyTasks;
+      mockWeeklyStore.subscribe.mockImplementation(
+        (callback: (state: WeeklyState) => void) => {
+          callback(createMockWeeklyState(projects, weeklyTasks, weeklyTracks));
+          return weeklyUnsubscribe;
+        },
+      );
+
+      element.remove();
+      element = document.createElement(
+        "tomato-planner-app",
+      ) as TomatoPlannerApp;
+      document.body.appendChild(element);
+      await element.updateComplete;
+    });
+
+    async function assertSingleToggleExpansion(
+      view: "week-view" | "projects-view",
+    ) {
+      const tab = element.shadowRoot!.querySelector(
+        `.tab-btn[aria-controls='${view}']`,
+      ) as HTMLButtonElement;
+      tab.click();
+      await element.updateComplete;
+
+      const projectListPanel = element.shadowRoot!.querySelector(
+        "project-list-panel",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await projectListPanel.updateComplete;
+
+      const projectList = projectListPanel.shadowRoot!.querySelector(
+        "project-list",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      await projectList.updateComplete;
+
+      const firstProject = projectList.shadowRoot!.querySelectorAll(
+        "project-item",
+      )[0] as HTMLElement & {
+        expanded: boolean;
+        updateComplete: Promise<boolean>;
+      };
+      const firstSummary = firstProject.shadowRoot!.querySelector(
+        ".project-summary",
+      ) as HTMLDivElement;
+      firstSummary.click();
+      await element.updateComplete;
+      await projectListPanel.updateComplete;
+
+      const projectsAfterFirstClick =
+        projectList.shadowRoot!.querySelectorAll("project-item");
+      const firstExpanded = projectsAfterFirstClick[0] as HTMLElement & {
+        expanded: boolean;
+      };
+      const secondCollapsed = projectsAfterFirstClick[1] as HTMLElement & {
+        expanded: boolean;
+      };
+
+      expect(firstExpanded.expanded).toBe(true);
+      expect(secondCollapsed.expanded).toBe(false);
+      await (
+        firstExpanded as HTMLElement & { updateComplete?: Promise<boolean> }
+      ).updateComplete;
+
+      const firstDetails = firstExpanded.shadowRoot!.querySelector(
+        "project-details",
+      ) as HTMLElement;
+      expect(firstDetails).not.toBeNull();
+      expect(firstDetails.shadowRoot!.textContent).toContain(
+        "Alpha Weekly Task",
+      );
+      expect(firstDetails.shadowRoot!.textContent).toContain(
+        "Alpha Weekly Track",
+      );
+
+      const secondDetailsBeforeToggle =
+        secondCollapsed.shadowRoot!.querySelector("project-details");
+      expect(secondDetailsBeforeToggle).toBeNull();
+
+      const secondSummary = secondCollapsed.shadowRoot!.querySelector(
+        ".project-summary",
+      ) as HTMLDivElement;
+      secondSummary.click();
+      await element.updateComplete;
+      await projectListPanel.updateComplete;
+
+      const projectsAfterSecondClick =
+        projectList.shadowRoot!.querySelectorAll("project-item");
+      const firstCollapsed = projectsAfterSecondClick[0] as HTMLElement & {
+        expanded: boolean;
+      };
+      const secondExpanded = projectsAfterSecondClick[1] as HTMLElement & {
+        expanded: boolean;
+      };
+
+      expect(firstCollapsed.expanded).toBe(false);
+      expect(secondExpanded.expanded).toBe(true);
+      await (
+        secondExpanded as HTMLElement & { updateComplete?: Promise<boolean> }
+      ).updateComplete;
+
+      const firstDetailsAfterToggle =
+        firstCollapsed.shadowRoot!.querySelector("project-details");
+      expect(firstDetailsAfterToggle).toBeNull();
+
+      const secondDetails = secondExpanded.shadowRoot!.querySelector(
+        "project-details",
+      ) as HTMLElement;
+      expect(secondDetails).not.toBeNull();
+      expect(secondDetails.shadowRoot!.textContent).toContain(
+        "Beta Weekly Task",
+      );
+      expect(secondDetails.shadowRoot!.textContent).toContain(
+        "Beta Weekly Track",
+      );
+    }
+
+    it("expands project details with one click in Week view and collapses the previously expanded project", async () => {
+      await assertSingleToggleExpansion("week-view");
+    });
+
+    it("expands project details with one click in Projects view and collapses the previously expanded project", async () => {
+      await assertSingleToggleExpansion("projects-view");
     });
   });
 
