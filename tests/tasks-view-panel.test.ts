@@ -469,5 +469,14 @@ describe("TasksViewPanel", () => {
       const taskList = element.shadowRoot!.querySelector("task-list") as any;
       expect(taskList.disabled).toBe(true);
     });
+
+    it("should render task-list with tomato and timer UI hidden", async () => {
+      element.tasks = mockTasks;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.showTomatoUi).toBe(false);
+      expect(taskList.showTimerUi).toBe(false);
+    });
   });
 });

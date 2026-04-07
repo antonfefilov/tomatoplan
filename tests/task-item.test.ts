@@ -48,6 +48,41 @@ describe("TaskItem", () => {
     expect(description!.textContent).toContain("Test description");
   });
 
+  describe("UI visibility flags", () => {
+    it("should hide tomato controls when showTomatoUi is false", async () => {
+      element.showTomatoUi = false;
+      await element.updateComplete;
+
+      expect(
+        element.shadowRoot!.querySelector(".tomato-control-wrapper"),
+      ).toBeNull();
+      expect(
+        element.shadowRoot!.querySelector(".task-controls-row"),
+      ).toBeNull();
+    });
+
+    it("should hide timer section when showTimerUi is false", async () => {
+      element.showTimerUi = false;
+      await element.updateComplete;
+
+      expect(element.shadowRoot!.querySelector(".timer-section")).toBeNull();
+    });
+
+    it("should show tomato controls and timer section when flags are true", async () => {
+      element.showTomatoUi = true;
+      element.showTimerUi = true;
+      await element.updateComplete;
+
+      expect(
+        element.shadowRoot!.querySelector(".tomato-control-wrapper"),
+      ).toBeDefined();
+      expect(
+        element.shadowRoot!.querySelector(".task-controls-row"),
+      ).toBeDefined();
+      expect(element.shadowRoot!.querySelector(".timer-section")).toBeDefined();
+    });
+  });
+
   it("should render tomato count", () => {
     const countSpan = element.shadowRoot!.querySelector(
       ".tomato-control-wrapper span",

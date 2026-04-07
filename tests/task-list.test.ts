@@ -785,6 +785,52 @@ describe("TaskList - Drag and Drop", () => {
     });
   });
 
+  describe("UI visibility prop forwarding", () => {
+    it("should forward showTomatoUi and showTimerUi as false to task-item", async () => {
+      element.tasks = mockTasks;
+      element.showTomatoUi = false;
+      element.showTimerUi = false;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<
+        HTMLElement & {
+          showTomatoUi: boolean;
+          showTimerUi: boolean;
+        }
+      >;
+
+      expect(taskItems.length).toBe(3);
+      taskItems.forEach((item) => {
+        expect(item.showTomatoUi).toBe(false);
+        expect(item.showTimerUi).toBe(false);
+      });
+    });
+
+    it("should forward showTomatoUi and showTimerUi as true to task-item", async () => {
+      element.tasks = mockTasks;
+      element.showTomatoUi = true;
+      element.showTimerUi = true;
+      await element.updateComplete;
+
+      const taskItems = element.shadowRoot!.querySelectorAll(
+        "task-item",
+      ) as NodeListOf<
+        HTMLElement & {
+          showTomatoUi: boolean;
+          showTimerUi: boolean;
+        }
+      >;
+
+      expect(taskItems.length).toBe(3);
+      taskItems.forEach((item) => {
+        expect(item.showTomatoUi).toBe(true);
+        expect(item.showTimerUi).toBe(true);
+      });
+    });
+  });
+
   describe("task-item wiring for remove-from-day", () => {
     const mockTasksWithDayDate: Task[] = [
       {

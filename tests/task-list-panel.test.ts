@@ -159,6 +159,15 @@ describe("TaskListPanel", () => {
       expect(taskList.capacityInMinutes).toBe(30);
     });
 
+    it("should render task-list with tomato and timer UI visible", async () => {
+      element.tasks = mockTasks;
+      await element.updateComplete;
+
+      const taskList = element.shadowRoot!.querySelector("task-list") as any;
+      expect(taskList.showTomatoUi).toBe(true);
+      expect(taskList.showTimerUi).toBe(true);
+    });
+
     it("should show task count in header when tasks exist", async () => {
       element.tasks = mockTasks;
       await element.updateComplete;
