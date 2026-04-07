@@ -95,6 +95,40 @@ describe("Track membership synchronization", () => {
       // The caller needs to ensure track.taskIds is also updated
       // This test verifies the task.trackId is preserved, not track.taskIds
     });
+
+    it("should preserve local trackId when imported task has conflicting trackId", () => {
+      const { trackId: track1Id } = store.addTrack("Track 1");
+      const { trackId: track2Id } = store.addTrack("Track 2");
+
+      const baseTask: Task = {
+        id: "task-merge-1",
+        title: "Merge Task",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([baseTask]);
+      store.addTaskToTrack(track1Id!, "task-merge-1");
+
+      const importedWithConflictingTrack: Task = {
+        ...baseTask,
+        title: "Merge Task Updated",
+        trackId: track2Id!,
+      };
+
+      store.syncTasks([importedWithConflictingTrack]);
+
+      const mergedTask = store.getTaskById("task-merge-1");
+      expect(mergedTask?.trackId).toBe(track1Id);
+      expect(mergedTask?.title).toBe("Merge Task Updated");
+
+      expect(store.getTrackById(track1Id!)?.taskIds).toContain("task-merge-1");
+      expect(store.getTrackById(track2Id!)?.taskIds).not.toContain(
+        "task-merge-1",
+      );
+    });
   });
 
   describe("task deletion cleans up track membership", () => {
@@ -183,6 +217,55 @@ describe("Track membership synchronization", () => {
       expect(trackAfter?.taskIds).toHaveLength(1);
     });
 
+    it("should cleanup all edges when deleted task is shared endpoint", () => {
+      const { trackId } = store.addTrack("Dependency Track");
+
+      const task1: Task = {
+        id: "task-a",
+        title: "Task A",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+      const task2: Task = {
+        id: "task-b",
+        title: "Task B",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+      const task3: Task = {
+        id: "task-c",
+        title: "Task C",
+        tomatoCount: 1,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task1, task2, task3]);
+      store.addTaskToTrack(trackId!, "task-a");
+      store.addTaskToTrack(trackId!, "task-b");
+      store.addTaskToTrack(trackId!, "task-c");
+
+      expect(store.addTrackEdge(trackId!, "task-a", "task-b").success).toBe(
+        true,
+      );
+      expect(store.addTrackEdge(trackId!, "task-b", "task-c").success).toBe(
+        true,
+      );
+
+      expect(store.getTrackById(trackId!)?.edges).toHaveLength(2);
+
+      store.removeTask("task-b");
+
+      const trackAfter = store.getTrackById(trackId!);
+      expect(trackAfter?.taskIds).toEqual(["task-a", "task-c"]);
+      expect(trackAfter?.edges).toHaveLength(0);
+    });
+
     it("should clear trackId from task when removed from track", () => {
       // Create a track
       const { trackId } = store.addTrack("Test Track");
@@ -269,6 +352,53 @@ describe("Track membership synchronization", () => {
       // - Left stale taskIds in tracks.taskIds
       // - Causing Tasks to still appear in Tracks view
       // Is now fixed because we always use weeklyStore.removeTask()
+    });
+
+    it("should clean up taskIds across multiple tracks when multiple tasks are removed", () => {
+      const { trackId: trackA } = store.addTrack("Track A");
+      const { trackId: trackB } = store.addTrack("Track B");
+
+      const tasks: Task[] = [
+        {
+          id: "track-a-1",
+          title: "Track A Task",
+          tomatoCount: 1,
+          finishedTomatoCount: 0,
+          createdAt: "2024-06-15T10:00:00.000Z",
+          updatedAt: "2024-06-15T10:00:00.000Z",
+        },
+        {
+          id: "track-b-1",
+          title: "Track B Task",
+          tomatoCount: 1,
+          finishedTomatoCount: 0,
+          createdAt: "2024-06-15T10:00:00.000Z",
+          updatedAt: "2024-06-15T10:00:00.000Z",
+        },
+        {
+          id: "shared-keep",
+          title: "Shared Keep",
+          tomatoCount: 1,
+          finishedTomatoCount: 0,
+          createdAt: "2024-06-15T10:00:00.000Z",
+          updatedAt: "2024-06-15T10:00:00.000Z",
+        },
+      ];
+
+      store.syncTasks(tasks);
+      store.addTaskToTrack(trackA!, "track-a-1");
+      store.addTaskToTrack(trackB!, "track-b-1");
+      store.addTaskToTrack(trackA!, "shared-keep");
+
+      store.removeTask("track-a-1");
+      store.removeTask("track-b-1");
+
+      const trackAAfter = store.getTrackById(trackA!);
+      const trackBAfter = store.getTrackById(trackB!);
+
+      expect(trackAAfter?.taskIds).toEqual(["shared-keep"]);
+      expect(trackBAfter?.taskIds).toEqual([]);
+      expect(store.getTaskById("shared-keep")).toBeDefined();
     });
   });
 
