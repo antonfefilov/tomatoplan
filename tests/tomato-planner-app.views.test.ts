@@ -14,40 +14,40 @@ import type { Track } from "../src/models/track.js";
 // Use vi.hoisted to create shared backing state before mocks are hoisted
 // Wrap in objects to allow mutation (hoisted returns constants)
 const mockState = vi.hoisted(() => {
-  return {
+  const state = {
     plannerDate: "2024-06-15",
     plannerDayTasks: [] as Task[],
+    taskpoolStoreMock: {
+      subscribe: vi.fn(),
+      getTasksForDay: vi.fn().mockImplementation((date: string) => {
+        if (date === state.plannerDate) {
+          return state.plannerDayTasks;
+        }
+        return [];
+      }),
+      getAllTasks: vi.fn().mockImplementation(() => state.plannerDayTasks),
+      addTask: vi
+        .fn()
+        .mockReturnValue({ success: true, taskId: "test-task-id" }),
+      updateTask: vi.fn(),
+      removeTask: vi.fn(),
+      assignTomato: vi.fn(),
+      unassignTomato: vi.fn(),
+      markTomatoAsFinished: vi.fn(),
+      markTomatoAsUnfinished: vi.fn(),
+      reorderTask: vi.fn(),
+      getTaskById: vi.fn(),
+      setTaskProject: vi.fn(),
+      markTaskDone: vi.fn(),
+      importTasks: vi.fn(),
+    },
   };
+  return state;
 });
 
 // Mock taskpoolStore - the canonical source for tasks
 vi.mock("../src/state/taskpool-store.js", () => ({
-  taskpoolStore: {
-    subscribe: vi.fn(),
-    getTasksForDay: vi.fn().mockImplementation((date: string) => {
-      // Return tasks only for the matching date
-      if (date === mockState.plannerDate) {
-        return mockState.plannerDayTasks;
-      }
-      return [];
-    }),
-    getAllTasks: vi.fn().mockImplementation(() => {
-      // Return all tasks for weeklyStore compatibility
-      return mockState.plannerDayTasks;
-    }),
-    addTask: vi.fn().mockReturnValue({ success: true, taskId: "test-task-id" }),
-    updateTask: vi.fn(),
-    removeTask: vi.fn(),
-    assignTomato: vi.fn(),
-    unassignTomato: vi.fn(),
-    markTomatoAsFinished: vi.fn(),
-    markTomatoAsUnfinished: vi.fn(),
-    reorderTask: vi.fn(),
-    getTaskById: vi.fn(),
-    setTaskProject: vi.fn(),
-    markTaskDone: vi.fn(),
-    importTasks: vi.fn(),
-  },
+  taskpoolStore: mockState.taskpoolStoreMock,
 }));
 
 // Mock plannerStore - tasks is now a getter that derives from taskpoolStore
@@ -76,10 +76,9 @@ vi.mock("../src/state/planner-store.js", () => ({
     assignedTomatoes: 3,
     remainingTomatoes: 7,
     capacityInMinutes: 25,
-    // tasks is now a getter that derives from hoisted state
-    // This matches production behavior where tasks are derived from taskpoolStore
+    // tasks derives from taskpoolStore.getTasksForDay(date)
     get tasks() {
-      return mockState.plannerDayTasks;
+      return mockState.taskpoolStoreMock.getTasksForDay(mockState.plannerDate);
     },
   },
 }));
