@@ -114,6 +114,12 @@ export class TaskList extends LitElement {
   @property({ type: String })
   todayDate?: string;
 
+  @property({ type: Boolean })
+  showTomatoUi = true;
+
+  @property({ type: Boolean })
+  showTimerUi = true;
+
   @state()
   private _draggedTaskId: string | null = null;
 
@@ -417,6 +423,8 @@ export class TaskList extends LitElement {
           .showAssignToToday=${this.showAssignToToday}
           .showRemoveFromDay=${this.showRemoveFromDay}
           .todayDate=${this.todayDate}
+          .showTomatoUi=${this.showTomatoUi}
+          .showTimerUi=${this.showTimerUi}
           @edit-task=${this._handleEditTask}
           @delete-task=${this._handleDeleteTask}
           @mark-tomato-finished=${this._handleMarkTomatoFinished}

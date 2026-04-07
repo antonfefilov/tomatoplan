@@ -510,6 +510,12 @@ export class TaskItem extends LitElement {
   @property({ type: String })
   todayDate?: string;
 
+  @property({ type: Boolean })
+  showTomatoUi = true;
+
+  @property({ type: Boolean })
+  showTimerUi = true;
+
   private _handleEdit() {
     this.dispatchEvent(
       new CustomEvent("edit-task", {
@@ -721,28 +727,32 @@ export class TaskItem extends LitElement {
     return html`
       <div class="task-card${taskIsDone ? " done" : ""}">
         <div class="task-header">
-          <div class="tomato-control-wrapper">
-            <button
-              class="btn-remove"
-              @click=${this._handleRemoveTomato}
-              ?disabled=${disabled || task.tomatoCount <= 0}
-              aria-label="Remove tomato"
-              title="Remove tomato"
-            >
-              −
-            </button>
-            <tomato-icon size="16"></tomato-icon>
-            <span>${task.tomatoCount}</span>
-            <button
-              class="btn-add"
-              @click=${this._handleAddTomato}
-              ?disabled=${disabled || remaining <= 0}
-              aria-label="Add tomato"
-              title="Add tomato"
-            >
-              +
-            </button>
-          </div>
+          ${this.showTomatoUi
+            ? html`
+                <div class="tomato-control-wrapper">
+                  <button
+                    class="btn-remove"
+                    @click=${this._handleRemoveTomato}
+                    ?disabled=${disabled || task.tomatoCount <= 0}
+                    aria-label="Remove tomato"
+                    title="Remove tomato"
+                  >
+                    −
+                  </button>
+                  <tomato-icon size="16"></tomato-icon>
+                  <span>${task.tomatoCount}</span>
+                  <button
+                    class="btn-add"
+                    @click=${this._handleAddTomato}
+                    ?disabled=${disabled || remaining <= 0}
+                    aria-label="Add tomato"
+                    title="Add tomato"
+                  >
+                    +
+                  </button>
+                </div>
+              `
+            : null}
           <div class="task-estimation-display">
             <svg
               class="task-estimation-icon"
@@ -838,120 +848,129 @@ export class TaskItem extends LitElement {
               ${this._truncateDescription(task.description)}
             </p>`
           : null}
-
-        <div class="task-controls-row">
-          <div class="finished-control-wrapper">
-            <button
-              class="btn-remove finished"
-              @click=${this._handleMarkUnfinished}
-              ?disabled=${disabled || finishedCount <= 0}
-              aria-label="Mark tomato as unfinished"
-              title="Mark tomato as unfinished"
-            >
-              −
-            </button>
-            <span class="finished-label" title="Finished tomatoes">✓</span>
-            <span>${finishedCount}</span>
-            <button
-              class="btn-add finished"
-              @click=${this._handleMarkFinished}
-              ?disabled=${disabled}
-              aria-label="Mark tomato as finished"
-              title="Mark tomato as finished"
-            >
-              +
-            </button>
-          </div>
-          ${task.tomatoCount > 0
-            ? html`
-                <div class="progress-bar">
-                  <div
-                    class="progress-fill"
-                    style="width: ${task.tomatoCount > 0
-                      ? (overlapCount / task.tomatoCount) * 100
-                      : 0}%"
-                  ></div>
+        ${this.showTomatoUi
+          ? html`
+              <div class="task-controls-row">
+                <div class="finished-control-wrapper">
+                  <button
+                    class="btn-remove finished"
+                    @click=${this._handleMarkUnfinished}
+                    ?disabled=${disabled || finishedCount <= 0}
+                    aria-label="Mark tomato as unfinished"
+                    title="Mark tomato as unfinished"
+                  >
+                    −
+                  </button>
+                  <span class="finished-label" title="Finished tomatoes"
+                    >✓</span
+                  >
+                  <span>${finishedCount}</span>
+                  <button
+                    class="btn-add finished"
+                    @click=${this._handleMarkFinished}
+                    ?disabled=${disabled}
+                    aria-label="Mark tomato as finished"
+                    title="Mark tomato as finished"
+                  >
+                    +
+                  </button>
                 </div>
-                <span class="progress-text"
-                  >${overlapCount}/${task.tomatoCount}${extraFinishedCount > 0
-                    ? ` (+${extraFinishedCount} extra)`
-                    : ""}</span
-                >
-              `
-            : html`<span class="controls-label">done</span>`}
-          ${task.tomatoCount > 0 && finishedCount < task.tomatoCount
-            ? html`
-                <button
-                  class="btn-done"
-                  @click=${this._handleMarkDone}
-                  ?disabled=${disabled}
-                  aria-label="Mark task as done"
-                  title="Mark task as done"
-                >
-                  ✓ Done
-                </button>
-              `
-            : null}
-        </div>
-
-        <!-- Timer Section -->
-        <div class="timer-section">
-          ${isThisTaskActive
-            ? html`
-                <span class=${timerDisplayClass}>
-                  ${formatTimerDisplay(timerRemainingSeconds)}
-                </span>
-                <div class="timer-controls">
-                  ${timerStatus === "running"
-                    ? html`
+                ${task.tomatoCount > 0
+                  ? html`
+                      <div class="progress-bar">
+                        <div
+                          class="progress-fill"
+                          style="width: ${task.tomatoCount > 0
+                            ? (overlapCount / task.tomatoCount) * 100
+                            : 0}%"
+                        ></div>
+                      </div>
+                      <span class="progress-text"
+                        >${overlapCount}/${task.tomatoCount}${extraFinishedCount >
+                        0
+                          ? ` (+${extraFinishedCount} extra)`
+                          : ""}</span
+                      >
+                    `
+                  : html`<span class="controls-label">done</span>`}
+                ${task.tomatoCount > 0 && finishedCount < task.tomatoCount
+                  ? html`
+                      <button
+                        class="btn-done"
+                        @click=${this._handleMarkDone}
+                        ?disabled=${disabled}
+                        aria-label="Mark task as done"
+                        title="Mark task as done"
+                      >
+                        ✓ Done
+                      </button>
+                    `
+                  : null}
+              </div>
+            `
+          : null}
+        ${this.showTimerUi
+          ? html`
+              <!-- Timer Section -->
+              <div class="timer-section">
+                ${isThisTaskActive
+                  ? html`
+                      <span class=${timerDisplayClass}>
+                        ${formatTimerDisplay(timerRemainingSeconds)}
+                      </span>
+                      <div class="timer-controls">
+                        ${timerStatus === "running"
+                          ? html`
+                              <button
+                                class="timer-btn pause"
+                                @click=${this._handlePauseTimer}
+                                aria-label="Pause timer"
+                                title="Pause timer"
+                              >
+                                ⏸
+                              </button>
+                            `
+                          : html`
+                              <button
+                                class="timer-btn start"
+                                @click=${this._handleResumeTimer}
+                                aria-label="Resume timer"
+                                title="Resume timer"
+                              >
+                                ▶
+                              </button>
+                            `}
                         <button
-                          class="timer-btn pause"
-                          @click=${this._handlePauseTimer}
-                          aria-label="Pause timer"
-                          title="Pause timer"
+                          class="timer-btn reset"
+                          @click=${this._handleResetTimer}
+                          aria-label="Reset timer"
+                          title="Reset timer"
                         >
-                          ⏸
+                          ✕
                         </button>
-                      `
+                      </div>
+                    `
+                  : hasActiveTimerElsewhere
+                    ? html`<span class="timer-active-elsewhere"
+                        >Timer running for another task</span
+                      >`
                     : html`
                         <button
                           class="timer-btn start"
-                          @click=${this._handleResumeTimer}
-                          aria-label="Resume timer"
-                          title="Resume timer"
+                          @click=${this._handleStartTimer}
+                          ?disabled=${!canStartTimer}
+                          aria-label="Start timer"
+                          title="Start timer"
                         >
                           ▶
                         </button>
+                        <span class="timer-inactive">
+                          Start ${this.capacityInMinutes}min timer
+                        </span>
                       `}
-                  <button
-                    class="timer-btn reset"
-                    @click=${this._handleResetTimer}
-                    aria-label="Reset timer"
-                    title="Reset timer"
-                  >
-                    ✕
-                  </button>
-                </div>
-              `
-            : hasActiveTimerElsewhere
-              ? html`<span class="timer-active-elsewhere"
-                  >Timer running for another task</span
-                >`
-              : html`
-                  <button
-                    class="timer-btn start"
-                    @click=${this._handleStartTimer}
-                    ?disabled=${!canStartTimer}
-                    aria-label="Start timer"
-                    title="Start timer"
-                  >
-                    ▶
-                  </button>
-                  <span class="timer-inactive">
-                    Start ${this.capacityInMinutes}min timer
-                  </span>
-                `}
-        </div>
+              </div>
+            `
+          : null}
       </div>
     `;
   }

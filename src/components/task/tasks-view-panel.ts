@@ -456,6 +456,8 @@ export class TasksViewPanel extends LitElement {
                 .showAssignToToday=${this.showAssignToToday}
                 .showRemoveFromDay=${this.showRemoveFromDay}
                 .todayDate=${this.todayDate}
+                .showTomatoUi=${false}
+                .showTimerUi=${false}
                 @edit-task=${this._handleEditTask}
                 @delete-task=${this._handleDeleteTask}
                 @mark-tomato-finished=${this._handleMarkTomatoFinished}
