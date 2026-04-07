@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { WeeklyStore } from "../src/state/weekly-store.js";
+import { taskpoolStore } from "../src/state/taskpool-store.js";
 import { STORAGE_KEYS } from "../src/constants/storage-keys.js";
 import { getCurrentWeekId } from "../src/models/project.js";
 import type { Task } from "../src/models/task.js";
@@ -909,6 +910,38 @@ describe("WeeklyStore", () => {
       store.subscribe(callback);
 
       expect(callback).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("dispose", () => {
+    it("should unsubscribe from taskpoolStore updates", () => {
+      const callback = vi.fn();
+      store.subscribe(callback);
+      callback.mockClear();
+
+      store.dispose();
+
+      taskpoolStore.addTask("External task");
+
+      expect(taskpoolStore.getAllTasks()).toHaveLength(1);
+      expect(store.tasks).toHaveLength(0);
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("should be safe to call multiple times", () => {
+      const unsubscribe = vi.fn();
+      const subscribeSpy = vi
+        .spyOn(taskpoolStore, "subscribe")
+        .mockReturnValue(unsubscribe);
+      const disposableStore = new WeeklyStore();
+
+      expect(subscribeSpy).toHaveBeenCalledTimes(1);
+
+      expect(() => {
+        disposableStore.dispose();
+        disposableStore.dispose();
+      }).not.toThrow();
+      expect(unsubscribe).toHaveBeenCalledTimes(1);
     });
   });
 
