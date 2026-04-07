@@ -2013,6 +2013,68 @@ describe("TomatoPlannerApp Views", () => {
       expect(taskListPanel.showRemoveFromDay).toBe(true);
     });
 
+    it("should call plannerStore.unassignTaskFromDay exactly once when Remove from Day button is clicked in task-item (full click-through path)", async () => {
+      mockPlannerStore.unassignTaskFromDay.mockClear();
+      mockPlannerStore.removeTask.mockClear();
+
+      // Create a task assigned to today so task-item renders "Remove from Day"
+      const todayTask = createMockTask(
+        "task-click-remove",
+        "Task Click Remove",
+      );
+      todayTask.dayDate = "2024-06-15";
+
+      const taskListPanel = element.shadowRoot!.querySelector(
+        "task-list-panel",
+      ) as HTMLElement & {
+        tasks: readonly Task[];
+        showRemoveFromDay: boolean;
+        todayDate: string | undefined;
+        updateComplete: Promise<boolean>;
+      };
+      expect(taskListPanel).not.toBeNull();
+
+      // Set panel data so task-item renders Remove from Day button
+      taskListPanel.tasks = [todayTask] as readonly Task[];
+      taskListPanel.showRemoveFromDay = true;
+      taskListPanel.todayDate = "2024-06-15";
+      await taskListPanel.updateComplete;
+
+      // Click through nested components:
+      // app -> task-list-panel -> task-list -> task-item -> .btn-day-star
+
+      const taskList = taskListPanel.shadowRoot!.querySelector(
+        "task-list",
+      ) as HTMLElement & { updateComplete: Promise<boolean> };
+      expect(taskList).not.toBeNull();
+      await taskList.updateComplete;
+
+      const taskItem = taskList.shadowRoot!.querySelector("task-item") as
+        | (HTMLElement & { updateComplete: Promise<boolean> })
+        | null;
+      expect(taskItem).not.toBeNull();
+      await taskItem!.updateComplete;
+
+      const removeFromDayBtn = taskItem!.shadowRoot!.querySelector(
+        ".btn-day-star",
+      ) as HTMLButtonElement | null;
+      expect(removeFromDayBtn).not.toBeNull();
+      expect(removeFromDayBtn!.getAttribute("aria-label")).toBe(
+        "Remove from Day",
+      );
+      expect(removeFromDayBtn!.disabled).toBe(false);
+
+      removeFromDayBtn!.click();
+      await element.updateComplete;
+
+      expect(mockPlannerStore.unassignTaskFromDay).toHaveBeenCalledTimes(1);
+      expect(mockPlannerStore.unassignTaskFromDay).toHaveBeenCalledWith(
+        "task-click-remove",
+      );
+      // Guard against wiring regressions that accidentally delete task
+      expect(mockPlannerStore.removeTask).not.toHaveBeenCalled();
+    });
+
     it("should call plannerStore.unassignTaskFromDay exactly once when remove-from-day event is dispatched from task-list-panel", async () => {
       // Clear any previous calls
       mockPlannerStore.unassignTaskFromDay = vi
