@@ -73,6 +73,7 @@ interface ActionResult {
 class WeeklyStore {
   private state: WeeklyState;
   private subscribers: Set<Subscriber> = new Set();
+  private taskpoolUnsubscribe: Unsubscribe | null = null;
 
   constructor() {
     // Try to load persisted state, or create initial state
@@ -102,7 +103,7 @@ class WeeklyStore {
     };
 
     // Subscribe to taskpoolStore to update tasks and notify subscribers of task changes
-    taskpoolStore.subscribe(() => {
+    this.taskpoolUnsubscribe = taskpoolStore.subscribe(() => {
       this.state = {
         ...this.state,
         tasks: this.getWeeklyTasks(),
@@ -180,6 +181,18 @@ class WeeklyStore {
   }
 
   /**
+   * Disposes of this WeeklyStore instance by unsubscribing from taskpoolStore.
+   * This prevents memory leaks and cross-test interference.
+   * Safe to call multiple times.
+   */
+  public dispose(): void {
+    if (this.taskpoolUnsubscribe) {
+      this.taskpoolUnsubscribe();
+      this.taskpoolUnsubscribe = null;
+    }
+  }
+
+  /**
    * Updates state and persists to storage
    */
   private setState(newState: WeeklyState): void {
@@ -196,7 +209,11 @@ class WeeklyStore {
    * Sets the weekly tomato capacity
    */
   setWeeklyCapacity(capacity: number): ActionResult {
-    if (typeof capacity !== "number" || Number.isNaN(capacity) || capacity < 1) {
+    if (
+      typeof capacity !== "number" ||
+      Number.isNaN(capacity) ||
+      capacity < 1
+    ) {
       return { success: false, error: "Capacity must be a positive number" };
     }
 
