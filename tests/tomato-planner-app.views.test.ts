@@ -1313,6 +1313,162 @@ describe("TomatoPlannerApp Views", () => {
       };
       expect(appShell.leftPanelCollapsed).toBe(true);
     });
+
+    it("should preserve collapsed state across Projects → Tracks and Tracks → Tasks/Week/Day transitions", async () => {
+      const switchToView = async (
+        ariaControls:
+          | "day-view"
+          | "week-view"
+          | "projects-view"
+          | "tasks-view"
+          | "tracks-view",
+      ) => {
+        const tab = element.shadowRoot!.querySelector(
+          `.tab-btn[aria-controls='${ariaControls}']`,
+        ) as HTMLButtonElement;
+        tab.click();
+        await element.updateComplete;
+      };
+
+      const getAppShell = () =>
+        element.shadowRoot!.querySelector("app-shell") as HTMLElement & {
+          leftPanelCollapsed: boolean;
+        };
+
+      const collapseFromProjectsPanel = async () => {
+        await switchToView("projects-view");
+        const projectsAnalyticsPanel = element.shadowRoot!.querySelector(
+          "projects-analytics-panel",
+        ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+        const toggleButton = projectsAnalyticsPanel.shadowRoot!.querySelector(
+          ".toggle-btn",
+        ) as HTMLButtonElement;
+        toggleButton.click();
+        await element.updateComplete;
+      };
+
+      const collapseFromTracksPanel = async () => {
+        await switchToView("tracks-view");
+        const trackListPanel = element.shadowRoot!.querySelector(
+          "track-list-panel",
+        ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+        const toggleButton = trackListPanel.shadowRoot!.querySelector(
+          ".toggle-btn",
+        ) as HTMLButtonElement;
+        toggleButton.click();
+        await element.updateComplete;
+      };
+
+      // Matrix path 1: collapse in Projects -> switch to Tracks
+      await collapseFromProjectsPanel();
+      expect(getAppShell().leftPanelCollapsed).toBe(true);
+      await switchToView("tracks-view");
+      expect(getAppShell().leftPanelCollapsed).toBe(true);
+
+      // Ensure expanded before next collapse path
+      const trackPanelForExpand = element.shadowRoot!.querySelector(
+        "track-list-panel",
+      ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+      const expandFromTracksButton =
+        trackPanelForExpand.shadowRoot!.querySelector(
+          ".toggle-btn",
+        ) as HTMLButtonElement;
+      expandFromTracksButton.click();
+      await element.updateComplete;
+      expect(getAppShell().leftPanelCollapsed).toBe(false);
+
+      // Matrix path 2: collapse in Tracks -> switch to Tasks, Week, and Day
+      await collapseFromTracksPanel();
+      expect(getAppShell().leftPanelCollapsed).toBe(true);
+
+      for (const targetView of [
+        "tasks-view",
+        "week-view",
+        "day-view",
+      ] as const) {
+        await switchToView(targetView);
+        expect(getAppShell().leftPanelCollapsed).toBe(true);
+      }
+    });
+
+    it("should preserve expanded state across Projects → Tracks and Tracks → Tasks/Week/Day transitions", async () => {
+      const switchToView = async (
+        ariaControls:
+          | "day-view"
+          | "week-view"
+          | "projects-view"
+          | "tasks-view"
+          | "tracks-view",
+      ) => {
+        const tab = element.shadowRoot!.querySelector(
+          `.tab-btn[aria-controls='${ariaControls}']`,
+        ) as HTMLButtonElement;
+        tab.click();
+        await element.updateComplete;
+      };
+
+      const getAppShell = () =>
+        element.shadowRoot!.querySelector("app-shell") as HTMLElement & {
+          leftPanelCollapsed: boolean;
+        };
+
+      const setProjectsPanelCollapsed = async (collapsed: boolean) => {
+        await switchToView("projects-view");
+        const appShell = getAppShell();
+        if (appShell.leftPanelCollapsed === collapsed) {
+          return;
+        }
+
+        const projectsAnalyticsPanel = element.shadowRoot!.querySelector(
+          "projects-analytics-panel",
+        ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+        const toggleButton = projectsAnalyticsPanel.shadowRoot!.querySelector(
+          ".toggle-btn",
+        ) as HTMLButtonElement;
+        toggleButton.click();
+        await element.updateComplete;
+      };
+
+      const setTracksPanelCollapsed = async (collapsed: boolean) => {
+        await switchToView("tracks-view");
+        const appShell = getAppShell();
+        if (appShell.leftPanelCollapsed === collapsed) {
+          return;
+        }
+
+        const trackListPanel = element.shadowRoot!.querySelector(
+          "track-list-panel",
+        ) as HTMLElement & { shadowRoot: ShadowRoot | null };
+        const toggleButton = trackListPanel.shadowRoot!.querySelector(
+          ".toggle-btn",
+        ) as HTMLButtonElement;
+        toggleButton.click();
+        await element.updateComplete;
+      };
+
+      // Expanded path 1: start collapsed in Projects, expand, then switch to Tracks
+      await setProjectsPanelCollapsed(true);
+      expect(getAppShell().leftPanelCollapsed).toBe(true);
+      await setProjectsPanelCollapsed(false);
+      expect(getAppShell().leftPanelCollapsed).toBe(false);
+      await switchToView("tracks-view");
+      expect(getAppShell().leftPanelCollapsed).toBe(false);
+
+      // Expanded path 2: start collapsed in Tracks, expand, then switch to Tasks/Week/Day
+      await setTracksPanelCollapsed(true);
+      expect(getAppShell().leftPanelCollapsed).toBe(true);
+      await setTracksPanelCollapsed(false);
+      expect(getAppShell().leftPanelCollapsed).toBe(false);
+
+      for (const targetView of [
+        "tasks-view",
+        "week-view",
+        "day-view",
+      ] as const) {
+        await switchToView(targetView);
+        expect(getAppShell().leftPanelCollapsed).toBe(false);
+      }
+    });
   });
 
   // ============================================
