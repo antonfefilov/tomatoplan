@@ -1082,6 +1082,35 @@ describe("WeeklyStore", () => {
       expect(result.error).toContain("Project not found");
     });
 
+    it("should not mutate task fields when project assignment fails", () => {
+      const task: Task = {
+        id: "task-1",
+        title: "Original",
+        tomatoCount: 2,
+        finishedTomatoCount: 0,
+        createdAt: "2024-06-15T10:00:00.000Z",
+        updatedAt: "2024-06-15T10:00:00.000Z",
+      };
+
+      store.syncTasks([task]);
+
+      const result = store.updateTask("task-1", {
+        title: "Mutated",
+        description: "Should not persist",
+        tomatoCount: 5,
+        projectId: "non-existent",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Project not found");
+
+      const unchanged = store.getTaskById("task-1")!;
+      expect(unchanged.title).toBe("Original");
+      expect(unchanged.description).toBeUndefined();
+      expect(unchanged.tomatoCount).toBe(2);
+      expect(unchanged.projectId).toBeUndefined();
+    });
+
     it("should fail to assign task to inactive project", () => {
       const { projectId } = store.addProject("Project");
       store.completeProject(projectId!);
