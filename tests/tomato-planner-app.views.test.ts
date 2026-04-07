@@ -125,6 +125,7 @@ import { plannerStore } from "../src/state/planner-store.js";
 import { weeklyStore } from "../src/state/weekly-store.js";
 import { timerStore } from "../src/state/timer-store.js";
 import { taskpoolStore } from "../src/state/taskpool-store.js";
+import { removeProject } from "../src/state/project-coordinator.js";
 
 // Import all required custom elements
 import "../src/components/layout/app-shell.js";
@@ -217,6 +218,8 @@ const mockTimerStore = timerStore as unknown as {
   resetTimer: ReturnType<typeof vi.fn>;
   clearTimerForTask: ReturnType<typeof vi.fn>;
 };
+
+const mockRemoveProject = removeProject as unknown as ReturnType<typeof vi.fn>;
 
 // Helper to create mock planner state
 function createMockPlannerState(): PlannerState {
@@ -797,6 +800,96 @@ describe("TomatoPlannerApp Views", () => {
       expect(mockWeeklyStore.decrementProjectEstimate).toHaveBeenCalledWith(
         "proj-1",
       );
+    });
+  });
+
+  describe("weekly project flow integration", () => {
+    it("creates a project from Week view save-project event", async () => {
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      const projectListPanel =
+        element.shadowRoot!.querySelector("project-list-panel")!;
+
+      projectListPanel.dispatchEvent(
+        new CustomEvent("save-project", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            title: "New Weekly Project",
+            description: "Created from weekly flow",
+            tomatoEstimate: 9,
+            color: "#22c55e",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockWeeklyStore.addProject).toHaveBeenCalledWith(
+        "New Weekly Project",
+        "Created from weekly flow",
+        9,
+        "#22c55e",
+      );
+    });
+
+    it("updates an existing project from Week view save-project event", async () => {
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      const projectListPanel =
+        element.shadowRoot!.querySelector("project-list-panel")!;
+
+      projectListPanel.dispatchEvent(
+        new CustomEvent("save-project", {
+          bubbles: true,
+          composed: true,
+          detail: {
+            projectId: "proj-1",
+            title: "Updated Weekly Project",
+            description: "Updated in weekly flow",
+            tomatoEstimate: 12,
+            color: "#3b82f6",
+          },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockWeeklyStore.updateProject).toHaveBeenCalledWith("proj-1", {
+        title: "Updated Weekly Project",
+        description: "Updated in weekly flow",
+        tomatoEstimate: 12,
+        color: "#3b82f6",
+      });
+    });
+
+    it("deletes project through coordinator from Week view", async () => {
+      const weekTab = element.shadowRoot!.querySelector(
+        ".tab-btn[aria-controls='week-view']",
+      ) as HTMLButtonElement;
+      weekTab.click();
+      await element.updateComplete;
+
+      const projectListPanel =
+        element.shadowRoot!.querySelector("project-list-panel")!;
+
+      projectListPanel.dispatchEvent(
+        new CustomEvent("delete-project", {
+          bubbles: true,
+          composed: true,
+          detail: { projectId: "proj-1" },
+        }),
+      );
+      await element.updateComplete;
+
+      expect(mockRemoveProject).toHaveBeenCalledWith("proj-1");
+      expect(mockWeeklyStore.removeProject).not.toHaveBeenCalled();
     });
   });
 
