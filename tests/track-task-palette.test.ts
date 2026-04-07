@@ -247,8 +247,9 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
         // Verify the In Track section has exactly 1 task
         const inTrackMatch =
           inTrackSection.textContent.match(/In Track \((\d+)\)/);
-        const inTrackCount =
-          inTrackMatch?.[1] ? parseInt(inTrackMatch[1], 10) : 0;
+        const inTrackCount = inTrackMatch?.[1]
+          ? parseInt(inTrackMatch[1], 10)
+          : 0;
         expect(inTrackCount).toBe(1); // Should be exactly 1
       }
 
@@ -256,10 +257,9 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
         // Verify the Available section has exactly 1 task (the unfinished one, not the finished one)
         const availableMatch =
           availableSection.textContent.match(/Available \((\d+)\)/);
-        const availableCount =
-          availableMatch?.[1]
-            ? parseInt(availableMatch[1], 10)
-            : 0;
+        const availableCount = availableMatch?.[1]
+          ? parseInt(availableMatch[1], 10)
+          : 0;
         expect(availableCount).toBe(1); // Should count only unfinished tasks not in track
       }
 
@@ -386,6 +386,95 @@ describe("TrackTaskPalette - Regression Tests for Child Bead tomatoplan-a8d", ()
           expect(component.shadowRoot?.innerHTML).toContain(finishedTask.title);
         }
       }
+    });
+  });
+
+  describe("available count and empty-state behavior", () => {
+    it("shows count based only on unfinished tasks not already in selected track", async () => {
+      const inTrackTask = createTestTask("in-track", "In Track", 2, 0);
+      const availableA = createTestTask("available-a", "Available A", 3, 1);
+      const availableB = createTestTask("available-b", "Available B", 1, 0);
+      const finishedTask = createTestTask("finished", "Finished", 2, 2);
+
+      component.track = createTestTrack("track-1", "Track", [inTrackTask.id]);
+      component.trackTasks = [inTrackTask];
+      component.availableTasks = [
+        inTrackTask,
+        availableA,
+        availableB,
+        finishedTask,
+      ];
+
+      await component.updateComplete;
+
+      const sectionTitles =
+        component.shadowRoot?.querySelectorAll(".section-title") ?? [];
+      const availableSection = Array.from(sectionTitles).find((title) =>
+        title.textContent?.includes("Available"),
+      );
+
+      expect(availableSection?.textContent).toMatch(/Available \(2\)/);
+      expect(component.shadowRoot?.innerHTML).toContain(availableA.title);
+      expect(component.shadowRoot?.innerHTML).toContain(availableB.title);
+      expect(component.shadowRoot?.innerHTML).not.toContain(finishedTask.title);
+    });
+
+    it('shows "No tasks available to add" when filtering removes all selectable tasks', async () => {
+      const inTrackTask = createTestTask("in-track", "Already in Track", 2, 0);
+      const finishedTask = createTestTask("finished", "Finished", 2, 2);
+
+      component.track = createTestTrack("track-1", "Track", [inTrackTask.id]);
+      component.trackTasks = [inTrackTask];
+      component.availableTasks = [inTrackTask, finishedTask];
+
+      await component.updateComplete;
+
+      const sectionTitles =
+        component.shadowRoot?.querySelectorAll(".section-title") ?? [];
+      const availableSection = Array.from(sectionTitles).find((title) =>
+        title.textContent?.includes("Available"),
+      );
+      const inTrackSection = Array.from(sectionTitles).find((title) =>
+        title.textContent?.includes("In Track"),
+      );
+
+      expect(availableSection).toBeUndefined();
+      expect(inTrackSection?.textContent).toMatch(/In Track \(1\)/);
+      expect(component.shadowRoot?.innerHTML).toContain(
+        "No tasks available to add",
+      );
+    });
+
+    it("shows general empty-state when remaining tasks are only finished and none are in track", async () => {
+      const finishedA = createTestTask("finished-a", "Finished A", 2, 2);
+      const finishedB = createTestTask("finished-b", "Finished B", 3, 3);
+
+      component.track = createTestTrack("track-1", "Track", []);
+      component.trackTasks = [];
+      component.availableTasks = [finishedA, finishedB];
+
+      await component.updateComplete;
+
+      const sectionTitles =
+        component.shadowRoot?.querySelectorAll(".section-title") ?? [];
+
+      expect(
+        Array.from(sectionTitles).some((title) =>
+          title.textContent?.includes("Available"),
+        ),
+      ).toBe(false);
+      expect(
+        Array.from(sectionTitles).some((title) =>
+          title.textContent?.includes("In Track"),
+        ),
+      ).toBe(false);
+
+      expect(component.shadowRoot?.innerHTML).toContain(
+        "No tasks available. Create a task first.",
+      );
+      expect(component.shadowRoot?.innerHTML).not.toContain(
+        "No tasks available to add",
+      );
     });
   });
 });
