@@ -494,6 +494,29 @@ describe("TaskpoolStore", () => {
       expect(store.getTasksForDay("2025-01-01").length).toBe(0);
       expect(store.getTasksForDay("2025-01-02").length).toBe(1);
     });
+
+    it("should not duplicate task id in day bucket when reassigned to same day", () => {
+      const today = new Date().toISOString().split("T")[0]!;
+      const task1 = store.addTask("Task 1", undefined, { dayDate: today });
+      const task2 = store.addTask("Task 2", undefined, { dayDate: today });
+      if (!task1.taskId || !task2.taskId)
+        throw new Error("taskId should be defined");
+
+      const result = store.assignTaskToDay(task1.taskId, today);
+      expect(result.success).toBe(true);
+
+      const persistedRaw = localStorage.getItem(STORAGE_KEYS.TASKPOOL_STATE);
+      expect(persistedRaw).toBeTruthy();
+      if (!persistedRaw) throw new Error("persisted state should be defined");
+
+      const persistedState = JSON.parse(persistedRaw) as {
+        dayAssignments: Record<string, string[]>;
+      };
+      const dayBucket = persistedState.dayAssignments[today] ?? [];
+
+      expect(dayBucket.filter((id) => id === task1.taskId)).toHaveLength(1);
+      expect(dayBucket).toHaveLength(2);
+    });
   });
 
   describe("unassignTaskFromDay", () => {
