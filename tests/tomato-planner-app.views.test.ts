@@ -228,10 +228,18 @@ function createMockPlannerState(): PlannerState {
       dailyCapacity: 10,
       date: "2024-06-15",
       capacityInMinutes: 25,
+      timeSlots: [
+        {
+          id: "slot-1",
+          startTime: "08:00",
+          endTime: "18:25",
+          label: "Default",
+        },
+      ],
       dayStart: "08:00",
       dayEnd: "18:25",
     },
-    version: 2,
+    version: 3,
   };
 }
 

@@ -31,10 +31,16 @@ describe("createInitialPlannerState", () => {
   });
 
   it("should create state with custom schedule", () => {
-    const state = createInitialPlannerState(10, 25, "09:00", "17:00");
+    const state = createInitialPlannerState(
+      10,
+      25,
+      undefined,
+      "09:00",
+      "17:00",
+    );
 
-    expect(state.pool.dayStart).toBe("09:00");
-    expect(state.pool.dayEnd).toBe("17:00");
+    expect(state.pool.timeSlots[0]?.startTime).toBe("09:00");
+    expect(state.pool.timeSlots[0]?.endTime).toBe("17:00");
   });
 
   it("should set today's date on pool", () => {
@@ -68,19 +74,39 @@ describe("resetPlannerStateForNewDay", () => {
   });
 
   it("should preserve dayStart and dayEnd if not provided", () => {
-    const state = createInitialPlannerState(10, 25, "09:00", "17:00");
+    const state = createInitialPlannerState(
+      10,
+      25,
+      undefined,
+      "09:00",
+      "17:00",
+    );
     const reset = resetPlannerStateForNewDay(state);
 
-    expect(reset.pool.dayStart).toBe("09:00");
-    expect(reset.pool.dayEnd).toBe("17:00");
+    expect(reset.pool.timeSlots[0]?.startTime).toBe("09:00");
+    expect(reset.pool.timeSlots[0]?.endTime).toBe("17:00");
   });
 
   it("should use new dayStart and dayEnd if provided", () => {
-    const state = createInitialPlannerState(10, 25, "08:00", "18:00");
-    const reset = resetPlannerStateForNewDay(state, 10, 25, "09:00", "17:00");
+    const state = createInitialPlannerState(
+      10,
+      25,
+      undefined,
+      "08:00",
+      "18:00",
+    );
+    const newSlots = [
+      {
+        id: "new-slot",
+        startTime: "09:00",
+        endTime: "17:00",
+        label: "Default",
+      },
+    ];
+    const reset = resetPlannerStateForNewDay(state, 10, 25, newSlots);
 
-    expect(reset.pool.dayStart).toBe("09:00");
-    expect(reset.pool.dayEnd).toBe("17:00");
+    expect(reset.pool.timeSlots[0]?.startTime).toBe("09:00");
+    expect(reset.pool.timeSlots[0]?.endTime).toBe("17:00");
   });
 });
 
@@ -89,6 +115,14 @@ describe("recalculatePoolCapacity", () => {
     const pool = {
       dailyCapacity: 10,
       capacityInMinutes: 25,
+      timeSlots: [
+        {
+          id: "slot-1",
+          startTime: "08:00",
+          endTime: "18:25",
+          label: "Default",
+        },
+      ],
       dayStart: "08:00",
       dayEnd: "18:25",
       date: "2024-06-15",
@@ -104,6 +138,14 @@ describe("recalculatePoolCapacity", () => {
     const pool = {
       dailyCapacity: 10,
       capacityInMinutes: 25,
+      timeSlots: [
+        {
+          id: "slot-1",
+          startTime: "18:00",
+          endTime: "08:00",
+          label: "Default",
+        },
+      ],
       dayStart: "18:00",
       dayEnd: "08:00",
       date: "2024-06-15",
@@ -118,6 +160,14 @@ describe("recalculatePoolCapacity", () => {
     const pool = {
       dailyCapacity: 10,
       capacityInMinutes: 30,
+      timeSlots: [
+        {
+          id: "slot-1",
+          startTime: "08:00",
+          endTime: "18:00",
+          label: "Default",
+        },
+      ],
       dayStart: "08:00",
       dayEnd: "18:00",
       date: "2024-06-15",
@@ -133,6 +183,14 @@ describe("recalculatePoolCapacity", () => {
     const pool = {
       dailyCapacity: 10,
       capacityInMinutes: 25,
+      timeSlots: [
+        {
+          id: "slot-1",
+          startTime: "08:00",
+          endTime: "18:25",
+          label: "Default",
+        },
+      ],
       dayStart: "08:00",
       dayEnd: "18:25",
       date: "2024-06-15",
@@ -141,8 +199,8 @@ describe("recalculatePoolCapacity", () => {
     const result = recalculatePoolCapacity(pool);
 
     expect(result.capacityInMinutes).toBe(25);
-    expect(result.dayStart).toBe("08:00");
-    expect(result.dayEnd).toBe("18:25");
+    expect(result.timeSlots[0]?.startTime).toBe("08:00");
+    expect(result.timeSlots[0]?.endTime).toBe("18:25");
     expect(result.date).toBe("2024-06-15");
   });
 });

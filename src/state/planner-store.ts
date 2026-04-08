@@ -8,6 +8,7 @@
 
 import type { Task } from "../models/task.js";
 import type { PlannerState } from "../models/planner-state.js";
+import type { TomatoTimeSlot } from "../models/tomato-pool.js";
 import {
   createInitialPlannerState,
   recalculatePoolCapacity,
@@ -18,8 +19,8 @@ import {
   validateTaskTitle,
   canAssignTomato,
   validateTomatoCount,
-  validateTimeString,
-  validateTimeRange,
+  validateTimeSlot,
+  validateNonOverlappingTimeSlots,
 } from "../utils/validation.js";
 import {
   DEFAULT_DAILY_CAPACITY,
@@ -30,6 +31,7 @@ import {
 import { loadState, saveState, clearState } from "./persistence.js";
 import { taskpoolStore } from "./taskpool-store.js";
 import { getTodayString } from "../models/tomato-pool.js";
+import { generateId } from "../utils/id.js";
 
 /** Type for subscriber callback functions */
 type Subscriber = (state: PlannerState) => void;
@@ -59,24 +61,21 @@ class PlannerStore {
     if (persistedState && !isStale(persistedState.pool)) {
       // Use persisted state if it's from today
       // Handle backward compatibility: default to 25 minutes if not present
-      // dayStart and dayEnd default to 08:00 and 18:25 if not present
+      // timeSlots defaults to single slot from dayStart/dayEnd if not present
       const capacityInMinutes =
         persistedState.pool.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES;
-      const dayStart = persistedState.pool.dayStart ?? DEFAULT_DAY_START;
-      const dayEnd = persistedState.pool.dayEnd ?? DEFAULT_DAY_END;
+      const timeSlots = persistedState.pool.timeSlots;
       this.state = createInitialPlannerState(
         persistedState.pool.dailyCapacity,
         capacityInMinutes,
-        dayStart,
-        dayEnd,
+        timeSlots,
       );
       this.state = {
         ...this.state,
         pool: {
           ...persistedState.pool,
           capacityInMinutes,
-          dayStart,
-          dayEnd,
+          timeSlots,
         },
       };
     } else {
@@ -85,13 +84,11 @@ class PlannerStore {
         persistedState?.pool.dailyCapacity ?? DEFAULT_DAILY_CAPACITY;
       const savedCapacityInMinutes =
         persistedState?.pool.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES;
-      const savedDayStart = persistedState?.pool.dayStart ?? DEFAULT_DAY_START;
-      const savedDayEnd = persistedState?.pool.dayEnd ?? DEFAULT_DAY_END;
+      const savedTimeSlots = persistedState?.pool.timeSlots;
       this.state = createInitialPlannerState(
         savedCapacity,
         savedCapacityInMinutes,
-        savedDayStart,
-        savedDayEnd,
+        savedTimeSlots,
       );
     }
 
@@ -211,21 +208,73 @@ class PlannerStore {
   /**
    * Sets the day start time (HH:MM format)
    * Recalculates daily capacity based on the new time range
+   * @deprecated Use updateTimeSlot instead. This modifies the first slot for backward compatibility.
    */
   setDayStart(time: string): { success: boolean; error?: string } {
-    const timeValidation = validateTimeString(time);
-    if (!timeValidation.valid) {
-      return { success: false, error: timeValidation.error };
+    // Update the first slot's start time if slots exist
+    if (this.state.pool.timeSlots.length > 0) {
+      const firstSlot = this.state.pool.timeSlots[0];
+      return this.updateTimeSlot(firstSlot!.id, { startTime: time });
+    }
+    // Create a default slot if none exist
+    return this.addTimeSlot({
+      startTime: time,
+      endTime: this.state.pool.dayEnd ?? DEFAULT_DAY_END,
+    });
+  }
+
+  /**
+   * Sets the day end time (HH:MM format)
+   * Recalculates daily capacity based on the new time range
+   * @deprecated Use updateTimeSlot instead. This modifies the first slot for backward compatibility.
+   */
+  setDayEnd(time: string): { success: boolean; error?: string } {
+    // Update the first slot's end time if slots exist
+    if (this.state.pool.timeSlots.length > 0) {
+      const firstSlot = this.state.pool.timeSlots[0];
+      return this.updateTimeSlot(firstSlot!.id, { endTime: time });
+    }
+    // Create a default slot if none exist
+    return this.addTimeSlot({
+      startTime: this.state.pool.dayStart ?? DEFAULT_DAY_START,
+      endTime: time,
+    });
+  }
+
+  // ============================================
+  // TIME SLOT ACTIONS
+  // ============================================
+
+  /**
+   * Adds a new time slot
+   */
+  addTimeSlot(slot: Omit<TomatoTimeSlot, "id">): {
+    success: boolean;
+    error?: string;
+  } {
+    // Create the new slot with a generated ID
+    const newSlot: TomatoTimeSlot = {
+      ...slot,
+      id: generateId(),
+    };
+
+    // Validate the new slot
+    const slotErrors = validateTimeSlot(newSlot);
+    if (slotErrors.length > 0) {
+      return { success: false, error: slotErrors.join(". ") };
     }
 
-    const rangeValidation = validateTimeRange(time, this.state.pool.dayEnd);
-    if (!rangeValidation.valid) {
-      return { success: false, error: rangeValidation.error };
+    // Check for overlap with existing slots
+    const updatedSlots = [...this.state.pool.timeSlots, newSlot];
+    const overlapErrors = validateNonOverlappingTimeSlots(updatedSlots);
+    if (overlapErrors.length > 0) {
+      return { success: false, error: overlapErrors.join(". ") };
     }
 
+    // Update the pool with new slots and recalculate capacity
     const updatedPool = recalculatePoolCapacity({
       ...this.state.pool,
-      dayStart: time,
+      timeSlots: updatedSlots,
     });
 
     this.setState({
@@ -237,23 +286,73 @@ class PlannerStore {
   }
 
   /**
-   * Sets the day end time (HH:MM format)
-   * Recalculates daily capacity based on the new time range
+   * Updates an existing time slot
    */
-  setDayEnd(time: string): { success: boolean; error?: string } {
-    const timeValidation = validateTimeString(time);
-    if (!timeValidation.valid) {
-      return { success: false, error: timeValidation.error };
+  updateTimeSlot(
+    slotId: string,
+    updates: Partial<TomatoTimeSlot>,
+  ): { success: boolean; error?: string } {
+    // Find the slot to update
+    const slotIndex = this.state.pool.timeSlots.findIndex(
+      (s) => s.id === slotId,
+    );
+    if (slotIndex === -1) {
+      return { success: false, error: "Time slot not found" };
     }
 
-    const rangeValidation = validateTimeRange(this.state.pool.dayStart, time);
-    if (!rangeValidation.valid) {
-      return { success: false, error: rangeValidation.error };
+    // Create the updated slot
+    const currentSlot = this.state.pool.timeSlots[slotIndex];
+    const updatedSlot: TomatoTimeSlot = {
+      ...currentSlot!,
+      ...updates,
+      id: slotId, // Ensure ID is not changed
+    };
+
+    // Validate the updated slot
+    const slotErrors = validateTimeSlot(updatedSlot);
+    if (slotErrors.length > 0) {
+      return { success: false, error: slotErrors.join(". ") };
     }
 
+    // Create updated slots array and check for overlaps
+    const updatedSlots = [...this.state.pool.timeSlots];
+    updatedSlots[slotIndex] = updatedSlot;
+
+    const overlapErrors = validateNonOverlappingTimeSlots(updatedSlots);
+    if (overlapErrors.length > 0) {
+      return { success: false, error: overlapErrors.join(". ") };
+    }
+
+    // Update the pool and recalculate capacity
     const updatedPool = recalculatePoolCapacity({
       ...this.state.pool,
-      dayEnd: time,
+      timeSlots: updatedSlots,
+    });
+
+    this.setState({
+      ...this.state,
+      pool: updatedPool,
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Removes a time slot
+   */
+  removeTimeSlot(slotId: string): { success: boolean; error?: string } {
+    const updatedSlots = this.state.pool.timeSlots.filter(
+      (s) => s.id !== slotId,
+    );
+
+    if (updatedSlots.length === this.state.pool.timeSlots.length) {
+      return { success: false, error: "Time slot not found" };
+    }
+
+    // Update the pool and recalculate capacity
+    const updatedPool = recalculatePoolCapacity({
+      ...this.state.pool,
+      timeSlots: updatedSlots,
     });
 
     this.setState({
@@ -550,7 +649,7 @@ class PlannerStore {
   /**
    * Resets the day - unassigns all tasks from today and refreshes the pool
    * Tasks are NOT deleted - they stay in taskpoolStore, just unassigned from today
-   * Preserves dayStart, dayEnd, and capacityInMinutes from the current state
+   * Preserves timeSlots and capacityInMinutes from the current state
    */
   resetDay(): void {
     // Get all tasks assigned to current day
@@ -565,8 +664,7 @@ class PlannerStore {
     const newState = createInitialPlannerState(
       this.state.pool.dailyCapacity,
       this.state.pool.capacityInMinutes,
-      this.state.pool.dayStart,
-      this.state.pool.dayEnd,
+      this.state.pool.timeSlots,
     );
 
     // Update pool date to today
@@ -640,16 +738,37 @@ class PlannerStore {
 
   /**
    * Gets the day start time (HH:MM format)
+   * Returns the start time of the first slot, or the legacy dayStart field
    */
   get dayStart(): string {
-    return this.state.pool.dayStart;
+    // Return start time from first slot if available
+    if (this.state.pool.timeSlots.length > 0) {
+      return this.state.pool.timeSlots[0]?.startTime ?? DEFAULT_DAY_START;
+    }
+    // Fallback to legacy field
+    return this.state.pool.dayStart ?? DEFAULT_DAY_START;
   }
 
   /**
    * Gets the day end time (HH:MM format)
+   * Returns the end time of the last slot, or the legacy dayEnd field
    */
   get dayEnd(): string {
-    return this.state.pool.dayEnd;
+    // Return end time from last slot if available
+    if (this.state.pool.timeSlots.length > 0) {
+      const lastSlot =
+        this.state.pool.timeSlots[this.state.pool.timeSlots.length - 1];
+      return lastSlot?.endTime ?? DEFAULT_DAY_END;
+    }
+    // Fallback to legacy field
+    return this.state.pool.dayEnd ?? DEFAULT_DAY_END;
+  }
+
+  /**
+   * Gets the time slots
+   */
+  get timeSlots(): TomatoTimeSlot[] {
+    return this.state.pool.timeSlots;
   }
 
   /**

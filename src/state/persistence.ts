@@ -9,6 +9,7 @@ import {
   createPersistedState,
   isValidPersistedState,
   migratePersistedState,
+  normalizePersistedState,
 } from "../models/storage.js";
 import { STORAGE_KEYS } from "../constants/storage-keys.js";
 import { getTodayString } from "../models/tomato-pool.js";
@@ -17,6 +18,7 @@ import {
   DEFAULT_DAY_START,
   DEFAULT_DAY_END,
 } from "../constants/defaults.js";
+import { STATE_VERSION } from "../models/planner-state.js";
 
 /**
  * Saves the planner state to localStorage
@@ -28,8 +30,7 @@ export function saveState(state: PlannerState): void {
     state.pool.capacityInMinutes,
     [], // Tasks are persisted separately by taskpoolStore
     getTodayString(),
-    state.pool.dayStart,
-    state.pool.dayEnd,
+    state.pool.timeSlots,
   );
 
   try {
@@ -55,20 +56,31 @@ export function loadState(): PlannerState | null {
     savePersistedState(loadResult.state);
   }
 
+  // Normalize to ensure all fields are present
+  const normalized = normalizePersistedState(loadResult.state);
+
   // Reconstruct PlannerState from PersistedPlannerState
   // Handle backward compatibility: capacityInMinutes defaults to 25 if not present
-  // dayStart and dayEnd default to 08:00 and 18:25 if not present
+  // timeSlots defaults to single slot from dayStart/dayEnd if not present
   // Note: tasks are no longer part of PlannerState - they're managed by taskpoolStore
   return {
     pool: {
-      dailyCapacity: loadResult.state.dailyCapacity,
+      dailyCapacity: normalized.dailyCapacity,
       capacityInMinutes:
-        loadResult.state.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES,
-      dayStart: loadResult.state.dayStart ?? DEFAULT_DAY_START,
-      dayEnd: loadResult.state.dayEnd ?? DEFAULT_DAY_END,
-      date: loadResult.state.savedDate,
+        normalized.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES,
+      timeSlots: normalized.timeSlots ?? [
+        {
+          id: "legacy-slot",
+          startTime: normalized.dayStart ?? DEFAULT_DAY_START,
+          endTime: normalized.dayEnd ?? DEFAULT_DAY_END,
+          label: "Default",
+        },
+      ],
+      dayStart: normalized.dayStart ?? DEFAULT_DAY_START,
+      dayEnd: normalized.dayEnd ?? DEFAULT_DAY_END,
+      date: normalized.savedDate,
     },
-    version: loadResult.state.version,
+    version: normalized.version,
   };
 }
 
@@ -91,8 +103,7 @@ function loadPersistedState(): LoadResult {
     }
 
     // Check if migration is needed
-    const currentVersion = 1; // STATE_VERSION from planner-state
-    const needsMigration = parsed.version !== currentVersion;
+    const needsMigration = parsed.version !== STATE_VERSION;
 
     const state = needsMigration ? migratePersistedState(parsed) : parsed;
 
@@ -137,8 +148,7 @@ export function exportState(state: PlannerState): string {
       state.pool.capacityInMinutes,
       [], // Tasks are persisted separately by taskpoolStore
       getTodayString(),
-      state.pool.dayStart,
-      state.pool.dayEnd,
+      state.pool.timeSlots,
     ),
     exportedAt: new Date().toISOString(),
     appName: "Tomato Plan",
@@ -162,11 +172,12 @@ export function importState(jsonString: string): {
       return { success: false, error: "Invalid state format" };
     }
 
-    // Migrate if needed and save
-    const state = migratePersistedState(parsed);
-    savePersistedState(state);
+    // Migrate if needed, normalize, and save
+    const migrated = migratePersistedState(parsed);
+    const normalized = normalizePersistedState(migrated);
+    savePersistedState(normalized);
 
-    return { success: true, state };
+    return { success: true, state: normalized };
   } catch (error) {
     return {
       success: false,
@@ -213,11 +224,7 @@ export function loadPlannerStateForMigration(): {
     const data = parsed as Record<string, unknown>;
 
     // Check for tasks array
-    if (
-      !data.tasks ||
-      !Array.isArray(data.tasks) ||
-      data.tasks.length === 0
-    ) {
+    if (!data.tasks || !Array.isArray(data.tasks) || data.tasks.length === 0) {
       return null;
     }
 

@@ -23,36 +23,29 @@ describe("createPersistedState", () => {
       },
     ];
 
-    const state = createPersistedState(
-      10,
-      25,
-      tasks,
-      "2024-06-15",
-      "08:00",
-      "18:25",
-    );
+    const timeSlots = [
+      { id: "slot-1", startTime: "08:00", endTime: "18:25", label: "Default" },
+    ];
+
+    const state = createPersistedState(10, 25, tasks, "2024-06-15", timeSlots);
 
     expect(state.dailyCapacity).toBe(10);
     expect(state.capacityInMinutes).toBe(25);
-    expect(state.dayStart).toBe("08:00");
-    expect(state.dayEnd).toBe("18:25");
+    expect(state.timeSlots).toEqual(timeSlots);
     expect(state.tasks).toEqual(tasks);
     expect(state.savedDate).toBe("2024-06-15");
     expect(state.version).toBe(STATE_VERSION);
   });
 
   it("should handle empty tasks array", () => {
-    const state = createPersistedState(
-      10,
-      25,
-      [],
-      "2024-06-15",
-      "09:00",
-      "17:00",
-    );
+    const timeSlots = [
+      { id: "slot-1", startTime: "09:00", endTime: "17:00", label: "Default" },
+    ];
+
+    const state = createPersistedState(10, 25, [], "2024-06-15", timeSlots);
     expect(state.tasks).toEqual([]);
-    expect(state.dayStart).toBe("09:00");
-    expect(state.dayEnd).toBe("17:00");
+    expect(state.timeSlots?.[0]?.startTime).toBe("09:00");
+    expect(state.timeSlots?.[0]?.endTime).toBe("17:00");
   });
 });
 

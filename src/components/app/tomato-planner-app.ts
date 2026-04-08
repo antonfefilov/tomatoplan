@@ -3,24 +3,25 @@
  * Main application component connecting all pieces with the store
  */
 
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { plannerStore } from "../../state/planner-store.js";
-import { weeklyStore } from "../../state/weekly-store.js";
-import { timerStore } from "../../state/timer-store.js";
-import { taskpoolStore } from "../../state/taskpool-store.js";
-import { removeProject } from "../../state/project-coordinator.js";
+import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
+import type { Project, ProjectColor } from "../../models/project.js";
+import {
+  getOverallProjectMetrics,
+  getProjectProgressMap,
+  getProjectTaskCounts,
+} from "../../models/project-analytics.js";
 import type { Task } from "../../models/task.js";
 import { isTaskDone } from "../../models/task.js";
-import type { Project, ProjectColor } from "../../models/project.js";
-import type { Track } from "../../models/track.js";
 import type { TimerStatus } from "../../models/timer-state.js";
-import { DEFAULT_DAILY_CAPACITY } from "../../constants/defaults.js";
-import {
-  getProjectTaskCounts,
-  getProjectProgressMap,
-  getOverallProjectMetrics,
-} from "../../models/project-analytics.js";
+import type { TomatoTimeSlot } from "../../models/tomato-pool.js";
+import type { Track } from "../../models/track.js";
+import { plannerStore } from "../../state/planner-store.js";
+import { removeProject } from "../../state/project-coordinator.js";
+import { taskpoolStore } from "../../state/taskpool-store.js";
+import { timerStore } from "../../state/timer-store.js";
+import { weeklyStore } from "../../state/weekly-store.js";
 import "../layout/app-shell.js";
 import "../layout/app-header.js";
 import type { HeaderModel } from "../layout/app-header.types.js";
@@ -104,10 +105,7 @@ export class TomatoPlannerApp extends LitElement {
   private _capacityInMinutes = 25;
 
   @state()
-  private _dayStart = "08:00";
-
-  @state()
-  private _dayEnd = "18:25";
+  private _timeSlots: TomatoTimeSlot[] = [];
 
   @state()
   private _showTaskDialog = false;
@@ -205,6 +203,9 @@ export class TomatoPlannerApp extends LitElement {
   @state()
   private _taskDialogError: string | undefined = undefined;
 
+  @state()
+  private _slotErrors: Record<string, string[]> = {};
+
   private _unsubscribe: (() => void) | null = null;
   private _timerUnsubscribe: (() => void) | null = null;
   private _weeklyUnsubscribe: (() => void) | null = null;
@@ -218,8 +219,7 @@ export class TomatoPlannerApp extends LitElement {
       this._tasks = plannerStore.tasks;
       this._currentDate = state.pool.date;
       this._capacityInMinutes = state.pool.capacityInMinutes;
-      this._dayStart = state.pool.dayStart;
-      this._dayEnd = state.pool.dayEnd;
+      this._timeSlots = state.pool.timeSlots;
     });
 
     this._timerUnsubscribe = timerStore.subscribe((state) => {
@@ -279,12 +279,82 @@ export class TomatoPlannerApp extends LitElement {
     plannerStore.setCapacityInMinutes(e.detail.minutes);
   }
 
-  private _handleDayStartChange(e: CustomEvent<{ time: string }>) {
-    plannerStore.setDayStart(e.detail.time);
+  // ============================================
+  // Time Slot Actions
+  // ============================================
+
+  private _handleAddSlot(
+    e: CustomEvent<{
+      startTime: string;
+      endTime: string;
+      label?: string;
+    }>,
+  ) {
+    const result = plannerStore.addTimeSlot({
+      startTime: e.detail.startTime,
+      endTime: e.detail.endTime,
+      label: e.detail.label,
+    });
+
+    if (!result.success) {
+      // For add errors, we don't have a slotId, so use a temporary key
+      // The user will see the error and can adjust their input
+      // We'll clear this on next successful action
+      this._slotErrors = {
+        ...this._slotErrors,
+        _new: [result.error ?? "Failed to add slot"],
+      };
+    } else {
+      // Clear any "new slot" errors on success
+      if (this._slotErrors._new) {
+        const { _new: _, ...rest } = this._slotErrors;
+        this._slotErrors = rest;
+      }
+    }
   }
 
-  private _handleDayEndChange(e: CustomEvent<{ time: string }>) {
-    plannerStore.setDayEnd(e.detail.time);
+  private _handleUpdateSlot(
+    e: CustomEvent<{
+      slotId: string;
+      updates: Partial<TomatoTimeSlot>;
+    }>,
+  ) {
+    const result = plannerStore.updateTimeSlot(
+      e.detail.slotId,
+      e.detail.updates,
+    );
+
+    if (!result.success) {
+      // Set error for this specific slot
+      this._slotErrors = {
+        ...this._slotErrors,
+        [e.detail.slotId]: [result.error ?? "Failed to update slot"],
+      };
+    } else {
+      // Clear error for this slot on success
+      if (this._slotErrors[e.detail.slotId]) {
+        const { [e.detail.slotId]: _, ...rest } = this._slotErrors;
+        this._slotErrors = rest;
+      }
+    }
+  }
+
+  private _handleRemoveSlot(e: CustomEvent<{ slotId: string }>) {
+    const result = plannerStore.removeTimeSlot(e.detail.slotId);
+
+    if (!result.success) {
+      // Set error for this specific slot
+      this._slotErrors = {
+        ...this._slotErrors,
+        [e.detail.slotId]: [result.error ?? "Failed to remove slot"],
+      };
+    } else {
+      // Clear error for this slot on success
+      if (this._slotErrors[e.detail.slotId]) {
+        const { [e.detail.slotId]: _, ...rest } = this._slotErrors;
+        this._slotErrors = rest;
+      }
+    }
   }
 
   // ============================================
@@ -723,13 +793,23 @@ export class TomatoPlannerApp extends LitElement {
   private _getHeaderModel(): HeaderModel {
     const allTasks = this._getAllTasks();
 
+    // Compute dayStart/dayEnd from timeSlots for header display
+    const dayStart =
+      this._timeSlots.length > 0
+        ? (this._timeSlots[0]?.startTime ?? "08:00")
+        : "08:00";
+    const dayEnd =
+      this._timeSlots.length > 0
+        ? (this._timeSlots[this._timeSlots.length - 1]?.endTime ?? "18:00")
+        : "18:00";
+
     switch (this._activeView) {
       case "day":
         return {
           view: "day",
           date: this._currentDate,
-          dayStart: this._dayStart,
-          dayEnd: this._dayEnd,
+          dayStart,
+          dayEnd,
           capacityInMinutes: this._capacityInMinutes,
           showReset: true,
         };
@@ -848,13 +928,14 @@ export class TomatoPlannerApp extends LitElement {
                   .remaining=${this._remaining}
                   .taskCount=${this._tasks.length}
                   .capacityInMinutes=${this._capacityInMinutes}
-                  .dayStart=${this._dayStart}
-                  .dayEnd=${this._dayEnd}
+                  .timeSlots=${this._timeSlots}
+                  .slotErrors=${this._slotErrors}
                   .collapsed=${this._panelCollapsed}
                   @capacity-change=${this._handleCapacityChange}
                   @duration-change=${this._handleDurationChange}
-                  @day-start-change=${this._handleDayStartChange}
-                  @day-end-change=${this._handleDayEndChange}
+                  @add-slot=${this._handleAddSlot}
+                  @update-slot=${this._handleUpdateSlot}
+                  @remove-slot=${this._handleRemoveSlot}
                   @toggle-collapse=${this._handleTogglePanelCollapse}
                 ></tomato-pool-panel>
               </div>

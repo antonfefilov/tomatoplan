@@ -3,6 +3,7 @@
  */
 
 import type { Task } from "../models/task.js";
+import type { TomatoTimeSlot } from "../models/tomato-pool.js";
 import {
   MIN_DAILY_CAPACITY,
   MAX_DAILY_CAPACITY,
@@ -196,6 +197,84 @@ export function validateTaskTitle(title: string): ValidationResult {
 }
 
 /**
+ * Validates a single time slot
+ * Returns an array of error messages (empty if valid)
+ */
+export function validateTimeSlot(slot: TomatoTimeSlot): string[] {
+  const errors: string[] = [];
+
+  // Validate ID exists
+  if (!slot.id || slot.id.trim() === "") {
+    errors.push("Time slot must have an ID");
+  }
+
+  // Validate start time format
+  const startMinutes = parseTimeToMinutes(slot.startTime);
+  if (startMinutes === null) {
+    errors.push(
+      `Invalid start time format "${slot.startTime}". Use HH:MM (e.g., 09:00)`,
+    );
+  }
+
+  // Validate end time format
+  const endMinutes = parseTimeToMinutes(slot.endTime);
+  if (endMinutes === null) {
+    errors.push(
+      `Invalid end time format "${slot.endTime}". Use HH:MM (e.g., 17:00)`,
+    );
+  }
+
+  // Validate start < end
+  if (startMinutes !== null && endMinutes !== null) {
+    if (startMinutes >= endMinutes) {
+      errors.push(
+        `Start time must be before end time (${slot.startTime} -> ${slot.endTime})`,
+      );
+    }
+  }
+
+  return errors;
+}
+
+/**
+ * Validates that time slots do not overlap
+ * Returns an array of error messages (empty if valid)
+ */
+export function validateNonOverlappingTimeSlots(
+  slots: TomatoTimeSlot[],
+): string[] {
+  const errors: string[] = [];
+
+  // Sort slots by start time for easier overlap detection
+  const sortedSlots = [...slots].sort((a, b) => {
+    const aStart = parseTimeToMinutes(a.startTime) ?? 0;
+    const bStart = parseTimeToMinutes(b.startTime) ?? 0;
+    return aStart - bStart;
+  });
+
+  // Check each pair of consecutive slots for overlap
+  for (let i = 0; i < sortedSlots.length - 1; i++) {
+    const current = sortedSlots[i];
+    const next = sortedSlots[i + 1];
+
+    if (!current || !next) continue;
+
+    const currentEnd = parseTimeToMinutes(current.endTime);
+    const nextStart = parseTimeToMinutes(next.startTime);
+
+    if (currentEnd !== null && nextStart !== null) {
+      if (currentEnd > nextStart) {
+        errors.push(
+          `Time slots overlap: "${current.startTime}-${current.endTime}" and "${next.startTime}-${next.endTime}"`,
+        );
+      }
+    }
+  }
+
+  return errors;
+}
+
+/**
  * Validates an HH:MM time string
  */
 export function validateTimeString(time: string): ValidationResult {
@@ -213,6 +292,7 @@ export function validateTimeString(time: string): ValidationResult {
 
 /**
  * Validates that day start is before day end
+ * @deprecated Use validateTimeSlot and validateNonOverlappingTimeSlots instead
  */
 export function validateTimeRange(
   dayStart: string,

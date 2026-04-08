@@ -4,8 +4,14 @@
  */
 
 import type { Task } from "./task.js";
+import type { TomatoTimeSlot } from "./tomato-pool.js";
 import { STATE_VERSION } from "./planner-state.js";
-import { DEFAULT_DAY_START, DEFAULT_DAY_END } from "../constants/defaults.js";
+import {
+  DEFAULT_DAY_START,
+  DEFAULT_DAY_END,
+  DEFAULT_CAPACITY_IN_MINUTES,
+} from "../constants/defaults.js";
+import { generateId } from "../utils/id.js";
 
 /**
  * Minimal state shape for localStorage persistence
@@ -18,10 +24,19 @@ export interface PersistedPlannerState {
   /** Duration of each tomato in minutes */
   capacityInMinutes?: number;
 
-  /** Start of the work day (HH:MM format) */
+  /** Time slots for the work day */
+  timeSlots?: TomatoTimeSlot[];
+
+  /**
+   * @deprecated Use timeSlots instead. Kept for migration compatibility.
+   * Start of the work day (HH:MM format)
+   */
   dayStart?: string;
 
-  /** End of the work day (HH:MM format) */
+  /**
+   * @deprecated Use timeSlots instead. Kept for migration compatibility.
+   * End of the work day (HH:MM format)
+   */
   dayEnd?: string;
 
   /** Tasks for the current day */
@@ -56,14 +71,12 @@ export function createPersistedState(
   capacityInMinutes: number,
   tasks: readonly Task[],
   savedDate: string,
-  dayStart: string,
-  dayEnd: string,
+  timeSlots: TomatoTimeSlot[],
 ): PersistedPlannerState {
   return {
     dailyCapacity,
     capacityInMinutes,
-    dayStart,
-    dayEnd,
+    timeSlots,
     tasks,
     savedDate,
     version: STATE_VERSION,
@@ -89,7 +102,24 @@ export function isValidPersistedState(
     typeof obj.savedDate === "string" &&
     typeof obj.version === "number"
     // capacityInMinutes is optional for backward compatibility
+    // timeSlots is optional for backward compatibility
+    // dayStart and dayEnd are optional for backward compatibility
   );
+}
+
+/**
+ * Converts legacy dayStart/dayEnd to a single time slot
+ */
+function convertLegacyToTimeSlot(
+  dayStart?: string,
+  dayEnd?: string,
+): TomatoTimeSlot {
+  return {
+    id: generateId(),
+    startTime: dayStart ?? DEFAULT_DAY_START,
+    endTime: dayEnd ?? DEFAULT_DAY_END,
+    label: "Default",
+  };
 }
 
 /**
@@ -110,8 +140,41 @@ export function migratePersistedState(
     };
   }
 
+  // Version 2 -> 3: Convert dayStart/dayEnd to timeSlots
+  if (migrated.version < 3) {
+    // If timeSlots don't exist, convert legacy dayStart/dayEnd
+    if (!migrated.timeSlots || migrated.timeSlots.length === 0) {
+      const legacySlot = convertLegacyToTimeSlot(
+        migrated.dayStart,
+        migrated.dayEnd,
+      );
+      migrated = {
+        ...migrated,
+        timeSlots: [legacySlot],
+      };
+    }
+  }
+
   return {
     ...migrated,
     version: STATE_VERSION,
+  };
+}
+
+/**
+ * Normalizes a persisted state to ensure all fields are present
+ * Used after loading to fill in any missing optional fields with defaults
+ */
+export function normalizePersistedState(
+  state: PersistedPlannerState,
+): PersistedPlannerState {
+  return {
+    ...state,
+    capacityInMinutes: state.capacityInMinutes ?? DEFAULT_CAPACITY_IN_MINUTES,
+    timeSlots: state.timeSlots ?? [
+      convertLegacyToTimeSlot(state.dayStart, state.dayEnd),
+    ],
+    dayStart: state.dayStart ?? DEFAULT_DAY_START,
+    dayEnd: state.dayEnd ?? DEFAULT_DAY_END,
   };
 }

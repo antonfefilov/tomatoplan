@@ -211,10 +211,18 @@ describe("TomatoPlannerApp", () => {
         dailyCapacity: 10,
         date: "2024-06-15",
         capacityInMinutes: 25,
+        timeSlots: [
+          {
+            id: "slot-1",
+            startTime: "08:00",
+            endTime: "18:25",
+            label: "Default",
+          },
+        ],
         dayStart: "08:00",
         dayEnd: "18:25",
       },
-      version: 2,
+      version: 3,
     };
 
     // Set up default mock behavior
@@ -286,10 +294,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 15,
           date: "2024-06-15",
           capacityInMinutes: 30,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       };
 
       callback(newState);
@@ -351,22 +367,16 @@ describe("TomatoPlannerApp", () => {
       expect(poolPanel.capacityInMinutes).toBe(25);
     });
 
-    it("should pass dayStart to tomato-pool-panel", async () => {
+    it("should pass timeSlots to tomato-pool-panel", async () => {
       const poolPanel = element.shadowRoot!.querySelector(
         "tomato-pool-panel",
       ) as HTMLElement & {
-        dayStart: string;
+        timeSlots: { id: string; startTime: string; endTime: string }[];
       };
-      expect(poolPanel.dayStart).toBe("08:00");
-    });
-
-    it("should pass dayEnd to tomato-pool-panel", async () => {
-      const poolPanel = element.shadowRoot!.querySelector(
-        "tomato-pool-panel",
-      ) as HTMLElement & {
-        dayEnd: string;
-      };
-      expect(poolPanel.dayEnd).toBe("18:25");
+      expect(poolPanel.timeSlots).toBeDefined();
+      expect(poolPanel.timeSlots.length).toBeGreaterThan(0);
+      expect(poolPanel.timeSlots[0]?.startTime).toBe("08:00");
+      expect(poolPanel.timeSlots[0]?.endTime).toBe("18:25");
     });
 
     it("should pass tasks to task-list-panel", async () => {
@@ -453,36 +463,6 @@ describe("TomatoPlannerApp", () => {
       expect(mockStore.setCapacityInMinutes).toHaveBeenCalledWith(30);
     });
 
-    it("should call setDayStart on store when day-start-change event is dispatched", async () => {
-      const poolPanel = element.shadowRoot!.querySelector("tomato-pool-panel")!;
-
-      poolPanel.dispatchEvent(
-        new CustomEvent("day-start-change", {
-          bubbles: true,
-          composed: true,
-          detail: { time: "09:00" },
-        }),
-      );
-      await element.updateComplete;
-
-      expect(mockStore.setDayStart).toHaveBeenCalledWith("09:00");
-    });
-
-    it("should call setDayEnd on store when day-end-change event is dispatched", async () => {
-      const poolPanel = element.shadowRoot!.querySelector("tomato-pool-panel")!;
-
-      poolPanel.dispatchEvent(
-        new CustomEvent("day-end-change", {
-          bubbles: true,
-          composed: true,
-          detail: { time: "17:00" },
-        }),
-      );
-      await element.updateComplete;
-
-      expect(mockStore.setDayEnd).toHaveBeenCalledWith("17:00");
-    });
-
     it("should handle open-task-dialog event from task-list-panel", async () => {
       const taskListPanel =
         element.shadowRoot!.querySelector("task-list-panel")!;
@@ -518,10 +498,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -560,10 +548,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -689,10 +685,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -737,10 +741,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -810,10 +822,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -875,10 +895,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -944,10 +972,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 
@@ -1013,10 +1049,18 @@ describe("TomatoPlannerApp", () => {
           dailyCapacity: 10,
           date: "2024-06-15",
           capacityInMinutes: 25,
+          timeSlots: [
+            {
+              id: "slot-1",
+              startTime: "08:00",
+              endTime: "18:25",
+              label: "Default",
+            },
+          ],
           dayStart: "08:00",
           dayEnd: "18:25",
         },
-        version: 2,
+        version: 3,
       });
       await element.updateComplete;
 

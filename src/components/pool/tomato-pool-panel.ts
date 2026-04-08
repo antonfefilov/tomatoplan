@@ -1,17 +1,22 @@
 /**
  * TomatoPoolPanel - Left panel with pool summary and capacity controls
- * Displays the tomato pool with capacity adjustment controls
+ * Displays the tomato pool with capacity adjustment controls and time slots
  */
 
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import {
-  MIN_CAPACITY_IN_MINUTES,
-  MAX_CAPACITY_IN_MINUTES,
   DEFAULT_DAILY_CAPACITY,
+  DEFAULT_DAY_START,
+  MAX_CAPACITY_IN_MINUTES,
+  MIN_CAPACITY_IN_MINUTES,
 } from "../../constants/defaults.js";
+import type { TomatoTimeSlot } from "../../models/tomato-pool.js";
+import {
+  calculateTotalScheduledMinutes,
+  getTimeSlotDurationMinutes,
+} from "../../utils/time.js";
 import "../tomato/tomato-icon.js";
-import "../shared/empty-state.js";
 
 @customElement("tomato-pool-panel")
 export class TomatoPoolPanel extends LitElement {
@@ -110,6 +115,158 @@ export class TomatoPoolPanel extends LitElement {
       font-size: 13px;
       font-weight: 600;
       color: #374151;
+    }
+
+    .add-slot-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #6b7280;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .add-slot-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+      color: #374151;
+    }
+
+    .add-slot-btn:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .slot-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .slot-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
+
+    .slot-row.has-error {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+
+    .slot-time-input {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 13px;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      background: white;
+      color: #374151;
+      min-width: 80px;
+      max-width: 120px;
+    }
+
+    .slot-time-input:hover {
+      border-color: #d1d5db;
+    }
+
+    .slot-time-input:focus {
+      outline: none;
+      border-color: #ef4444;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+    }
+
+    .slot-time-input.has-error {
+      border-color: #ef4444;
+    }
+
+    .slot-label-input {
+      flex: 2;
+      padding: 6px 8px;
+      font-size: 13px;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      background: white;
+      color: #374151;
+      min-width: 60px;
+    }
+
+    .slot-label-input:focus {
+      outline: none;
+      border-color: #ef4444;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+    }
+
+    .slot-capacity {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b7280;
+      min-width: 50px;
+      text-align: center;
+    }
+
+    .slot-delete-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border: none;
+      background: transparent;
+      border-radius: 4px;
+      cursor: pointer;
+      color: #9ca3af;
+      transition: all 0.15s ease;
+    }
+
+    .slot-delete-btn:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    .slot-delete-btn:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+
+    .slot-error {
+      font-size: 11px;
+      color: #ef4444;
+      margin-top: 4px;
+      width: 100%;
+    }
+
+    .total-time-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: #eff6ff;
+      border-radius: 6px;
+      border: 1px solid #bfdbfe;
+    }
+
+    .total-time-label {
+      font-size: 12px;
+      color: #1e40af;
+    }
+
+    .total-time-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1d4ed8;
     }
 
     .capacity-controls-row {
@@ -299,41 +456,6 @@ export class TomatoPoolPanel extends LitElement {
       border-top: 1px solid #e5e7eb;
     }
 
-    .schedule-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .schedule-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: #6b7280;
-      min-width: 80px;
-    }
-
-    .time-input {
-      flex: 1;
-      padding: 8px 10px;
-      font-size: 14px;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      background: white;
-      color: #374151;
-      cursor: pointer;
-      transition: border-color 0.15s ease;
-    }
-
-    .time-input:hover {
-      border-color: #d1d5db;
-    }
-
-    .time-input:focus {
-      outline: none;
-      border-color: #ef4444;
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-    }
-
     .calculated-capacity {
       display: flex;
       align-items: center;
@@ -372,11 +494,11 @@ export class TomatoPoolPanel extends LitElement {
   @property({ type: Number })
   capacityInMinutes = 25;
 
-  @property({ type: String })
-  dayStart = "08:00";
+  @property({ type: Array })
+  timeSlots: TomatoTimeSlot[] = [];
 
-  @property({ type: String })
-  dayEnd = "18:25";
+  @property({ type: Object })
+  slotErrors: Record<string, string[]> = {};
 
   @property({ type: Boolean, reflect: true })
   collapsed = false;
@@ -414,24 +536,92 @@ export class TomatoPoolPanel extends LitElement {
     }
   }
 
-  private _handleDayStartChange(e: Event) {
-    const target = e.target as HTMLInputElement;
+  private _handleAddSlot() {
+    // Calculate a reasonable default for a new slot
+    // Start after the last slot's end time, or use default if no slots
+    const lastSlot = this.timeSlots[this.timeSlots.length - 1];
+    const defaultStart = lastSlot?.endTime ?? DEFAULT_DAY_START;
+
+    // Parse the start time
+    const startParts = defaultStart.split(":");
+    const startHour = parseInt(startParts[0] ?? "8", 10);
+    const startMin = parseInt(startParts[1] ?? "0", 10);
+
+    // Calculate end time: add 1 hour, but cap at 23:59 to ensure valid range
+    // If adding 1 hour would result in end <= start (e.g., start at 23:30),
+    // use 23:59 as the maximum end time
+    let endHour = startHour + 1;
+    let endMin = startMin;
+
+    // Cap at 23:59 to prevent zero-length slots
+    if (endHour >= 24) {
+      endHour = 23;
+      endMin = 59;
+    }
+
+    const defaultEnd = `${endHour.toString().padStart(2, "0")}:${endMin.toString().padStart(2, "0")}`;
+
     this.dispatchEvent(
-      new CustomEvent("day-start-change", {
+      new CustomEvent("add-slot", {
         bubbles: true,
         composed: true,
-        detail: { time: target.value },
+        detail: {
+          startTime: defaultStart,
+          endTime: defaultEnd,
+          label: "",
+        },
       }),
     );
   }
 
-  private _handleDayEndChange(e: Event) {
+  private _handleSlotStartTimeChange(slotId: string, e: Event) {
     const target = e.target as HTMLInputElement;
     this.dispatchEvent(
-      new CustomEvent("day-end-change", {
+      new CustomEvent("update-slot", {
         bubbles: true,
         composed: true,
-        detail: { time: target.value },
+        detail: {
+          slotId,
+          updates: { startTime: target.value },
+        },
+      }),
+    );
+  }
+
+  private _handleSlotEndTimeChange(slotId: string, e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.dispatchEvent(
+      new CustomEvent("update-slot", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          slotId,
+          updates: { endTime: target.value },
+        },
+      }),
+    );
+  }
+
+  private _handleSlotLabelChange(slotId: string, e: Event) {
+    const target = e.target as HTMLInputElement;
+    this.dispatchEvent(
+      new CustomEvent("update-slot", {
+        bubbles: true,
+        composed: true,
+        detail: {
+          slotId,
+          updates: { label: target.value },
+        },
+      }),
+    );
+  }
+
+  private _handleDeleteSlot(slotId: string) {
+    this.dispatchEvent(
+      new CustomEvent("remove-slot", {
+        bubbles: true,
+        composed: true,
+        detail: { slotId },
       }),
     );
   }
@@ -463,6 +653,17 @@ export class TomatoPoolPanel extends LitElement {
     return `${hours}h ${mins}m`;
   }
 
+  /**
+   * Gets the tomato capacity for a single slot
+   */
+  private _getSlotCapacity(slot: TomatoTimeSlot): number {
+    const durationMinutes = getTimeSlotDurationMinutes(slot);
+    if (durationMinutes <= 0 || this.capacityInMinutes <= 0) {
+      return 0;
+    }
+    return Math.floor(durationMinutes / this.capacityInMinutes);
+  }
+
   private _renderTomatoCells() {
     const cells = [];
     const displayAssigned = Math.min(this.assigned, this.capacity);
@@ -482,9 +683,57 @@ export class TomatoPoolPanel extends LitElement {
     return cells;
   }
 
+  private _renderSlotRow(slot: TomatoTimeSlot) {
+    const errors = this.slotErrors[slot.id] ?? [];
+    const hasErrors = errors.length > 0;
+    const slotCapacity = this._getSlotCapacity(slot);
+
+    return html`
+      <div class="slot-row ${hasErrors ? "has-error" : ""}">
+        <input
+          type="time"
+          class="slot-time-input ${hasErrors ? "has-error" : ""}"
+          .value=${slot.startTime}
+          @change=${(e: Event) => this._handleSlotStartTimeChange(slot.id, e)}
+          aria-label="Slot start time"
+        />
+        <input
+          type="time"
+          class="slot-time-input ${hasErrors ? "has-error" : ""}"
+          .value=${slot.endTime}
+          @change=${(e: Event) => this._handleSlotEndTimeChange(slot.id, e)}
+          aria-label="Slot end time"
+        />
+        <input
+          type="text"
+          class="slot-label-input"
+          .value=${slot.label ?? ""}
+          @change=${(e: Event) => this._handleSlotLabelChange(slot.id, e)}
+          placeholder="Label"
+          aria-label="Slot label"
+        />
+        <span class="slot-capacity">${slotCapacity} 🍅</span>
+        <button
+          class="slot-delete-btn"
+          @click=${() => this._handleDeleteSlot(slot.id)}
+          aria-label="Delete slot"
+          title="Delete slot"
+        >
+          ✕
+        </button>
+        ${hasErrors
+          ? html`<div class="slot-error">${errors.join(". ")}</div>`
+          : null}
+      </div>
+    `;
+  }
+
   override render() {
     const isOverCapacity = this._isOverCapacity();
     const isAtCapacity = this._isAtCapacity();
+    const totalScheduledMinutes = calculateTotalScheduledMinutes(
+      this.timeSlots,
+    );
 
     return html`
       <div class="panel-header">
@@ -514,28 +763,23 @@ export class TomatoPoolPanel extends LitElement {
       <div class="panel-content" id="panel-content">
         <div class="section">
           <div class="section-header">
-            <span class="section-title">Schedule</span>
+            <span class="section-title">Time Slots</span>
+            <button class="add-slot-btn" @click=${this._handleAddSlot}>
+              <span>+ Add Slot</span>
+            </button>
           </div>
-          <div class="schedule-row">
-            <span class="schedule-label">Day Start</span>
-            <input
-              type="time"
-              class="time-input"
-              .value=${this.dayStart}
-              @change=${this._handleDayStartChange}
-              aria-label="Day start time"
-            />
+
+          <div class="total-time-info">
+            <span class="total-time-label">Total Scheduled Time:</span>
+            <span class="total-time-value">
+              ${this._formatMinutesToHoursMinutes(totalScheduledMinutes)}
+            </span>
           </div>
-          <div class="schedule-row" style="margin-top: 8px;">
-            <span class="schedule-label">Day End</span>
-            <input
-              type="time"
-              class="time-input"
-              .value=${this.dayEnd}
-              @change=${this._handleDayEndChange}
-              aria-label="Day end time"
-            />
+
+          <div class="slot-list">
+            ${this.timeSlots.map((slot) => this._renderSlotRow(slot))}
           </div>
+
           <div class="calculated-capacity">
             <span class="calculated-label">Daily Capacity (calculated)</span>
             <span class="calculated-value">${this.capacity} 🍅</span>
@@ -562,9 +806,9 @@ export class TomatoPoolPanel extends LitElement {
             ? html`
                 <div class="warning-message">
                   <span>⚠️</span>
-                  <span
-                    >Over capacity by ${Math.abs(this.remaining)} tomatoes</span
-                  >
+                  <span>
+                    Over capacity by ${Math.abs(this.remaining)} tomatoes
+                  </span>
                 </div>
               `
             : isAtCapacity
@@ -590,11 +834,10 @@ export class TomatoPoolPanel extends LitElement {
                   >
                     −
                   </button>
-                  <span class="capacity-value"
-                    >${this.capacityInMinutes}<span class="duration-unit"
-                      >min</span
-                    ></span
-                  >
+                  <span class="capacity-value">
+                    ${this.capacityInMinutes}
+                    <span class="duration-unit">min</span>
+                  </span>
                   <button
                     class="capacity-btn"
                     @click=${this._handleIncreaseDuration}
@@ -609,12 +852,12 @@ export class TomatoPoolPanel extends LitElement {
             </div>
 
             <div class="capacity-time-info">
-              <span class="time-label">Total time:</span>
-              <span class="time-value"
-                >${this._formatMinutesToHoursMinutes(
+              <span class="time-label">Total daily capacity:</span>
+              <span class="time-value">
+                ${this._formatMinutesToHoursMinutes(
                   this.capacity * this.capacityInMinutes,
-                )}</span
-              >
+                )}
+              </span>
             </div>
           </div>
         </div>

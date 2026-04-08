@@ -2,6 +2,8 @@
  * Time formatting utilities
  */
 
+import type { TomatoTimeSlot } from "../models/tomato-pool.js";
+
 /**
  * Formats minutes into human-readable time estimation
  * Returns strings like "25m", "1h 30m", "2h", etc.
@@ -71,8 +73,55 @@ export function getMinutesBetween(start: string, end: string): number | null {
 }
 
 /**
- * Calculates the daily capacity based on time range and tomato duration
+ * Calculates the duration of a single time slot in minutes
+ */
+export function getTimeSlotDurationMinutes(slot: TomatoTimeSlot): number {
+  const minutesBetween = getMinutesBetween(slot.startTime, slot.endTime);
+
+  if (minutesBetween === null || minutesBetween <= 0) {
+    return 0;
+  }
+
+  return minutesBetween;
+}
+
+/**
+ * Calculates the total scheduled minutes across all time slots
+ */
+export function calculateTotalScheduledMinutes(
+  slots: TomatoTimeSlot[],
+): number {
+  return slots.reduce((total, slot) => {
+    const duration = getTimeSlotDurationMinutes(slot);
+    return total + duration;
+  }, 0);
+}
+
+/**
+ * Calculates the daily capacity based on time slots and tomato duration
+ * Returns floor(totalSlotMinutes / capacityInMinutes)
+ */
+export function calculateDailyCapacityFromSlots(
+  slots: TomatoTimeSlot[],
+  capacityInMinutes: number,
+): number {
+  const totalMinutes = calculateTotalScheduledMinutes(slots);
+
+  if (totalMinutes <= 0) {
+    return 0;
+  }
+
+  if (capacityInMinutes <= 0) {
+    return 0;
+  }
+
+  return Math.floor(totalMinutes / capacityInMinutes);
+}
+
+/**
+ * Calculates the daily capacity based on a single time range and tomato duration
  * Returns floor((dayEnd - dayStart) / capacityInMinutes)
+ * @deprecated Use calculateDailyCapacityFromSlots instead
  */
 export function calculateDailyCapacityFromSchedule(
   dayStart: string,

@@ -4,15 +4,19 @@
  * Tasks are now derived from taskpoolStore based on the pool date.
  */
 
-import type { TomatoPool } from "./tomato-pool.js";
+import type { TomatoPool, TomatoTimeSlot } from "./tomato-pool.js";
 import {
   DEFAULT_DAILY_CAPACITY,
   DEFAULT_CAPACITY_IN_MINUTES,
   DEFAULT_DAY_START,
   DEFAULT_DAY_END,
 } from "../constants/defaults.js";
-import { createTomatoPool, getTodayString } from "./tomato-pool.js";
-import { calculateDailyCapacityFromSchedule } from "../utils/time.js";
+import {
+  createTomatoPool,
+  createDefaultTimeSlot,
+  getTodayString,
+} from "./tomato-pool.js";
+import { calculateDailyCapacityFromSlots } from "../utils/time.js";
 
 export interface PlannerState {
   /** The tomato pool for the current session */
@@ -23,22 +27,34 @@ export interface PlannerState {
 }
 
 /** Current state version for migrations */
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
 
 /**
- * Creates the initial planner state
+ * Creates the initial planner state with default time slots
  */
 export function createInitialPlannerState(
   dailyCapacity: number = DEFAULT_DAILY_CAPACITY,
   capacityInMinutes: number = DEFAULT_CAPACITY_IN_MINUTES,
-  dayStart: string = DEFAULT_DAY_START,
-  dayEnd: string = DEFAULT_DAY_END,
+  timeSlots?: TomatoTimeSlot[],
+  // Legacy parameters for backward compatibility
+  dayStart?: string,
+  dayEnd?: string,
 ): PlannerState {
+  const slots = timeSlots ?? [
+    {
+      id: createDefaultTimeSlot().id,
+      startTime: dayStart ?? DEFAULT_DAY_START,
+      endTime: dayEnd ?? DEFAULT_DAY_END,
+      label: "Default",
+    },
+  ];
+
   return {
     pool: createTomatoPool(
       dailyCapacity,
       capacityInMinutes,
       undefined,
+      slots,
       dayStart,
       dayEnd,
     ),
@@ -48,14 +64,13 @@ export function createInitialPlannerState(
 
 /**
  * Resets the state for a new day
- * Creates a fresh pool with the same capacity settings
+ * Creates a fresh pool with the same capacity settings and time slots
  */
 export function resetPlannerStateForNewDay(
   state: PlannerState,
   newCapacity?: number,
   newCapacityInMinutes?: number,
-  newDayStart?: string,
-  newDayEnd?: string,
+  newTimeSlots?: TomatoTimeSlot[],
 ): PlannerState {
   return {
     ...state,
@@ -63,20 +78,21 @@ export function resetPlannerStateForNewDay(
       newCapacity ?? state.pool.dailyCapacity,
       newCapacityInMinutes ?? state.pool.capacityInMinutes,
       getTodayString(),
-      newDayStart ?? state.pool.dayStart,
-      newDayEnd ?? state.pool.dayEnd,
+      newTimeSlots ?? state.pool.timeSlots,
+      // Preserve legacy fields if they exist
+      state.pool.dayStart,
+      state.pool.dayEnd,
     ),
   };
 }
 
 /**
- * Recalculates daily capacity based on schedule and duration
+ * Recalculates daily capacity based on time slots and duration
  * Returns a new pool with updated dailyCapacity
  */
 export function recalculatePoolCapacity(pool: TomatoPool): TomatoPool {
-  const newCapacity = calculateDailyCapacityFromSchedule(
-    pool.dayStart,
-    pool.dayEnd,
+  const newCapacity = calculateDailyCapacityFromSlots(
+    pool.timeSlots,
     pool.capacityInMinutes,
   );
 

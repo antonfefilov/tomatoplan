@@ -880,6 +880,11 @@ class TaskpoolStore {
 
     // Add migrated tasks
     for (const task of migratedTasks) {
+      // Skip invalid legacy tasks to allow partial migration
+      if (!task.id || !task.title) {
+        continue;
+      }
+
       // Check if task already exists with a different dayDate
       const existingTask = this.state.tasks.get(task.id);
       if (existingTask?.dayDate && existingTask.dayDate !== task.dayDate) {
