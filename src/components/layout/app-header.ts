@@ -4,11 +4,11 @@
  * Displays view-specific content based on HeaderModel
  */
 
-import { LitElement, html, css } from "lit";
+import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "../tomato/tomato-icon.js";
-import { calculateTomatoesRemainingUntilDayEnd } from "../../utils/time.js";
 import { formatWeekRangeFromDates } from "../../models/weekly-pool.js";
+import { calculateTomatoesRemainingInTimeSlots } from "../../utils/time.js";
 import type { HeaderModel } from "./app-header.types.js";
 
 @customElement("app-header")
@@ -191,12 +191,11 @@ export class AppHeader extends LitElement {
       hour12: true,
     });
 
-    // Calculate tomatoes remaining until day end
+    // Calculate tomatoes remaining using slot-aware calculation
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    this._tomatoesRemaining = calculateTomatoesRemainingUntilDayEnd(
+    this._tomatoesRemaining = calculateTomatoesRemainingInTimeSlots(
       nowMinutes,
-      this.headerModel.dayStart,
-      this.headerModel.dayEnd,
+      this.headerModel.timeSlots,
       this.headerModel.capacityInMinutes,
     );
   }
@@ -240,9 +239,16 @@ export class AppHeader extends LitElement {
     // If already in day view and timing settings changed
     if (oldModel?.view === "day" && newModel?.view === "day") {
       return (
-        oldModel.dayStart !== newModel.dayStart ||
-        oldModel.dayEnd !== newModel.dayEnd ||
-        oldModel.capacityInMinutes !== newModel.capacityInMinutes
+        oldModel.timeSlots !== newModel.timeSlots ||
+        oldModel.timeSlots.length !== newModel.timeSlots.length ||
+        oldModel.capacityInMinutes !== newModel.capacityInMinutes ||
+        // Deep compare time slots for changes
+        oldModel.timeSlots.some(
+          (oldSlot, index) =>
+            !newModel.timeSlots[index] ||
+            oldSlot.startTime !== newModel.timeSlots[index].startTime ||
+            oldSlot.endTime !== newModel.timeSlots[index].endTime,
+        )
       );
     }
 
@@ -267,9 +273,16 @@ export class AppHeader extends LitElement {
     // If already in day view and timing settings changed
     if (oldModel?.view === "day" && newModel?.view === "day") {
       return (
-        oldModel.dayStart !== newModel.dayStart ||
-        oldModel.dayEnd !== newModel.dayEnd ||
-        oldModel.capacityInMinutes !== newModel.capacityInMinutes
+        oldModel.timeSlots !== newModel.timeSlots ||
+        oldModel.timeSlots.length !== newModel.timeSlots.length ||
+        oldModel.capacityInMinutes !== newModel.capacityInMinutes ||
+        // Deep compare time slots for changes
+        oldModel.timeSlots.some(
+          (oldSlot, index) =>
+            !newModel.timeSlots[index] ||
+            oldSlot.startTime !== newModel.timeSlots[index].startTime ||
+            oldSlot.endTime !== newModel.timeSlots[index].endTime,
+        )
       );
     }
 

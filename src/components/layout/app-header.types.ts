@@ -2,16 +2,22 @@
  * HeaderModel - Discriminated union type for view-specific header content
  */
 
+import type { TomatoTimeSlot } from "../../models/tomato-pool.js";
+
 /**
  * Header model for Day view
  */
 export interface DayHeaderModel {
   view: "day";
   date: string;
+  /** @deprecated Use timeSlots instead. Kept for compatibility. */
   dayStart: string;
+  /** @deprecated Use timeSlots instead. Kept for compatibility. */
   dayEnd: string;
   capacityInMinutes: number;
   showReset: boolean;
+  /** Time slots for the work day (used for remaining calculation) */
+  timeSlots: TomatoTimeSlot[];
 }
 
 /**

@@ -157,6 +157,7 @@ export function isValidTimeString(time: string): boolean {
  * @param dayEnd - Day end time in HH:MM format
  * @param capacityInMinutes - Duration of one tomato in minutes
  * @returns Number of tomatoes remaining (with decimal), or null if invalid inputs
+ * @deprecated Use calculateTomatoesRemainingInTimeSlots instead for multi-slot support
  */
 export function calculateTomatoesRemainingUntilDayEnd(
   nowMinutes: number,
@@ -187,5 +188,72 @@ export function calculateTomatoesRemainingUntilDayEnd(
 
   // During day: calculate remaining time in tomato units
   const remainingMinutes = dayEndMinutes - nowMinutes;
+  return remainingMinutes / capacityInMinutes;
+}
+
+/**
+ * Calculates the number of tomatoes remaining in time slots
+ * Slot-aware calculation that correctly handles multi-slot schedules
+ * by excluding gaps between non-overlapping slots.
+ *
+ * @param nowMinutes - Current time in minutes from midnight
+ * @param slots - Array of time slots (sorted by startTime internally)
+ * @param capacityInMinutes - Duration of one tomato in minutes
+ * @returns Number of tomatoes remaining (with decimal), or null if invalid inputs
+ */
+export function calculateTomatoesRemainingInTimeSlots(
+  nowMinutes: number,
+  slots: TomatoTimeSlot[],
+  capacityInMinutes: number,
+): number | null {
+  if (capacityInMinutes <= 0) {
+    return null;
+  }
+
+  if (slots.length === 0) {
+    return 0;
+  }
+
+  // Parse and filter valid slots, then sort by start time
+  const validSlots = slots
+    .map((slot) => {
+      const startMinutes = parseTimeToMinutes(slot.startTime);
+      const endMinutes = parseTimeToMinutes(slot.endTime);
+      if (startMinutes === null || endMinutes === null) {
+        return null;
+      }
+      const duration = endMinutes - startMinutes;
+      if (duration <= 0) {
+        return null;
+      }
+      return {
+        startMinutes,
+        endMinutes,
+        duration,
+      };
+    })
+    .filter((slot): slot is NonNullable<typeof slot> => slot !== null)
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+
+  if (validSlots.length === 0) {
+    return 0;
+  }
+
+  // Calculate remaining minutes across all current/future slots
+  let remainingMinutes = 0;
+
+  for (const slot of validSlots) {
+    // Before this slot: count the full slot duration
+    if (nowMinutes < slot.startMinutes) {
+      remainingMinutes += slot.duration;
+    }
+    // Inside this slot: count remaining minutes in this slot only
+    else if (nowMinutes >= slot.startMinutes && nowMinutes < slot.endMinutes) {
+      remainingMinutes += slot.endMinutes - nowMinutes;
+    }
+    // After this slot: contribute 0 (slot has passed)
+  }
+
+  // Return remaining minutes divided by capacity (preserves partial-tomato behavior)
   return remainingMinutes / capacityInMinutes;
 }

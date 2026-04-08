@@ -2,15 +2,17 @@
  * Tests for time utilities
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import type { TomatoTimeSlot } from "../src/models/tomato-pool.js";
 import {
-  formatTimeEstimate,
-  parseTimeToMinutes,
-  formatMinutesToTime,
-  getMinutesBetween,
   calculateDailyCapacityFromSchedule,
-  isValidTimeString,
+  calculateTomatoesRemainingInTimeSlots,
   calculateTomatoesRemainingUntilDayEnd,
+  formatMinutesToTime,
+  formatTimeEstimate,
+  getMinutesBetween,
+  isValidTimeString,
+  parseTimeToMinutes,
 } from "../src/utils/time.js";
 
 describe("formatTimeEstimate", () => {
@@ -334,5 +336,271 @@ describe("calculateTomatoesRemainingUntilDayEnd", () => {
       25,
     );
     expect(result).toBe(7.2);
+  });
+});
+
+describe("calculateTomatoesRemainingInTimeSlots", () => {
+  // Helper to create slots
+  const createSlot = (
+    startTime: string,
+    endTime: string,
+    label?: string,
+  ): TomatoTimeSlot => ({
+    id: `slot-${startTime}-${endTime}`,
+    startTime,
+    endTime,
+    label,
+  });
+
+  describe("single-slot schedule (matches current results)", () => {
+    it("should return full capacity before slot start", () => {
+      // Slot: 08:00 to 18:25 = 625 minutes = 25 tomatoes at 25 min
+      const slots = [createSlot("08:00", "18:25")];
+      const result = calculateTomatoesRemainingInTimeSlots(
+        420, // 07:00
+        slots,
+        25,
+      );
+      expect(result).toBe(25);
+    });
+
+    it("should return exactly full capacity at slot start", () => {
+      const slots = [createSlot("08:00", "18:25")];
+      const result = calculateTomatoesRemainingInTimeSlots(
+        480, // 08:00
+        slots,
+        25,
+      );
+      expect(result).toBe(25);
+    });
+
+    it("should calculate correctly in middle of slot", () => {
+      const slots = [createSlot("08:00", "18:25")];
+      const result = calculateTomatoesRemainingInTimeSlots(
+        720, // 12:00
+        slots,
+        25,
+      );
+      expect(result).toBe(15.4);
+    });
+
+    it("should return 0 after slot end", () => {
+      const slots = [createSlot("08:00", "18:25")];
+      const result = calculateTomatoesRemainingInTimeSlots(
+        1200, // 20:00
+        slots,
+        25,
+      );
+      expect(result).toBe(0);
+    });
+  });
+
+  describe("disjoint slots", () => {
+    // Slots: 09:00-10:00 (60 min) and 14:00-15:00 (60 min)
+    // Total: 120 minutes = 4.8 tomatoes at 25 min
+
+    const disjointSlots = [
+      createSlot("09:00", "10:00", "Morning"),
+      createSlot("14:00", "15:00", "Afternoon"),
+    ];
+
+    it("should return full capacity before first slot", () => {
+      // 08:00 (480 min) - before both slots
+      const result = calculateTomatoesRemainingInTimeSlots(
+        480,
+        disjointSlots,
+        25,
+      );
+      // Both slots: 60 + 60 = 120 minutes = 4.8 tomatoes
+      expect(result).toBe(4.8);
+    });
+
+    it("should calculate correctly during first slot", () => {
+      // 09:30 (570 min) - 30 min remaining in first slot + full second slot
+      const result = calculateTomatoesRemainingInTimeSlots(
+        570,
+        disjointSlots,
+        25,
+      );
+      // First slot remaining: 10:00 - 09:30 = 30 min
+      // Second slot: 60 min
+      // Total: 90 min = 3.6 tomatoes
+      expect(result).toBe(3.6);
+    });
+
+    it("should exclude gap time between slots", () => {
+      // 11:00 (660 min) - after first slot, before second slot (in gap)
+      const result = calculateTomatoesRemainingInTimeSlots(
+        660,
+        disjointSlots,
+        25,
+      );
+      // First slot has passed: 0
+      // Gap time: NOT counted
+      // Second slot: 60 min
+      // Total: 60 min = 2.4 tomatoes
+      expect(result).toBe(2.4);
+    });
+
+    it("should calculate correctly during second slot", () => {
+      // 14:30 (870 min) - 30 min remaining in second slot
+      const result = calculateTomatoesRemainingInTimeSlots(
+        870,
+        disjointSlots,
+        25,
+      );
+      // First slot has passed: 0
+      // Second slot remaining: 15:00 - 14:30 = 30 min
+      // Total: 30 min = 1.2 tomatoes
+      expect(result).toBe(1.2);
+    });
+
+    it("should return 0 after last slot end", () => {
+      // 16:00 (960 min) - after both slots
+      const result = calculateTomatoesRemainingInTimeSlots(
+        960,
+        disjointSlots,
+        25,
+      );
+      expect(result).toBe(0);
+    });
+
+    it("should exclude gap when time is exactly at gap start", () => {
+      // 10:00 (600 min) - exactly at first slot end (start of gap)
+      const result = calculateTomatoesRemainingInTimeSlots(
+        600,
+        disjointSlots,
+        25,
+      );
+      // First slot done: 0
+      // Second slot: 60 min = 2.4 tomatoes
+      expect(result).toBe(2.4);
+    });
+
+    it("should count from gap end as second slot starts", () => {
+      // 14:00 (840 min) - exactly at second slot start
+      const result = calculateTomatoesRemainingInTimeSlots(
+        840,
+        disjointSlots,
+        25,
+      );
+      // First slot done: 0
+      // Second slot: 60 min = 2.4 tomatoes
+      expect(result).toBe(2.4);
+    });
+  });
+
+  describe("unsorted slots", () => {
+    it("should correctly handle unsorted slot order", () => {
+      // Slots intentionally provided in reverse order
+      const unsortedSlots = [
+        createSlot("14:00", "15:00", "Afternoon"),
+        createSlot("09:00", "10:00", "Morning"),
+      ];
+
+      // 08:00 - before both slots (should sort internally)
+      const result = calculateTomatoesRemainingInTimeSlots(
+        480,
+        unsortedSlots,
+        25,
+      );
+      // Same as if sorted: 120 min = 4.8 tomatoes
+      expect(result).toBe(4.8);
+
+      // 12:00 - in gap (should correctly identify gap after sorting)
+      const resultInGap = calculateTomatoesRemainingInTimeSlots(
+        720,
+        unsortedSlots,
+        25,
+      );
+      // Only second slot remaining: 60 min = 2.4 tomatoes
+      expect(resultInGap).toBe(2.4);
+    });
+  });
+
+  describe("invalid capacity", () => {
+    it("should return null for zero capacity", () => {
+      const slots = [createSlot("08:00", "18:00")];
+      const result = calculateTomatoesRemainingInTimeSlots(480, slots, 0);
+      expect(result).toBeNull();
+    });
+
+    it("should return null for negative capacity", () => {
+      const slots = [createSlot("08:00", "18:00")];
+      const result = calculateTomatoesRemainingInTimeSlots(480, slots, -5);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("empty and invalid slots", () => {
+    it("should return 0 for empty slots array", () => {
+      const result = calculateTomatoesRemainingInTimeSlots(480, [], 25);
+      expect(result).toBe(0);
+    });
+
+    it("should ignore invalid startTime in slots", () => {
+      const slots = [
+        createSlot("invalid", "18:00"),
+        createSlot("08:00", "10:00"), // 120 min (2 hours)
+      ];
+      const result = calculateTomatoesRemainingInTimeSlots(480, slots, 25);
+      // Only valid slot: 120 min = 4.8 tomatoes
+      expect(result).toBe(4.8);
+    });
+
+    it("should ignore invalid endTime in slots", () => {
+      const slots = [
+        createSlot("08:00", "invalid"),
+        createSlot("14:00", "15:00"), // 60 min (1 hour)
+      ];
+      const result = calculateTomatoesRemainingInTimeSlots(480, slots, 25);
+      // Only valid slot: 60 min = 2.4 tomatoes
+      expect(result).toBe(2.4);
+    });
+
+    it("should ignore slots with end <= start", () => {
+      const slots = [
+        createSlot("10:00", "08:00"), // Invalid: end before start
+        createSlot("14:00", "15:00"), // Valid: 60 min (1 hour)
+      ];
+      const result = calculateTomatoesRemainingInTimeSlots(480, slots, 25);
+      // Only valid slot: 60 min = 2.4 tomatoes
+      expect(result).toBe(2.4);
+    });
+
+    it("should return 0 when all slots are invalid", () => {
+      const slots = [
+        createSlot("invalid", "18:00"),
+        createSlot("10:00", "08:00"),
+      ];
+      const result = calculateTomatoesRemainingInTimeSlots(480, slots, 25);
+      expect(result).toBe(0);
+    });
+  });
+
+  describe("partial tomato behavior", () => {
+    it("should preserve partial tomato calculation (decimal result)", () => {
+      // Slot: 09:00-09:10 (10 min)
+      const slots = [createSlot("09:00", "09:10")];
+      const result = calculateTomatoesRemainingInTimeSlots(
+        540, // 09:00
+        slots,
+        25,
+      );
+      // 10 min / 25 min = 0.4 tomatoes
+      expect(result).toBe(0.4);
+    });
+
+    it("should calculate partial remaining inside slot", () => {
+      // Slot: 09:00-10:00 (60 min)
+      const slots = [createSlot("09:00", "10:00")];
+      const result = calculateTomatoesRemainingInTimeSlots(
+        555, // 09:15
+        slots,
+        25,
+      );
+      // 45 min remaining / 25 min = 1.8 tomatoes
+      expect(result).toBe(1.8);
+    });
   });
 });

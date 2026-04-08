@@ -793,7 +793,7 @@ export class TomatoPlannerApp extends LitElement {
   private _getHeaderModel(): HeaderModel {
     const allTasks = this._getAllTasks();
 
-    // Compute dayStart/dayEnd from timeSlots for header display
+    // Compute dayStart/dayEnd from timeSlots for header display (legacy compatibility)
     const dayStart =
       this._timeSlots.length > 0
         ? (this._timeSlots[0]?.startTime ?? "08:00")
@@ -812,6 +812,7 @@ export class TomatoPlannerApp extends LitElement {
           dayEnd,
           capacityInMinutes: this._capacityInMinutes,
           showReset: true,
+          timeSlots: this._timeSlots,
         };
       case "week":
         return {
